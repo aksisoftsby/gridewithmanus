@@ -31,12 +31,15 @@ jobs:
 
       - name: Build Customer App APK
         run: flutter build apk --release
+        working-directory: ./app-customer
 
       - name: Build Driver App APK
         run: flutter build apk --release
+        working-directory: ./app-driver
 
       - name: Build Merchant App APK
         run: flutter build apk --release
+        working-directory: ./app-merchant
 
       - name: Upload Customer APK
         uses: actions/upload-artifact@v4
