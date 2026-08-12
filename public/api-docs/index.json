@@ -1,12 +1,19 @@
 {
   "api_name": "Gride Superapp REST API",
   "base_url": "https://gride.web.id/api",
-  "version": "1.0",
+  "version": "1.1",
   "description": "REST API publik ekosistem Gride Superapp untuk aplikasi Customer, Driver, dan Merchant. Format respons selalu JSON.",
   "response_format": "Semua endpoint mengembalikan objek JSON dengan field \"status\" (success/error).",
   "error_format": {
-    "example": { "status": "error", "message": "Merchant not found" },
-    "codes": { "404": "Resource tidak ditemukan", "422": "Validasi gagal", "500": "Error server" }
+    "example": {
+      "status": "error",
+      "message": "Merchant not found"
+    },
+    "codes": {
+      "404": "Resource tidak ditemukan",
+      "422": "Validasi gagal",
+      "500": "Error server"
+    }
   },
   "endpoints": [
     {
@@ -38,6 +45,30 @@
       "group": "Promos",
       "summary": "Daftar promo/voucher aktif lengkap dengan periode mulai-selesai.",
       "doc_file": "/api-docs/promos.json"
+    },
+    {
+      "endpoint": "POST /api/orders",
+      "group": "Orders",
+      "summary": "Buat pesanan baru (FOOD/MART/SHOP/DELIVERY), khusus DELIVERY kirim lokasi GPS penjemputan & tujuan; fee dihitung server berdasarkan jarak.",
+      "doc_file": "/api-docs/orders.json"
+    },
+    {
+      "endpoint": "POST /api/drivers/{id}/location",
+      "group": "Drivers",
+      "summary": "Driver mengirimkan (check-in) lokasi GPS terkini ke server; riwayat lokasi disimpan ke tabel driver_locations.",
+      "doc_file": "/api-docs/drivers.json"
+    },
+    {
+      "endpoint": "GET /api/news",
+      "group": "Content",
+      "summary": "Daftar berita yang dipublikasikan untuk halaman depan.",
+      "doc_file": "/api-docs/news.json"
+    },
+    {
+      "endpoint": "GET /api/testimonials",
+      "group": "Content",
+      "summary": "Daftar testimoni pelanggan yang dipublikasikan.",
+      "doc_file": "/api-docs/testimonials.json"
     }
   ]
 }

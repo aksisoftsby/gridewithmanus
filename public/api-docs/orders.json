@@ -10,18 +10,66 @@
   },
   "query_parameters": [],
   "response_fields": [
-    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
-    { "field": "data", "type": "array", "description": "Daftar pesanan terbaru (maksimal 50)." },
-    { "field": "data.*.id", "type": "integer", "description": "ID pesanan." },
-    { "field": "data.*.user_id", "type": "integer", "description": "ID customer pemilik pesanan." },
-    { "field": "data.*.merchant_id", "type": "integer", "description": "ID merchant asal pesanan." },
-    { "field": "data.*.driver_id", "type": "integer", "description": "ID driver yang ditugaskan (null jika belum ada)."},
-    { "field": "data.*.status", "type": "string", "description": "Status pesanan: PENDING, PROCESSING, COMPLETED, CANCELLED." },
-    { "field": "data.*.total_amount", "type": "float", "description": "Total nilai pesanan dalam Rupiah." },
-    { "field": "data.*.payment_status", "type": "string", "description": "Status pembayaran." },
-    { "field": "data.*.delivery_address", "type": "string", "description": "Alamat pengiriman." },
-    { "field": "data.*.notes", "type": "string", "description": "Catatan pesanan (nullable)." },
-    { "field": "data.*.created_at", "type": "string", "description": "Waktu pesanan dibuat." }
+    {
+      "field": "status",
+      "type": "string",
+      "description": "\"success\" pada respons normal."
+    },
+    {
+      "field": "data",
+      "type": "array",
+      "description": "Daftar pesanan terbaru (maksimal 50)."
+    },
+    {
+      "field": "data.*.id",
+      "type": "integer",
+      "description": "ID pesanan."
+    },
+    {
+      "field": "data.*.user_id",
+      "type": "integer",
+      "description": "ID customer pemilik pesanan."
+    },
+    {
+      "field": "data.*.merchant_id",
+      "type": "integer",
+      "description": "ID merchant asal pesanan."
+    },
+    {
+      "field": "data.*.driver_id",
+      "type": "integer",
+      "description": "ID driver yang ditugaskan (null jika belum ada)."
+    },
+    {
+      "field": "data.*.status",
+      "type": "string",
+      "description": "Status pesanan: PENDING, PROCESSING, COMPLETED, CANCELLED."
+    },
+    {
+      "field": "data.*.total_amount",
+      "type": "float",
+      "description": "Total nilai pesanan dalam Rupiah."
+    },
+    {
+      "field": "data.*.payment_status",
+      "type": "string",
+      "description": "Status pembayaran."
+    },
+    {
+      "field": "data.*.delivery_address",
+      "type": "string",
+      "description": "Alamat pengiriman."
+    },
+    {
+      "field": "data.*.notes",
+      "type": "string",
+      "description": "Catatan pesanan (nullable)."
+    },
+    {
+      "field": "data.*.created_at",
+      "type": "string",
+      "description": "Waktu pesanan dibuat."
+    }
   ],
   "example_response": {
     "status": "success",
@@ -32,7 +80,7 @@
         "merchant_id": 1,
         "driver_id": 4,
         "status": "PROCESSING",
-        "total_amount": 35000.00,
+        "total_amount": 35000.0,
         "payment_status": "PAID",
         "delivery_address": "Jl. Pemuda 55, Surabaya",
         "notes": "Pedas ya",
@@ -42,6 +90,115 @@
   },
   "example_curl": "curl -X GET \"https://gride.web.id/api/orders\" -H \"Accept: application/json\"",
   "errors": [
-    { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika belum ada pesanan." }
-  ]
+    {
+      "code": 200,
+      "description": "Berhasil. Mengembalikan array kosong jika belum ada pesanan."
+    }
+  ],
+  "create_order": {
+    "endpoint": "POST /api/orders",
+    "description": "Buat pesanan baru. Untuk tipe DELIVERY (antar-jemput orang ke titik GPS), server menghitung ongkos kirim otomatis: Rp 10.000 base + Rp 2.500/km jarak penjemputan ke tujuan (algoritma haversine).",
+    "parameters": [
+      {
+        "name": "order_type",
+        "in": "body",
+        "type": "string",
+        "required": true,
+        "values": "FOOD|MART|SHOP|DELIVERY"
+      },
+      {
+        "name": "user_id",
+        "in": "body",
+        "type": "integer",
+        "required": true,
+        "description": "ID pengguna dari tabel users"
+      },
+      {
+        "name": "merchant_id",
+        "in": "body",
+        "type": "integer",
+        "required": false,
+        "description": "Wajib untuk FOOD/MART/SHOP"
+      },
+      {
+        "name": "pickup_address",
+        "in": "body",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "pickup_lat",
+        "in": "body",
+        "type": "number",
+        "required": false,
+        "description": "Latitude lokasi penjemputan (wajib untuk DELIVERY)"
+      },
+      {
+        "name": "pickup_lng",
+        "in": "body",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "dropoff_address",
+        "in": "body",
+        "type": "string",
+        "required": false,
+        "description": "Alamat tujuan pengiriman/antar"
+      },
+      {
+        "name": "dropoff_lat",
+        "in": "body",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "dropoff_lng",
+        "in": "body",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "recipient_name",
+        "in": "body",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "recipient_phone",
+        "in": "body",
+        "type": "string",
+        "required": false
+      },
+      {
+        "name": "note",
+        "in": "body",
+        "type": "string",
+        "required": false
+      }
+    ],
+    "example_request": {
+      "order_type": "DELIVERY",
+      "user_id": 1,
+      "pickup_address": "Jalan Tunjungan No. 5, Surabaya",
+      "pickup_lat": -7.2575,
+      "pickup_lng": 112.7521,
+      "dropoff_address": "Bandara Juanda, Sidoarjo",
+      "dropoff_lat": -7.3798,
+      "dropoff_lng": 112.7869,
+      "recipient_name": "Pak Joko",
+      "recipient_phone": "0812xxxxxx",
+      "note": "Tolong sampai sebelum jam 10 pagi"
+    },
+    "example_response": {
+      "status": "success",
+      "data": {
+        "order_number": "ORD-2026-0042",
+        "order_type": "DELIVERY",
+        "delivery_fee": 15000,
+        "distance_km": 2.05,
+        "status": "PENDING"
+      }
+    }
+  }
 }

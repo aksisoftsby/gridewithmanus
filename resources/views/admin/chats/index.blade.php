@@ -19,6 +19,8 @@
         </div>
     </div>
 
+    @include('admin.partials.search', ['route' => 'admin.chats.index', 'placeholder' => 'Cari user atau email...'])
+
     <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">

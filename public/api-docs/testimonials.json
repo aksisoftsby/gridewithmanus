@@ -1,0 +1,28 @@
+{
+  "endpoint": "GET /api/testimonials",
+  "description": "Ambil daftar testimoni pelanggan yang dipublikasikan.",
+  "authentication": "Tidak diperlukan (publik)",
+  "parameters": [
+    {
+      "name": "limit",
+      "in": "query",
+      "type": "integer",
+      "description": "Jumlah testimoni (default 6, max 50)"
+    }
+  ],
+  "example_request": "GET https://gride.web.id/api/testimonials",
+  "example_response": {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "name": "Budi S.",
+        "rating": 5,
+        "content": "...",
+        "role_title": "Pengguna Setia",
+        "location": "Surabaya",
+        "photo_url": null
+      }
+    ]
+  }
+}

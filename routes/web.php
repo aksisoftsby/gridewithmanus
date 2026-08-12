@@ -8,7 +8,7 @@ use App\Http\Controllers\AdminController;
 // Public Pages
 Route::get('/', [PublicController::class, 'index'])->name('home');
 Route::get('/merchant/{slug}', [PublicController::class, 'merchantDetail'])->name('merchant.detail');
-Route::get('/api/docs', [PublicController::class, 'apiDocs'])->name('api.docs');
+
 
 // Admin Auth
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
@@ -44,6 +44,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // Promos
     Route::get('/promos', [AdminController::class, 'promosIndex'])->name('promos.index');
+    Route::get('/promos/create', [AdminController::class, 'promosCreate'])->name('promos.create');
     Route::post('/promos', [AdminController::class, 'promosStore'])->name('promos.store');
     Route::delete('/promos/{id}', [AdminController::class, 'promosDestroy'])->name('promos.destroy');
     Route::get('/promos/{id}/edit', [AdminController::class, 'promosEdit'])->name('promos.edit');
@@ -60,4 +61,39 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/chats', [AdminController::class, 'chatsIndex'])->name('chats.index');
     Route::delete('/chats/{id}', [AdminController::class, 'chatsDestroy'])->name('chats.destroy');
     Route::post('/chats/flush', [AdminController::class, 'chatsFlush'])->name('chats.flush');
+
+    // News
+    Route::get('/news', [AdminController::class, 'newsIndex'])->name('news.index');
+    Route::get('/news/create', [AdminController::class, 'newsCreate'])->name('news.create');
+    Route::post('/news', [AdminController::class, 'newsStore'])->name('news.store');
+    Route::get('/news/{id}/edit', [AdminController::class, 'newsEdit'])->name('news.edit');
+    Route::put('/news/{id}', [AdminController::class, 'newsUpdate'])->name('news.update');
+    Route::delete('/news/{id}', [AdminController::class, 'newsDestroy'])->name('news.destroy');
+
+    // Testimonials
+    Route::get('/testimonials', [AdminController::class, 'testimonialsIndex'])->name('testimonials.index');
+    Route::get('/testimonials/create', [AdminController::class, 'testimonialsCreate'])->name('testimonials.create');
+    Route::post('/testimonials', [AdminController::class, 'testimonialsStore'])->name('testimonials.store');
+    Route::get('/testimonials/{id}/edit', [AdminController::class, 'testimonialsEdit'])->name('testimonials.edit');
+    Route::put('/testimonials/{id}', [AdminController::class, 'testimonialsUpdate'])->name('testimonials.update');
+    Route::delete('/testimonials/{id}', [AdminController::class, 'testimonialsDestroy'])->name('testimonials.destroy');
+
+    // Merchant edit (full editability)
+    Route::get('/merchants/{id}/edit', [AdminController::class, 'merchantsEdit'])->name('merchants.edit');
+    Route::put('/merchants/{id}', [AdminController::class, 'merchantsUpdate'])->name('merchants.update');
+
+    // User edit (full editability)
+    Route::get('/users/{id}/edit', [AdminController::class, 'usersEdit'])->name('users.edit');
+    Route::put('/users/{id}', [AdminController::class, 'usersUpdate'])->name('users.update');
+
+    // Driver edit (full editability)
+    Route::get('/drivers/{id}/edit', [AdminController::class, 'driversEdit'])->name('drivers.edit');
+    Route::put('/drivers/{id}', [AdminController::class, 'driversUpdate'])->name('drivers.update');
+
+    // Settings (GitHub APK artifact download links)
+    Route::get('/settings', [AdminController::class, 'settingsIndex'])->name('settings.index');
+    Route::post('/settings/refresh-links', [AdminController::class, 'settingsRefreshLinks'])->name('settings.refresh-links');
+
+    // API documentation (admin-only, removed from public)
+    Route::get('/api/docs', [AdminController::class, 'apiDocs'])->name('api.docs');
 });

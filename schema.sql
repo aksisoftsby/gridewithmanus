@@ -1029,3 +1029,10 @@ COMMENT ON TABLE audit_logs IS 'Menyimpan rekam jejak aktivitas sensitif admin d
 COMMENT ON TABLE testimonials IS 'Menyimpan ulasan/testimoni terpilih untuk ditampilkan pada website branding publik';
 COMMENT ON TABLE news_categories IS 'Menyimpan kategori pengumuman dan berita publik';
 COMMENT ON TABLE news IS 'Menyimpan postingan berita, pengumuman, dan artikel informasi pada website publik';
+-- ============================================================================
+-- MIGRASI TAMBAHAN (di atas basis schema di atas) — diterapkan incremental:
+--  2026_08_12_020000 : tabel news, news_categories, testimonials, driver_locations
+--  2026_08_12_020001 : orders   -> order_type, pickup_address/lat/lng, dropoff_address/lat/lng, note (kolom GPS antar-jemput)
+--                      drivers  -> last_location_at (timestamp terakhir update lokasi)
+--  2026_08_12_020002 : tabel app_settings (setting_key, setting_value) untuk konfigurasi global
+-- ============================================================================

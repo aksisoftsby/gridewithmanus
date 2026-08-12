@@ -7,8 +7,15 @@
             <h1 class="text-2xl font-bold text-gray-900">Promo & Voucher Management</h1>
             <p class="text-sm text-gray-500">Create and manage discounts and promo codes.</p>
         </div>
-        <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold">&larr; Dashboard</a>
+        <div class="flex space-x-3">
+            <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
+            <a href="{{ route('admin.promos.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+                <i class="fa-solid fa-plus mr-1"></i> Add Promo
+            </a>
+        </div>
     </div>
+
+    @include('admin.partials.search', ['route' => 'admin.promos.index', 'placeholder' => 'Cari kode atau judul promo...'])
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Promos Table -->

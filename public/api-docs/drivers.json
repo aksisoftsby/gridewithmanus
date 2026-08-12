@@ -1,0 +1,29 @@
+{
+  "endpoint": "POST /api/drivers/{id}/location",
+  "description": "Driver mengirimkan lokasi GPS terkini (check-in lokasi). Server memperbarui kolom current_lat/current_lng/last_location_at pada tabel drivers dan menyimpan riwayat ke tabel driver_locations.",
+  "authentication": "Tidak diperlukan (demo)",
+  "parameters": [
+    {
+      "name": "lat",
+      "in": "body",
+      "type": "number",
+      "required": true,
+      "description": "Latitude lokasi driver saat ini"
+    },
+    {
+      "name": "lng",
+      "in": "body",
+      "type": "number",
+      "required": true,
+      "description": "Longitude lokasi driver saat ini"
+    }
+  ],
+  "example_request": {
+    "lat": -7.2575,
+    "lng": 112.7521
+  },
+  "example_response": {
+    "status": "success",
+    "message": "Location updated"
+  }
+}

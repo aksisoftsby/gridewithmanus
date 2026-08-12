@@ -15,6 +15,8 @@
         </div>
     </div>
 
+    @include('admin.partials.search', ['route' => 'admin.merchants.index', 'placeholder' => 'Cari merchant, kota, atau owner...'])
+
     <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         <table class="w-full text-left border-collapse">
             <thead>
@@ -23,6 +25,7 @@
                     <th class="px-6 py-3">Type</th>
                     <th class="px-6 py-3">Owner</th>
                     <th class="px-6 py-3">City</th>
+                    <th class="px-6 py-3">Location</th>
                     <th class="px-6 py-3">Rating</th>
                     <th class="px-6 py-3">Status</th>
                     <th class="px-6 py-3">Actions</th>
@@ -39,6 +42,13 @@
                         </td>
                         <td class="px-6 py-4 text-gray-600">{{ $merchant->owner_name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $merchant->city }}</td>
+                        <td class="px-6 py-4 text-gray-500 text-xs">
+                            @if($merchant->latitude && $merchant->longitude)
+                                <a href="https://www.google.com/maps?q={{ $merchant->latitude }},{{ $merchant->longitude }}" target="_blank" class="text-emerald-600 hover:underline">{{ number_format((float)$merchant->latitude, 4) }}, {{ number_format((float)$merchant->longitude, 4) }}</a>
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td class="px-6 py-4 font-semibold text-yellow-600"><i class="fa-solid fa-star text-xs mr-1"></i>{{ $merchant->rating }}</td>
                         <td class="px-6 py-4">
                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
@@ -46,11 +56,14 @@
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            <form action="{{ route('admin.merchants.destroy', $merchant->id) }}" method="POST" onsubmit="return confirm('Delete this merchant?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:text-red-800 font-medium text-xs">Delete</button>
-                            </form>
+                            <div class="flex items-center gap-3">
+                                <a href="{{ route('admin.merchants.edit', $merchant->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                <form action="{{ route('admin.merchants.destroy', $merchant->id) }}" method="POST" onsubmit="return confirm('Delete this merchant?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-800 font-medium text-xs">Delete</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty

@@ -1,0 +1,35 @@
+{
+  "endpoint": "GET /api/news",
+  "description": "Ambil daftar berita (news) yang dipublikasikan. Digunakan homepage website dan aplikasi untuk menampilkan berita terbaru.",
+  "authentication": "Tidak diperlukan (publik)",
+  "parameters": [
+    {
+      "name": "limit",
+      "in": "query",
+      "type": "integer",
+      "description": "Jumlah berita (default 6, max 50)"
+    },
+    {
+      "name": "search",
+      "in": "query",
+      "type": "string",
+      "description": "Filter berdasarkan judul"
+    }
+  ],
+  "example_request": "GET https://gride.web.id/api/news",
+  "example_response": {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "title": "Gride Resmi Hadir di Surabaya",
+        "excerpt": "...",
+        "content": "...",
+        "category_name": "Pengumuman",
+        "status": "PUBLISHED",
+        "published_at": "2026-08-12 07:00:00",
+        "featured_image": "https://..."
+      }
+    ]
+  }
+}

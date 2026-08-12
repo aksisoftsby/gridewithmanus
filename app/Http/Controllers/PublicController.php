@@ -23,9 +23,29 @@ class PublicController extends Controller
         }
 
         $merchants = $query->orderBy('rating', 'desc')->paginate(12);
-        $promos = DB::table('promos')->where('is_active', true)->get();
+        $promos = DB::table('promos')->where('is_active', true)->limit(6)->get();
 
-        return view('public.index', compact('merchants', 'promos', 'type', 'search'));
+        $news = collect();
+        $testimonials = collect();
+        if (DB::getSchemaBuilder()->hasTable('news')) {
+            $news = DB::table('news')
+                ->leftJoin('news_categories', 'news.news_category_id', '=', 'news_categories.id')
+                ->select('news.*', 'news_categories.name as category_name')
+                ->where('status', 'PUBLISHED')
+                ->whereNotNull('published_at')
+                ->orderBy('published_at', 'desc')
+                ->limit(6)
+                ->get();
+        }
+        if (DB::getSchemaBuilder()->hasTable('testimonials')) {
+            $testimonials = DB::table('testimonials')
+                ->where('is_published', true)
+                ->orderBy('rating', 'desc')
+                ->limit(6)
+                ->get();
+        }
+
+        return view('public.index', compact('merchants', 'promos', 'type', 'search', 'news', 'testimonials'));
     }
 
     public function merchantDetail($slug)
@@ -38,10 +58,5 @@ class PublicController extends Controller
         $menuItems = DB::table('menu_items')->where('merchant_id', $merchant->id)->get();
 
         return view('public.merchant', compact('merchant', 'menuItems'));
-    }
-
-    public function apiDocs()
-    {
-        return view('api.docs');
     }
 }

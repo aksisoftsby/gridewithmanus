@@ -15,6 +15,8 @@
         </div>
     </div>
 
+    @include('admin.partials.search', ['route' => 'admin.drivers.index', 'placeholder' => 'Cari driver, email, atau status...'])
+
     <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -57,14 +59,26 @@
                             </td>
                             <td class="px-6 py-4 font-semibold">★ {{ number_format($driver->rating, 2) }}</td>
                             <td class="px-6 py-4 text-gray-600">{{ $driver->total_trips }}</td>
-                            <td class="px-6 py-4 text-xs text-gray-500 font-mono">{{ $driver->current_lat }}, {{ $driver->current_lng }}</td>
+                            <td class="px-6 py-4 text-xs text-gray-500 font-mono">
+                                @if($driver->current_lat && $driver->current_lng)
+                                    <a href="https://www.google.com/maps?q={{ $driver->current_lat }},{{ $driver->current_lng }}" target="_blank" class="text-emerald-600 hover:underline">{{ number_format((float)$driver->current_lat, 5) }}, {{ number_format((float)$driver->current_lng, 5) }}</a>
+                                    @if($driver->last_location_at)
+                                        <div class="text-[10px] text-gray-400">{{ \Carbon\Carbon::parse($driver->last_location_at)->format('d M H:i') }}</div>
+                                    @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
                             <td class="px-6 py-4 text-xs text-gray-500">{{ $driver->created_at ? \Carbon\Carbon::parse($driver->created_at)->format('d M Y') : '-' }}</td>
                             <td class="px-6 py-4">
-                                <form action="{{ route('admin.drivers.destroy', $driver->id) }}" method="POST" class="inline" onsubmit="return confirm('Remove this driver?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-600 hover:text-red-800 text-xs font-medium">Remove</button>
-                                </form>
+                                <div class="flex items-center gap-3">
+                                    <a href="{{ route('admin.drivers.edit', $driver->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                    <form action="{{ route('admin.drivers.destroy', $driver->id) }}" method="POST" class="inline" onsubmit="return confirm('Remove this driver?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:text-red-800 text-xs font-medium">Remove</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty

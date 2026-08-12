@@ -72,9 +72,16 @@
                 <div class="p-6 flex flex-col flex-grow">
                     <h3 class="text-lg font-bold text-gray-900 group-hover:text-emerald-600 transition">{{ $merchant->name }}</h3>
                     <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ $merchant->description }}</p>
-                    <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                        <span><i class="fa-solid fa-location-dot mr-1 text-emerald-600"></i>{{ $merchant->city }}</span>
-                        <span class="text-emerald-600 font-semibold">Lihat Menu &rarr;</span>
+                    <div class="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500 space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span><i class="fa-solid fa-location-dot mr-1 text-emerald-600"></i>{{ $merchant->address_line ?? '' }}{{ $merchant->city ? ', ' . $merchant->city : '' }}</span>
+                            <span class="text-emerald-600 font-semibold">Lihat Menu &rarr;</span>
+                        </div>
+                        @if($merchant->latitude && $merchant->longitude)
+                            <a href="https://www.google.com/maps/dir/?api=1&destination={{ $merchant->latitude }},{{ $merchant->longitude }}" target="_blank" class="inline-flex items-center text-emerald-700 hover:underline font-medium">
+                                <i class="fa-solid fa-map-location-dot mr-1"></i> Lihat Lokasi di Peta
+                            </a>
+                        @endif
                     </div>
                 </div>
             </a>
@@ -90,4 +97,64 @@
         {{ $merchants->appends(request()->query())->links() }}
     </div>
 </div>
+
+<!-- News Section -->
+@if(isset($news) && $news->count() > 0)
+<div class="bg-white py-12 border-t border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <i class="fa-solid fa-newspaper text-emerald-600 mr-2"></i> Berita & Informasi Terbaru
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($news as $item)
+                <article class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition">
+                    @if($item->featured_image)
+                        <img src="{{ $item->featured_image }}" alt="{{ $item->title }}" class="w-full h-44 object-cover">
+                    @endif
+                    <div class="p-5">
+                        <div class="flex items-center gap-2 mb-2">
+                            @if($item->category_name)
+                                <span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{{ $item->category_name }}</span>
+                            @endif
+                            <span class="text-[10px] text-gray-400">{{ $item->published_at ? \Carbon\Carbon::parse($item->published_at)->format('d M Y') : '' }}</span>
+                        </div>
+                        <h3 class="font-bold text-gray-900 mb-1">{{ $item->title }}</h3>
+                        <p class="text-sm text-gray-600 line-clamp-3">{{ $item->excerpt ?: strip_tags($item->content) }}</p>
+                    </div>
+                </article>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
+
+<!-- Testimonials Section -->
+@if(isset($testimonials) && $testimonials->count() > 0)
+<div class="bg-gradient-to-br from-emerald-50 to-teal-50 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <i class="fa-solid fa-quote-left text-emerald-600 mr-2"></i> Kata Pelanggan Kami
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($testimonials as $t)
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center gap-3 mb-3">
+                        @if($t->photo_url)
+                            <img src="{{ $t->photo_url }}" alt="{{ $t->name }}" class="w-11 h-11 rounded-full object-cover">
+                        @else
+                            <div class="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">{{ strtoupper(substr($t->name, 0, 1)) }}</div>
+                        @endif
+                        <div>
+                            <div class="font-semibold text-gray-900 text-sm">{{ $t->name }}</div>
+                            <div class="text-xs text-gray-500">{{ $t->role_title ?: '' }}{{ $t->location ? ' • ' . $t->location : '' }}</div>
+                        </div>
+                    </div>
+                    <div class="text-yellow-500 text-xs mb-2">{{ str_repeat('<i class="fa-solid fa-star"></i>', (int)$t->rating) }}</div>
+                    <p class="text-sm text-gray-700 italic">"{{ $t->content }}"</p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
 @endsection

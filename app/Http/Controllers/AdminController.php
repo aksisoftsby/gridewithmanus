@@ -22,7 +22,10 @@ class AdminController extends Controller
             ['route' => 'admin.orders.index', 'label' => 'Orders', 'icon' => 'fa-receipt'],
             ['route' => 'admin.drivers.index', 'label' => 'Drivers', 'icon' => 'fa-motorcycle'],
             ['route' => 'admin.promos.index', 'label' => 'Promos', 'icon' => 'fa-tags'],
+            ['route' => 'admin.news.index', 'label' => 'News', 'icon' => 'fa-newspaper'],
+            ['route' => 'admin.testimonials.index', 'label' => 'Testimonials', 'icon' => 'fa-quote-left'],
             ['route' => 'admin.chats.index', 'label' => 'Chat Sessions', 'icon' => 'fa-comments'],
+            ['route' => 'admin.settings.index', 'label' => 'Settings', 'icon' => 'fa-gear'],
         ]);
     }
     public function dashboard()
@@ -47,10 +50,57 @@ class AdminController extends Controller
     }
 
     // Users Management
-    public function usersIndex()
+    public function usersIndex(Request $request)
     {
-        $users = DB::table('users')->orderBy('created_at', 'desc')->paginate(10);
-        return view('admin.users.index', compact('users'));
+        $search = $request->query('search');
+        $query = DB::table('users');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', '%' . $search . '%')
+                  ->orWhere('email', 'like', '%' . $search . '%')
+                  ->orWhere('role', 'like', '%' . $search . '%');
+            });
+        }
+        $users = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.users.index', compact('users', 'search'));
+    }
+
+    public function usersEdit($id)
+    {
+        $user = DB::table('users')->where('id', $id)->first();
+        abort_if(!$user, 404, 'User not found');
+        return view('admin.users.edit', compact('user'));
+    }
+
+    public function usersUpdate(Request $request, $id)
+    {
+        $user = DB::table('users')->where('id', $id)->first();
+        abort_if(!$user, 404, 'User not found');
+
+        $validated = $request->validate([
+            'full_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'role' => 'required|string|in:CUSTOMER,DRIVER,MERCHANT,ADMIN',
+            'status' => 'required|string|in:ACTIVE,INACTIVE,SUSPENDED',
+            'phone' => 'nullable|string|max:20',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        $data = [
+            'full_name' => $validated['full_name'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'status' => $validated['status'],
+            'phone' => $validated['phone'] ?? $user->phone,
+            'updated_at' => now(),
+        ];
+        if (!empty($validated['password'])) {
+            $data['password_hash'] = \Hash::make($validated['password']);
+            $data['password'] = \Hash::make($validated['password']);
+        }
+        DB::table('users')->where('id', $id)->update($data);
+
+        return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
     }
 
     public function usersDestroy($id)
@@ -60,14 +110,65 @@ class AdminController extends Controller
     }
 
     // Merchants Management
-    public function merchantsIndex()
+    public function merchantsIndex(Request $request)
     {
-        $merchants = DB::table('merchants')
+        $search = $request->query('search');
+        $query = DB::table('merchants')
             ->join('users', 'merchants.owner_id', '=', 'users.id')
-            ->select('merchants.*', 'users.full_name as owner_name')
-            ->orderBy('merchants.created_at', 'desc')
-            ->paginate(10);
-        return view('admin.merchants.index', compact('merchants'));
+            ->select('merchants.*', 'users.full_name as owner_name');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('merchants.name', 'like', '%' . $search . '%')
+                  ->orWhere('merchants.city', 'like', '%' . $search . '%')
+                  ->orWhere('users.full_name', 'like', '%' . $search . '%');
+            });
+        }
+        $merchants = $query->orderBy('merchants.created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.merchants.index', compact('merchants', 'search'));
+    }
+
+    public function merchantsEdit($id)
+    {
+        $merchant = DB::table('merchants')->where('id', $id)->first();
+        abort_if(!$merchant, 404, 'Merchant not found');
+        $owners = DB::table('users')->where('role', 'MERCHANT')->orWhere('role', 'ADMIN')->get();
+        return view('admin.merchants.edit', compact('merchant', 'owners'));
+    }
+
+    public function merchantsUpdate(Request $request, $id)
+    {
+        $merchant = DB::table('merchants')->where('id', $id)->first();
+        abort_if(!$merchant, 404, 'Merchant not found');
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'owner_id' => 'required|exists:users,id',
+            'type' => 'required|string|in:FOOD,MART,SHOP',
+            'address_line' => 'required|string',
+            'city' => 'required|string',
+            'phone' => 'nullable|string',
+            'description' => 'nullable|string',
+            'status' => 'nullable|string|in:ACTIVE,INACTIVE,SUSPENDED',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+        ]);
+
+        DB::table('merchants')->where('id', $id)->update([
+            'owner_id' => $validated['owner_id'],
+            'type' => $validated['type'],
+            'name' => $validated['name'],
+            'slug' => \Str::slug($validated['name']) . '-' . rand(100, 999),
+            'description' => $validated['description'] ?? '',
+            'address_line' => $validated['address_line'],
+            'city' => $validated['city'],
+            'phone' => $validated['phone'] ?? '',
+            'status' => $validated['status'] ?? 'ACTIVE',
+            'latitude' => $validated['latitude'] ?? $merchant->latitude,
+            'longitude' => $validated['longitude'] ?? $merchant->longitude,
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('admin.merchants.index')->with('success', 'Merchant updated successfully.');
     }
 
     public function merchantsCreate()
@@ -115,14 +216,20 @@ class AdminController extends Controller
     }
 
     // Products / Menu Items Management
-    public function productsIndex()
+    public function productsIndex(Request $request)
     {
-        $products = DB::table('menu_items')
+        $search = $request->query('search');
+        $query = DB::table('menu_items')
             ->join('merchants', 'menu_items.merchant_id', '=', 'merchants.id')
-            ->select('menu_items.*', 'merchants.name as merchant_name')
-            ->orderBy('menu_items.created_at', 'desc')
-            ->paginate(10);
-        return view('admin.products.index', compact('products'));
+            ->select('menu_items.*', 'merchants.name as merchant_name');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('menu_items.name', 'like', '%' . $search . '%')
+                  ->orWhere('merchants.name', 'like', '%' . $search . '%');
+            });
+        }
+        $products = $query->orderBy('menu_items.created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.products.index', compact('products', 'search'));
     }
 
     public function productsCreate()
@@ -196,15 +303,26 @@ class AdminController extends Controller
     }
 
     // Orders Management
-    public function ordersIndex()
+    public function ordersIndex(Request $request)
     {
-        $orders = DB::table('orders')
+        $search = $request->query('search');
+        $status = $request->query('status');
+        $query = DB::table('orders')
             ->join('users', 'orders.user_id', '=', 'users.id')
             ->join('merchants', 'orders.merchant_id', '=', 'merchants.id')
-            ->select('orders.*', 'users.full_name as customer_name', 'merchants.name as merchant_name')
-            ->orderBy('orders.created_at', 'desc')
-            ->paginate(10);
-        return view('admin.orders.index', compact('orders'));
+            ->select('orders.*', 'users.full_name as customer_name', 'merchants.name as merchant_name');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('orders.order_number', 'like', '%' . $search . '%')
+                  ->orWhere('users.full_name', 'like', '%' . $search . '%')
+                  ->orWhere('orders.order_type', 'like', '%' . $search . '%');
+            });
+        }
+        if ($status) {
+            $query->where('orders.status', $status);
+        }
+        $orders = $query->orderBy('orders.created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.orders.index', compact('orders', 'search'));
     }
 
     public function ordersShow($id)
@@ -238,10 +356,23 @@ class AdminController extends Controller
     }
 
     // Promos Management
-    public function promosIndex()
+    public function promosIndex(Request $request)
     {
-        $promos = DB::table('promos')->orderBy('created_at', 'desc')->paginate(10);
-        return view('admin.promos.index', compact('promos'));
+        $search = $request->query('search');
+        $query = DB::table('promos');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('code', 'like', '%' . $search . '%')
+                  ->orWhere('title', 'like', '%' . $search . '%');
+            });
+        }
+        $promos = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.promos.index', compact('promos', 'search'));
+    }
+
+    public function promosCreate()
+    {
+        return view('admin.promos.create', ['title' => 'Tambah Promo']);
     }
 
     public function promosStore(Request $request)
@@ -314,14 +445,58 @@ class AdminController extends Controller
     }
 
     // Drivers Management
-    public function driversIndex()
+    public function driversIndex(Request $request)
     {
-        $drivers = DB::table('drivers')
+        $search = $request->query('search');
+        $query = DB::table('drivers')
+            ->join('users', 'drivers.user_id', '=', 'users.id')
+            ->select('drivers.*', 'users.full_name', 'users.email', 'users.phone');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('users.full_name', 'like', '%' . $search . '%')
+                  ->orWhere('users.email', 'like', '%' . $search . '%')
+                  ->orWhere('drivers.status', 'like', '%' . $search . '%');
+            });
+        }
+        $drivers = $query->orderBy('drivers.created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.drivers.index', compact('drivers', 'search'));
+    }
+
+    public function driversEdit($id)
+    {
+        $driver = DB::table('drivers')
             ->join('users', 'drivers.user_id', '=', 'users.id')
             ->select('drivers.*', 'users.full_name', 'users.email', 'users.phone')
-            ->orderBy('drivers.created_at', 'desc')
-            ->paginate(10);
-        return view('admin.drivers.index', compact('drivers'));
+            ->where('drivers.id', $id)
+            ->first();
+        abort_if(!$driver, 404, 'Driver not found');
+        return view('admin.drivers.edit', compact('driver'));
+    }
+
+    public function driversUpdate(Request $request, $id)
+    {
+        $driver = DB::table('drivers')->where('id', $id)->first();
+        abort_if(!$driver, 404, 'Driver not found');
+
+        $validated = $request->validate([
+            'status' => 'nullable|string|in:ONLINE,OFFLINE',
+            'rating' => 'nullable|numeric|min:0|max:5',
+            'is_verified' => 'nullable',
+            'current_lat' => 'nullable|numeric|between:-90,90',
+            'current_lng' => 'nullable|numeric|between:-180,180',
+        ]);
+
+        DB::table('drivers')->where('id', $id)->update([
+            'status' => $validated['status'] ?? $driver->status,
+            'rating' => $validated['rating'] ?? $driver->rating,
+            'is_verified' => $request->has('is_verified'),
+            'current_lat' => $validated['current_lat'] ?? $driver->current_lat,
+            'current_lng' => $validated['current_lng'] ?? $driver->current_lng,
+            'last_location_at' => isset($validated['current_lat']) ? now() : $driver->last_location_at,
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('admin.drivers.index')->with('success', 'Driver updated successfully.');
     }
 
     public function driversCreate()
@@ -368,14 +543,20 @@ class AdminController extends Controller
     }
 
     // Chat Sessions Management (admin can view all chat sessions)
-    public function chatsIndex()
+    public function chatsIndex(Request $request)
     {
-        $sessions = DB::table('sessions')
+        $search = $request->query('search');
+        $query = DB::table('sessions')
             ->join('users', 'sessions.user_id', '=', 'users.id')
-            ->select('sessions.*', 'users.full_name', 'users.email', 'users.role')
-            ->orderBy('sessions.last_activity', 'desc')
-            ->paginate(20);
-        return view('admin.chats.index', compact('sessions'));
+            ->select('sessions.*', 'users.full_name', 'users.email', 'users.role');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('users.full_name', 'like', '%' . $search . '%')
+                  ->orWhere('users.email', 'like', '%' . $search . '%');
+            });
+        }
+        $sessions = $query->orderBy('sessions.last_activity', 'desc')->paginate(20)->withQueryString();
+        return view('admin.chats.index', compact('sessions', 'search'));
     }
 
     public function chatsDestroy($id)
@@ -388,5 +569,274 @@ class AdminController extends Controller
     {
         DB::table('sessions')->truncate();
         return redirect()->route('admin.chats.index')->with('success', 'All sessions cleared.');
+    }
+
+    // News Management
+    public function newsIndex(Request $request)
+    {
+        $search = $request->query('search');
+        $query = DB::table('news')
+            ->leftJoin('news_categories', 'news.news_category_id', '=', 'news_categories.id')
+            ->select('news.*', 'news_categories.name as category_name');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('news.title', 'like', '%' . $search . '%')
+                  ->orWhere('news.status', 'like', '%' . $search . '%');
+            });
+        }
+        $news = $query->orderBy('news.created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.news.index', compact('news', 'search'));
+    }
+
+    public function newsCreate()
+    {
+        $categories = DB::table('news_categories')->where('is_active', true)->get();
+        return view('admin.news.create', compact('categories'));
+    }
+
+    public function newsStore(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'news_category_id' => 'nullable|exists:news_categories,id',
+            'excerpt' => 'nullable|string',
+            'content' => 'required|string',
+            'status' => 'required|string|in:DRAFT,PUBLISHED',
+            'published_at' => 'nullable|date',
+            'featured_image' => 'nullable|string',
+        ]);
+
+        DB::table('news')->insert([
+            'title' => $validated['title'],
+            'slug' => \Str::slug($validated['title']) . '-' . rand(100, 999),
+            'news_category_id' => $validated['news_category_id'] ?? null,
+            'excerpt' => $validated['excerpt'] ?? '',
+            'content' => $validated['content'],
+            'status' => $validated['status'],
+            'published_at' => $validated['status'] === 'PUBLISHED' ? ($validated['published_at'] ?? now()) : null,
+            'featured_image' => $validated['featured_image'] ?: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1000',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('admin.news.index')->with('success', 'News created successfully.');
+    }
+
+    public function newsEdit($id)
+    {
+        $news = DB::table('news')->where('id', $id)->first();
+        abort_if(!$news, 404, 'News not found');
+        $categories = DB::table('news_categories')->where('is_active', true)->get();
+        return view('admin.news.edit', compact('news', 'categories'));
+    }
+
+    public function newsUpdate(Request $request, $id)
+    {
+        $news = DB::table('news')->where('id', $id)->first();
+        abort_if(!$news, 404, 'News not found');
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'news_category_id' => 'nullable|exists:news_categories,id',
+            'excerpt' => 'nullable|string',
+            'content' => 'required|string',
+            'status' => 'required|string|in:DRAFT,PUBLISHED',
+            'published_at' => 'nullable|date',
+            'featured_image' => 'nullable|string',
+        ]);
+
+        DB::table('news')->where('id', $id)->update([
+            'title' => $validated['title'],
+            'slug' => \Str::slug($validated['title']) . '-' . rand(100, 999),
+            'news_category_id' => $validated['news_category_id'] ?? null,
+            'excerpt' => $validated['excerpt'] ?? '',
+            'content' => $validated['content'],
+            'status' => $validated['status'],
+            'published_at' => $validated['status'] === 'PUBLISHED' ? ($validated['published_at'] ?? now()) : null,
+            'featured_image' => $validated['featured_image'] ?: $news->featured_image,
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('admin.news.index')->with('success', 'News updated successfully.');
+    }
+
+    public function newsDestroy($id)
+    {
+        DB::table('news')->where('id', $id)->delete();
+        return redirect()->route('admin.news.index')->with('success', 'News deleted successfully.');
+    }
+
+    // Testimonials Management
+    public function testimonialsIndex(Request $request)
+    {
+        $search = $request->query('search');
+        $query = DB::table('testimonials');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('content', 'like', '%' . $search . '%')
+                  ->orWhere('role_title', 'like', '%' . $search . '%');
+            });
+        }
+        $testimonials = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
+        return view('admin.testimonials.index', compact('testimonials', 'search'));
+    }
+
+    public function testimonialsCreate()
+    {
+        return view('admin.testimonials.create');
+    }
+
+    public function testimonialsStore(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'content' => 'required|string',
+            'rating' => 'required|integer|min:1|max:5',
+            'role_title' => 'nullable|string|max:100',
+            'location' => 'nullable|string|max:100',
+            'photo_url' => 'nullable|string',
+            'testimonial_date' => 'required|date',
+            'is_published' => 'nullable',
+        ]);
+
+        DB::table('testimonials')->insert([
+            'name' => $validated['name'],
+            'content' => $validated['content'],
+            'rating' => $validated['rating'],
+            'role_title' => $validated['role_title'] ?? '',
+            'location' => $validated['location'] ?? '',
+            'photo_url' => $validated['photo_url'] ?: 'https://i.pravatar.cc/150?u=' . urlencode($validated['name']),
+            'testimonial_date' => $validated['testimonial_date'],
+            'is_published' => $request->has('is_published'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('admin.testimonials.index')->with('success', 'Testimonial created successfully.');
+    }
+
+    public function testimonialsEdit($id)
+    {
+        $testimonial = DB::table('testimonials')->where('id', $id)->first();
+        abort_if(!$testimonial, 404, 'Testimonial not found');
+        return view('admin.testimonials.edit', compact('testimonial'));
+    }
+
+    public function testimonialsUpdate(Request $request, $id)
+    {
+        $testimonial = DB::table('testimonials')->where('id', $id)->first();
+        abort_if(!$testimonial, 404, 'Testimonial not found');
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'content' => 'required|string',
+            'rating' => 'required|integer|min:1|max:5',
+            'role_title' => 'nullable|string|max:100',
+            'location' => 'nullable|string|max:100',
+            'photo_url' => 'nullable|string',
+            'testimonial_date' => 'required|date',
+            'is_published' => 'nullable',
+        ]);
+
+        DB::table('testimonials')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'content' => $validated['content'],
+            'rating' => $validated['rating'],
+            'role_title' => $validated['role_title'] ?? '',
+            'location' => $validated['location'] ?? '',
+            'photo_url' => $validated['photo_url'] ?: $testimonial->photo_url,
+            'testimonial_date' => $validated['testimonial_date'],
+            'is_published' => $request->has('is_published'),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('admin.testimonials.index')->with('success', 'Testimonial updated successfully.');
+    }
+
+    public function testimonialsDestroy($id)
+    {
+        DB::table('testimonials')->where('id', $id)->delete();
+        return redirect()->route('admin.testimonials.index')->with('success', 'Testimonial deleted successfully.');
+    }
+
+    // Settings (GitHub Actions APK artifact download links)
+    public function settingsIndex()
+    {
+        $links = [];
+        if (DB::getSchemaBuilder()->hasTable('app_settings')) {
+            $row = DB::table('app_settings')->where('setting_key', 'apk_download_links')->first();
+            if ($row && $row->setting_value) {
+                $links = json_decode($row->setting_value, true) ?? [];
+            }
+        }
+        $trialEnds = '2026-12-31';
+        $trialActive = now()->lte(\Carbon\Carbon::parse($trialEnds));
+        return view('admin.settings.index', compact('links', 'trialEnds', 'trialActive'));
+    }
+
+    public function settingsRefreshLinks()
+    {
+        $links = $this->fetchGitHubApkArtifacts();
+        if (DB::getSchemaBuilder()->hasTable('app_settings')) {
+            DB::table('app_settings')->updateOrInsert(
+                ['setting_key' => 'apk_download_links'],
+                ['setting_value' => json_encode($links), 'updated_at' => now()]
+            );
+        }
+        return back()->with('success', $links ? 'APK download links refreshed from GitHub Actions.' : 'No artifacts found yet — run the Build Flutter APKs workflow first.');
+    }
+
+    private function fetchGitHubApkArtifacts()
+    {
+        try {
+            $ch = curl_init('https://api.github.com/repos/aksisoftsby/gridewithmanus/actions/artifacts?per_page=30');
+            $headers = ['Accept: application/vnd.github+json', 'User-Agent: Gride-SuperApp'];
+            $token = env('GITHUB_TOKEN');
+            if ($token) {
+                $headers[] = 'Authorization: Bearer ' . $token;
+            }
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_TIMEOUT => 10,
+            ]);
+            $body = curl_exec($ch);
+            curl_close($ch);
+            $data = json_decode($body, true);
+            if (!isset($data['artifacts'])) {
+                return [];
+            }
+            $apps = ['customer-app-apk' => 'Customer', 'driver-app-apk' => 'Driver', 'merchant-app-apk' => 'Merchant'];
+            $latest = [];
+            foreach ($apps as $name => $label) {
+                $match = null;
+                foreach ($data['artifacts'] as $art) {
+                    if ($art['name'] === $name && ($match === null || $art['created_at'] > $match['created_at'])) {
+                        $match = $art;
+                    }
+                }
+                if ($match) {
+                    $latest[] = [
+                        'app' => $label,
+                        'name' => $name,
+                        'url' => $match['archive_download_url'],
+                        'created_at' => $match['created_at'],
+                        'size_mb' => round($match['size_in_bytes'] / 1024 / 1024, 1),
+                        'workflow_run_id' => $match['workflow_run_id'] ?? null,
+                    ];
+                }
+            }
+            return $latest;
+        } catch (\Throwable $e) {
+            \Log::error('fetchGitHubApkArtifacts failed: '.$e->getMessage());
+            return [];
+        }
+    }
+
+    // API Documentation (admin-only)
+    public function apiDocs()
+    {
+        return view('api.docs');
     }
 }

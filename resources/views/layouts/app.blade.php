@@ -20,7 +20,6 @@
                 </div>
                 <div class="flex items-center space-x-6">
                     <a href="{{ route('home') }}" class="hover:text-yellow-200 font-medium">Beranda</a>
-                    <a href="{{ route('api.docs') }}" class="hover:text-yellow-200 font-medium">API Docs</a>
                     @auth
                         @if(Auth::user()->role === 'ADMIN')
                             <a href="{{ route('admin.dashboard') }}" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold transition">
@@ -85,6 +84,33 @@
 
         @yield('content')
     </main>
+
+    @auth
+        @if(Auth::user()->role === 'ADMIN')
+            @php
+                $apkLinks = \Illuminate\Support\Facades\DB::table('app_settings')->where('setting_key', 'apk_download_links')->value('setting_value');
+                $apkLinks = is_string($apkLinks) ? json_decode($apkLinks, true) : null;
+                $trialEnds = '2026-12-31';
+                $trialActive = now()->lt(\Carbon\Carbon::parse($trialEnds));
+            @endphp
+            @if($trialActive && $apkLinks && count($apkLinks) > 0)
+                <!-- Admin Footer: APK Downloads -->
+                <div class="bg-emerald-50 border-t border-emerald-200">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                        <div class="flex flex-wrap items-center justify-center gap-3">
+                            <span class="text-sm font-semibold text-emerald-800"><i class="fa-solid fa-mobile-screen mr-1"></i> Unduh APK (Build Terbaru):</span>
+                            @foreach($apkLinks as $link)
+                                <a href="{{ $link['url'] }}" target="_blank" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-full shadow transition">
+                                    <i class="fa-solid fa-download"></i>
+                                    <span>{{ $link['app'] }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+        @endif
+    @endauth
 
     <!-- Footer -->
     <footer class="bg-gray-900 text-gray-400 py-6 mt-12 border-t border-gray-800">
