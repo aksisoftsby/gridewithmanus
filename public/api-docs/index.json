@@ -56,7 +56,7 @@
       "endpoint": "POST /api/orders",
       "group": "Orders",
       "summary": "Buat pesanan baru (FOOD/MART/SHOP/DELIVERY), khusus DELIVERY kirim lokasi GPS penjemputan & tujuan; fee dihitung server berdasarkan jarak.",
-      "doc_file": "/api-docs/orders.json"
+      "doc_file": "/api-docs/orders-post.json"
     },
     {
       "endpoint": "POST /api/drivers/{id}/location",
