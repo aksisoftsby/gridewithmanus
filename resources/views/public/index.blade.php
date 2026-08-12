@@ -151,7 +151,15 @@
                             <div class="text-xs text-gray-500">{{ $t->role_title ?: '' }}{{ $t->location ? ' • ' . $t->location : '' }}</div>
                         </div>
                     </div>
-                    <div class="text-yellow-500 text-xs mb-2">{{ str_repeat('<i class="fa-solid fa-star"></i>', (int)$t->rating) }}</div>
+                    <div class="text-yellow-500 text-xs mb-2" aria-label="Rating {{ (int) $t->rating }} dari 5">
+                        @for($star = 1; $star <= 5; $star++)
+                            @if($star <= (int) $t->rating)
+                                <i class="fa-solid fa-star" aria-hidden="true"></i>
+                            @else
+                                <i class="fa-regular fa-star text-yellow-300" aria-hidden="true"></i>
+                            @endif
+                        @endfor
+                    </div>
                     <p class="text-sm text-gray-700 italic">"{{ $t->content }}"</p>
                 </div>
             @endforeach
