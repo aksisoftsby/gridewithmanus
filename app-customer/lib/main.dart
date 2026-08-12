@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as ll;
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -481,11 +484,20 @@ class _KirimPageState extends State<KirimPage> {
   final _phoneController = TextEditingController();
   final _noteController = TextEditingController();
 
-  // Koordinat hasil geocoding
+  // Koordinat hasil geocoding / map picker
   double? _pickupLat;
   double? _pickupLng;
   double? _dropoffLat;
   double? _dropoffLng;
+
+  // Map picker
+  String? _pickMode; // 'pickup' | 'dropoff' saat memilih titik di peta
+  final MapController _mapCtrl = MapController();
+  double _pickLat = -7.2575; // default Kediri area (Alun-alun Kediri)
+  double _pickLng = 112.0178;
+  bool _pickUsingGps = false;
+  String? _pickAddress;
+  bool _pickReverse = false;
 
   // Tarif dari server (GET /api/settings)
   double _costPerKm = 5000;
@@ -532,14 +544,32 @@ class _KirimPageState extends State<KirimPage> {
     } catch (_) {}
   }
 
-  void _recalcEstimate() {
+  void _recalcEstimate() async {
     if (_pickupLat == null || _dropoffLat == null) return;
-    final d = haversineKm(_pickupLat!, _pickupLng!, _dropoffLat!, _dropoffLng!);
-    final fee = _baseFare + (d * _costPerKm).round();
+    final d = await _osrmRoadKm(_pickupLat!, _pickupLng!, _dropoffLat!, _dropoffLng!);
+    // Km dibulatkan ke angka tertinggi (ceil), lalu dikalikan harga per km.
+    final ceilKm = d.ceil();
+    final fee = ceilKm * _costPerKm;
     setState(() {
       _distanceKm = d;
-      _estimatedFee = ((fee / 100).round() * 100).clamp(10000, 10000000);
+      _estimatedFee = fee.toInt().clamp(10000, 10000000);
     });
+  }
+
+  /// Jarak mengikuti jalan raya via OSRM (meter -> km), fallback haversine.
+  Future<double> _osrmRoadKm(double lat1, double lon1, double lat2, double lon2) async {
+    try {
+      final res = await http.get(Uri.https('router.project-osrm.org',
+          '/route/v1/driving/$lon1,$lat1;$lon2,$lat2', {'overview': 'false'}));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['code'] == 'Ok' && (data['routes'] as List).isNotEmpty) {
+          final meters = (data['routes'][0]['legs'][0]['distance'] as num).toDouble();
+          return meters / 1000.0;
+        }
+      }
+    } catch (_) {}
+    return haversineKm(lat1, lon1, lat2, lon2);
   }
 
   @override
@@ -549,7 +579,104 @@ class _KirimPageState extends State<KirimPage> {
     _recipientController.dispose();
     _phoneController.dispose();
     _noteController.dispose();
+    _mapCtrl.dispose();
     super.dispose();
+  }
+
+  void _openMapPicker(String mode) async {
+    // Reset titik picker: mulai dari koordinat yang sudah ada (jika ada)
+    if (mode == 'pickup' && _pickupLat != null) {
+      _pickLat = _pickupLat!;
+      _pickLng = _pickupLng!;
+    } else if (mode == 'dropoff' && _dropoffLat != null) {
+      _pickLat = _dropoffLat!;
+      _pickLng = _dropoffLng!;
+    }
+    _pickAddress = null;
+    _pickReverse = false;
+    setState(() => _pickMode = mode);
+  }
+
+  Future<void> _useMyLocation() async {
+    if (!mounted) return;
+    setState(() => _pickUsingGps = true);
+    try {
+      bool enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        setState(() {
+          _pickUsingGps = false;
+          _pickAddress = 'Layanan lokasi tidak aktif. Geser titik manual.';
+        });
+        return;
+      }
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+      if (perm != LocationPermission.whileInUse && perm != LocationPermission.always) {
+        setState(() {
+          _pickUsingGps = false;
+          _pickAddress = 'Izin lokasi ditolak. Geser titik manual.';
+        });
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _pickLat = pos.latitude;
+        _pickLng = pos.longitude;
+      });
+      _mapCtrl.move(ll.LatLng(_pickLat, _pickLng), 15);
+      await _reverseGeocode();
+    } catch (e) {
+      setState(() => _pickAddress = 'GPS gagal: $e. Geser titik manual.');
+    } finally {
+      if (mounted) setState(() => _pickUsingGps = false);
+    }
+  }
+
+  Future<void> _reverseGeocode() async {
+    setState(() => _pickReverse = true);
+    try {
+      final res = await http.get(Uri.https('nominatim.openstreetmap.org', '/reverse', {
+        'format': 'json',
+        'lat': _pickLat.toString(),
+        'lon': _pickLng.toString(),
+        'zoom': '18',
+        'addressdetails': '1',
+      }), headers: {'User-Agent': 'gride-customer-app/1.0'});
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        if (mounted) setState(() => _pickAddress = d['display_name'] ?? 'Titik dipilih');
+      } else if (mounted) {
+        setState(() => _pickAddress = 'Titik dipilih');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _pickAddress = 'Titik dipilih');
+    } finally {
+      if (mounted) setState(() => _pickReverse = false);
+    }
+  }
+
+  void _confirmPoint() {
+    final mode = _pickMode;
+    final address = _pickAddress ?? 'Titik dipilih';
+    if (mode == 'pickup') {
+      _pickupController.text = address;
+      setState(() {
+        _pickupLat = _pickLat;
+        _pickupLng = _pickLng;
+      });
+    } else {
+      _dropoffController.text = address;
+      setState(() {
+        _dropoffLat = _pickLat;
+        _dropoffLng = _pickLng;
+      });
+    }
+    setState(() => _pickMode = null);
+    _recalcEstimate();
+  }
+
+  void _cancelPick() {
+    setState(() => _pickMode = null);
   }
 
   Future<void> _geocode() async {
@@ -739,7 +866,16 @@ class _KirimPageState extends State<KirimPage> {
               ),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Isi lokasi penjemputan' : null,
             ),
-            const SizedBox(height: 12),
+            if (_pickMode == null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _openMapPicker('pickup'),
+                  icon: const Icon(Icons.map, size: 18),
+                  label: const Text('Pilih titik penjemputan dari peta'),
+                ),
+              ),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _dropoffController,
               decoration: const InputDecoration(
@@ -750,7 +886,102 @@ class _KirimPageState extends State<KirimPage> {
               ),
               validator: (v) => (v == null || v.trim().isEmpty) ? 'Isi alamat tujuan' : null,
             ),
-            const SizedBox(height: 12),
+            if (_pickMode == null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _openMapPicker('dropoff'),
+                  icon: const Icon(Icons.map, size: 18),
+                  label: const Text('Pilih titik tujuan dari peta'),
+                ),
+              ),
+            const SizedBox(height: 6),
+            if (_pickMode != null)
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    Container(
+                      height: 300,
+                      color: Colors.grey.shade200,
+                      child: FlutterMap(
+                        mapController: _mapCtrl,
+                        options: MapOptions(
+                          initialCenter: ll.LatLng(_pickLat, _pickLng),
+                          initialZoom: 14,
+                          onTap: (_, point) {
+                            setState(() {
+                              _pickLat = point.latitude;
+                              _pickLng = point.longitude;
+                            });
+                            _reverseGeocode();
+                          },
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.gride.app',
+                            maxNativeZoom: 19,
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: ll.LatLng(_pickLat, _pickLng),
+                                width: 44,
+                                height: 44,
+                                child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _pickMode == 'pickup' ? 'Titik Penjemputan' : 'Titik Tujuan',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _pickReverse
+                                ? 'Mencari alamat...'
+                                : (_pickAddress ?? 'Ketuk peta untuk memilih titik.'),
+                            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              FilledButton.tonalIcon(
+                                onPressed: _pickUsingGps ? null : _useMyLocation,
+                                icon: _pickUsingGps
+                                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.my_location, size: 18),
+                                label: const Text('GPS saya'),
+                              ),
+                              FilledButton.icon(
+                                onPressed: _pickReverse || _pickAddress == null ? null : _confirmPoint,
+                                icon: const Icon(Icons.check, size: 18),
+                                label: const Text('Konfirmasi titik'),
+                              ),
+                              OutlinedButton(
+                                onPressed: _cancelPick,
+                                child: const Text('Batal'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -816,15 +1047,16 @@ class _KirimPageState extends State<KirimPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Jarak'),
-                          Text('${_distanceKm!.toStringAsFixed(1)} km',
+                          Text('Jarak jalan raya'),
+                          Text('${_distanceKm!.toStringAsFixed(1)} km \u2192 dibulatkan ${_distanceKm!.ceil()} km',
                               style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
+                      const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Ongkos kirim (Rp ${formatRp(_baseFare)} + Rp ${formatRp(_costPerKm.round())}/km)'),
+                          Text('${_distanceKm!.ceil()} km \u00d7 Rp ${formatRp(_costPerKm.round())}/km'),
                           Text('Rp ${formatRp(_estimatedFee!)}',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
