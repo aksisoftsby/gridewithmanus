@@ -58,7 +58,7 @@
                             <td class="px-6 py-4 font-semibold">★ {{ number_format($driver->rating, 2) }}</td>
                             <td class="px-6 py-4 text-gray-600">{{ $driver->total_trips }}</td>
                             <td class="px-6 py-4 text-xs text-gray-500 font-mono">{{ $driver->current_lat }}, {{ $driver->current_lng }}</td>
-                            <td class="px-6 py-4 text-xs text-gray-500">{{ $driver->created_at?->format('d M Y') }}</td>
+                            <td class="px-6 py-4 text-xs text-gray-500">{{ $driver->created_at ? \Carbon\Carbon::parse($driver->created_at)->format('d M Y') : '-' }}</td>
                             <td class="px-6 py-4">
                                 <form action="{{ route('admin.drivers.destroy', $driver->id) }}" method="POST" class="inline" onsubmit="return confirm('Remove this driver?');">
                                     @csrf
