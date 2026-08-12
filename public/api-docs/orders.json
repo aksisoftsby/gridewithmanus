@@ -69,6 +69,41 @@
       "field": "data.*.created_at",
       "type": "string",
       "description": "Waktu pesanan dibuat."
+    },
+    {
+      "field": "data.*.order_type",
+      "type": "string",
+      "description": "Jenis pesanan: FOOD, MART, SHOP, DELIVERY, atau RIDE (antar-jemput orang)."
+    },
+    {
+      "field": "data.*.invoice",
+      "type": "object",
+      "description": "Rincian invoice pesanan. Untuk RIDE/DELIVERY: trip_distance_km, base_fare, trip_cost, trip_cost_label, admin_commission, admin_commission_label, total, driver_net, driver_net_label. Untuk FOOD/TOKO: subtotal, delivery_fee, merchant_commission, merchant_commission_label, admin_commission, admin_commission_label, total, merchant_net, merchant_net_label."
+    },
+    {
+      "field": "data.*.ride_distance_km",
+      "type": "float",
+      "description": "Snapshot jarak tempuh (km) saat pesanan dibuat (RIDE/DELIVERY)."
+    },
+    {
+      "field": "data.*.cost_per_km_snapshot",
+      "type": "float",
+      "description": "Snapshot biaya per KM yang berlaku saat pesanan dibuat."
+    },
+    {
+      "field": "data.*.admin_commission_snapshot",
+      "type": "float",
+      "description": "Snapshot potongan admin yang berlaku saat pesanan dibuat."
+    },
+    {
+      "field": "data.*.merchant_commission_snapshot",
+      "type": "float",
+      "description": "Snapshot komisi merchant yang berlaku saat pesanan dibuat."
+    },
+    {
+      "field": "data.*.merchant_commission_pct_snapshot",
+      "type": "float",
+      "description": "Snapshot persen komisi merchant saat pesanan dibuat."
     }
   ],
   "example_response": {

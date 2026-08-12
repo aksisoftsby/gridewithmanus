@@ -1,0 +1,90 @@
+{
+  "endpoint": "GET /api/settings",
+  "group": "Settings",
+  "description": "Mengambil pengaturan tarif dan komisi platform yang dikelola admin (Biaya per KM, tarif dasar, komisi merchant, potongan admin). Nilai ini dipakai aplikasi Customer untuk menghitung estimasi ongkos. Perubahan settings hanya mempengaruhi transaksi baru; transaksi lama menggunakan snapshot nilai saat dibuat.",
+  "method": "GET",
+  "url": "/api/settings",
+  "authentication": "Tidak diperlukan (publik)",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [],
+  "response_fields": [
+    {
+      "field": "status",
+      "type": "string",
+      "description": "\"success\" pada respons normal."
+    },
+    {
+      "field": "data.ride_cost_per_km",
+      "type": "string",
+      "description": "Biaya per kilometer untuk RIDE/DELIVERY (angka murni, tanpa Rp). Default 5000."
+    },
+    {
+      "field": "data.ride_base_fare",
+      "type": "string",
+      "description": "Tarif dasar (base fare) RIDE. Default 10000."
+    },
+    {
+      "field": "data.food_commission_pct",
+      "type": "string",
+      "description": "Persen komisi merchant/resto untuk pesanan FOOD. Default 20."
+    },
+    {
+      "field": "data.admin_ride_commission_enabled",
+      "type": "string",
+      "description": "Status potongan admin untuk RIDE: ON atau OFF."
+    },
+    {
+      "field": "data.admin_ride_commission_amount",
+      "type": "string",
+      "description": "Nominal potongan admin RIDE (jika ON). Default 2000."
+    },
+    {
+      "field": "data.admin_food_commission_enabled",
+      "type": "string",
+      "description": "Status potongan admin untuk FOOD: ON atau OFF."
+    },
+    {
+      "field": "data.admin_food_commission_amount",
+      "type": "string",
+      "description": "Nominal potongan admin FOOD (jika ON). Default 3000."
+    },
+    {
+      "field": "data.admin_shop_commission_enabled",
+      "type": "string",
+      "description": "Status potongan admin untuk TOKO: ON atau OFF."
+    },
+    {
+      "field": "data.admin_shop_commission_amount",
+      "type": "string",
+      "description": "Nominal potongan admin TOKO (jika ON). Default 5000."
+    },
+    {
+      "field": "data.apk_urls",
+      "type": "object",
+      "description": "URL unduh publik APK: customer, driver, merchant (https://gride.web.id/apk/*.apk)."
+    }
+  ],
+  "example_request": "curl https://gride.web.id/api/settings",
+  "example_response": {
+    "status": "success",
+    "data": {
+      "ride_cost_per_km": "5000",
+      "ride_base_fare": "10000",
+      "food_commission_pct": "20",
+      "admin_ride_commission_enabled": "OFF",
+      "admin_ride_commission_amount": "2000",
+      "admin_food_commission_enabled": "OFF",
+      "admin_food_commission_amount": "3000",
+      "admin_shop_commission_enabled": "OFF",
+      "admin_shop_commission_amount": "5000",
+      "apk_urls": {
+        "customer": "https://gride.web.id/apk/customer.apk",
+        "driver": "https://gride.web.id/apk/driver.apk",
+        "merchant": "https://gride.web.id/apk/merchant.apk"
+      }
+    }
+  },
+  "notes": "Hanya admin yang dapat mengubah nilai settings melalui halaman /admin/settings. Aplikasi Customer menghitung estimasi ongkos dengan rumus: tarif_dasar + (jarak_km * biaya_per_km)."
+}

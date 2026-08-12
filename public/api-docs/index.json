@@ -1,7 +1,7 @@
 {
   "api_name": "Gride Superapp REST API",
   "base_url": "https://gride.web.id/api",
-  "version": "1.1",
+  "version": "1.2",
   "description": "REST API publik ekosistem Gride Superapp untuk aplikasi Customer, Driver, dan Merchant. Format respons selalu JSON.",
   "response_format": "Semua endpoint mengembalikan objek JSON dengan field \"status\" (success/error).",
   "error_format": {
@@ -16,6 +16,12 @@
     }
   },
   "endpoints": [
+    {
+      "endpoint": "GET /api/settings",
+      "group": "Settings",
+      "summary": "Pengaturan tarif & komisi platform (biaya per KM, tarif dasar, komisi merchant, potongan admin) dan URL unduh APK.",
+      "doc_file": "/api-docs/settings.json"
+    },
     {
       "endpoint": "GET /api/merchants",
       "group": "Merchants",
