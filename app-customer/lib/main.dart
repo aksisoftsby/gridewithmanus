@@ -514,7 +514,7 @@ class _KirimPageState extends State<KirimPage> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.map_search),
+                    : const Icon(Icons.search_location),
                 label: Text(_geocoding ? 'Mencari lokasi...' : 'Cari Lokasi & Hitung Ongkos'),
               ),
             ),
