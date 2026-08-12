@@ -34,6 +34,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/products/create', [AdminController::class, 'productsCreate'])->name('products.create');
     Route::post('/products', [AdminController::class, 'productsStore'])->name('products.store');
     Route::delete('/products/{id}', [AdminController::class, 'productsDestroy'])->name('products.destroy');
+    Route::get('/products/{id}/edit', [AdminController::class, 'productsEdit'])->name('products.edit');
+    Route::put('/products/{id}', [AdminController::class, 'productsUpdate'])->name('products.update');
 
     // Orders
     Route::get('/orders', [AdminController::class, 'ordersIndex'])->name('orders.index');
@@ -44,4 +46,18 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/promos', [AdminController::class, 'promosIndex'])->name('promos.index');
     Route::post('/promos', [AdminController::class, 'promosStore'])->name('promos.store');
     Route::delete('/promos/{id}', [AdminController::class, 'promosDestroy'])->name('promos.destroy');
+    Route::get('/promos/{id}/edit', [AdminController::class, 'promosEdit'])->name('promos.edit');
+    Route::put('/promos/{id}', [AdminController::class, 'promosUpdate'])->name('promos.update');
+
+    // Drivers
+    Route::get('/drivers', [AdminController::class, 'driversIndex'])->name('drivers.index');
+    Route::get('/drivers/create', [AdminController::class, 'driversCreate'])->name('drivers.create');
+    Route::post('/drivers', [AdminController::class, 'driversStore'])->name('drivers.store');
+    Route::put('/drivers/{id}/status', [AdminController::class, 'driversUpdateStatus'])->name('drivers.status');
+    Route::delete('/drivers/{id}', [AdminController::class, 'driversDestroy'])->name('drivers.destroy');
+
+    // Chat Sessions
+    Route::get('/chats', [AdminController::class, 'chatsIndex'])->name('chats.index');
+    Route::delete('/chats/{id}', [AdminController::class, 'chatsDestroy'])->name('chats.destroy');
+    Route::post('/chats/flush', [AdminController::class, 'chatsFlush'])->name('chats.flush');
 });

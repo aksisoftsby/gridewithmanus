@@ -1,0 +1,56 @@
+{
+  "endpoint": "GET /api/merchants/{id}/menu",
+  "group": "Merchants",
+  "description": "Mengambil detail merchant beserta seluruh menu / produk yang dijual oleh merchant tersebut.",
+  "method": "GET",
+  "url": "/api/merchants/{id}/menu",
+  "authentication": "Tidak diperlukan (publik)",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "path_parameters": [
+    {
+      "name": "id",
+      "type": "integer",
+      "required": true,
+      "description": "ID merchant yang ingin dilihat menunya."
+    }
+  ],
+  "query_parameters": [],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" jika merchant ditemukan, \"error\" jika tidak." },
+    { "field": "merchant", "type": "object", "description": "Detail lengkap merchant." },
+    { "field": "merchant.*", "type": "mixed", "description": "Seluruh kolom tabel merchants (id, name, slug, type, status, address, phone, latitude, longitude, rating, open_time, close_time)." },
+    { "field": "menu", "type": "array", "description": "Daftar produk / menu item milik merchant." },
+    { "field": "menu.*.id", "type": "integer", "description": "ID menu item." },
+    { "field": "menu.*.merchant_id", "type": "integer", "description": "ID merchant pemilik." },
+    { "field": "menu.*.name", "type": "string", "description": "Nama produk." },
+    { "field": "menu.*.price", "type": "float", "description": "Harga produk dalam Rupiah." },
+    { "field": "menu.*.description", "type": "string", "description": "Deskripsi produk." },
+    { "field": "menu.*.is_available", "type": "boolean", "description": "Ketersediaan produk." }
+  ],
+  "example_response": {
+    "status": "success",
+    "merchant": {
+      "id": 1,
+      "name": "Warung Gride Padang",
+      "type": "FOOD",
+      "status": "ACTIVE",
+      "rating": 4.5
+    },
+    "menu": [
+      {
+        "id": 1,
+        "merchant_id": 1,
+        "name": "Nasi Rendang",
+        "price": 25000.00,
+        "description": "Rendang daging sapi khas Padang",
+        "is_available": true
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/merchants/1/menu\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 404, "description": "Merchant tidak ditemukan. Respons: {\"status\":\"error\",\"message\":\"Merchant not found\"}." }
+  ]
+}

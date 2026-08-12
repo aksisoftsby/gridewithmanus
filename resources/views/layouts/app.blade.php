@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title ?? 'SuperApp - Grab-Like Ecosystem' }}</title>
+    <title>{{ $title ?? 'Gride Superapp' }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -15,7 +15,7 @@
                 <div class="flex items-center space-x-4">
                     <a href="{{ route('home') }}" class="text-xl font-bold tracking-wider flex items-center space-x-2">
                         <i class="fa-solid fa-bolt-lightning text-yellow-300"></i>
-                        <span>SuperApp (Laravel)</span>
+                        <span>Gride Superapp</span>
                     </a>
                 </div>
                 <div class="flex items-center space-x-6">
@@ -39,6 +39,26 @@
                 </div>
             </div>
         </div>
+        @auth
+            @if(Auth::user()->role === 'ADMIN')
+            <!-- Admin Top Menu (persistent on all admin pages) -->
+            <div class="bg-emerald-800">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <nav class="flex flex-wrap gap-1 py-2 text-sm">
+                        @php
+                            $adminNav = \App\Http\Controllers\AdminController::adminNav();
+                            $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
+                        @endphp
+                        @foreach($adminNav as $item)
+                            <a href="{{ route($item['route']) }}" class="px-3 py-1.5 rounded-lg font-medium transition {{ $currentRoute === $item['route'] || str_starts_with($currentRoute, rtrim(str_replace('.index','',$item['route']), '.') . '.') ? 'bg-yellow-400 text-emerald-900' : 'text-emerald-100 hover:bg-emerald-700' }}">
+                                <i class="fa-solid {{ $item['icon'] }} mr-1"></i> {{ $item['label'] }}
+                            </a>
+                        @endforeach
+                    </nav>
+                </div>
+            </div>
+            @endif
+        @endauth
     </nav>
 
     <!-- Content -->

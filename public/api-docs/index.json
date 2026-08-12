@@ -1,0 +1,43 @@
+{
+  "api_name": "Gride Superapp REST API",
+  "base_url": "https://gride.web.id/api",
+  "version": "1.0",
+  "description": "REST API publik ekosistem Gride Superapp untuk aplikasi Customer, Driver, dan Merchant. Format respons selalu JSON.",
+  "response_format": "Semua endpoint mengembalikan objek JSON dengan field \"status\" (success/error).",
+  "error_format": {
+    "example": { "status": "error", "message": "Merchant not found" },
+    "codes": { "404": "Resource tidak ditemukan", "422": "Validasi gagal", "500": "Error server" }
+  },
+  "endpoints": [
+    {
+      "endpoint": "GET /api/merchants",
+      "group": "Merchants",
+      "summary": "Daftar merchant aktif, opsional filter kategori (FOOD, MART, SHOP).",
+      "doc_file": "/api-docs/merchants.json"
+    },
+    {
+      "endpoint": "GET /api/merchants/{id}/menu",
+      "group": "Merchants",
+      "summary": "Detail merchant beserta seluruh menu/produk yang dijual.",
+      "doc_file": "/api-docs/merchants-menu.json"
+    },
+    {
+      "endpoint": "GET /api/products",
+      "group": "Products",
+      "summary": "Katalog global seluruh produk dari semua merchant.",
+      "doc_file": "/api-docs/products.json"
+    },
+    {
+      "endpoint": "GET /api/orders",
+      "group": "Orders",
+      "summary": "Daftar 50 pesanan terbaru dengan status dan detail lengkap.",
+      "doc_file": "/api-docs/orders.json"
+    },
+    {
+      "endpoint": "GET /api/promos",
+      "group": "Promos",
+      "summary": "Daftar promo/voucher aktif lengkap dengan periode mulai-selesai.",
+      "doc_file": "/api-docs/promos.json"
+    }
+  ]
+}

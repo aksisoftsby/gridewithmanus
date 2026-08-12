@@ -1,0 +1,59 @@
+{
+  "endpoint": "GET /api/merchants",
+  "group": "Merchants",
+  "description": "Mengambil daftar merchant yang aktif di ekosistem Gride Superapp (Restoran, Mart, Shop). Mendukung filter berdasarkan kategori layanan melalui parameter query.",
+  "method": "GET",
+  "url": "/api/merchants",
+  "authentication": "Tidak diperlukan (publik)",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [
+    {
+      "name": "type",
+      "type": "string",
+      "required": false,
+      "default": null,
+      "description": "Filter kategori merchant. Nilai valid: FOOD, MART, SHOP. Jika tidak diisi, semua kategori aktif dikembalikan."
+    }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "Status respons, selalu \"success\" untuk data yang ditemukan." },
+    { "field": "data", "type": "array", "description": "Daftar objek merchant." },
+    { "field": "data.*.id", "type": "integer", "description": "ID unik merchant." },
+    { "field": "data.*.name", "type": "string", "description": "Nama merchant." },
+    { "field": "data.*.slug", "type": "string", "description": "Slug URL merchant." },
+    { "field": "data.*.type", "type": "string", "description": "Kategori: FOOD, MART, atau SHOP." },
+    { "field": "data.*.status", "type": "string", "description": "Status operasional: ACTIVE / INACTIVE." },
+    { "field": "data.*.address", "type": "string", "description": "Alamat merchant." },
+    { "field": "data.*.phone", "type": "string", "description": "Nomor telepon merchant." },
+    { "field": "data.*.latitude", "type": "float", "description": "Koordinat latitude merchant." },
+    { "field": "data.*.longitude", "type": "float", "description": "Koordinat longitude merchant." },
+    { "field": "data.*.rating", "type": "float", "description": "Rating rata-rata merchant (0-5)." },
+    { "field": "data.*.open_time", "type": "string", "description": "Jam buka." },
+    { "field": "data.*.close_time", "type": "string", "description": "Jam tutup." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "name": "Warung Gride Padang",
+        "slug": "warung-gride-padang",
+        "type": "FOOD",
+        "status": "ACTIVE",
+        "address": "Jl. Raya Tunjungan 12, Surabaya",
+        "phone": "+6281234567890",
+        "latitude": -7.2575,
+        "longitude": 112.7521,
+        "rating": 4.5,
+        "open_time": "08:00",
+        "close_time": "22:00"
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/merchants?type=FOOD\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika tidak ada merchant yang sesuai filter." }
+  ]
+}

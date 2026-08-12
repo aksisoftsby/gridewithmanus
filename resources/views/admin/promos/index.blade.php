@@ -20,6 +20,8 @@
                         <th class="px-6 py-3">Title</th>
                         <th class="px-6 py-3">Discount</th>
                         <th class="px-6 py-3">Min Purchase</th>
+                        <th class="px-6 py-3">Period (Start - End)</th>
+                        <th class="px-6 py-3">Active</th>
                         <th class="px-6 py-3">Actions</th>
                     </tr>
                 </thead>
@@ -36,8 +38,20 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-gray-600">Rp {{ number_format($promo->min_purchase, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 text-xs text-gray-600">
+                                <div>From: {{ $promo->starts_at ? \Carbon\Carbon::parse($promo->starts_at)->format('d M Y H:i') : '-' }}</div>
+                                <div>To: {{ $promo->ends_at ? \Carbon\Carbon::parse($promo->ends_at)->format('d M Y H:i') : '-' }}</div>
+                            </td>
                             <td class="px-6 py-4">
-                                <form action="{{ route('admin.promos.destroy', $promo->id) }}" method="POST" onsubmit="return confirm('Delete promo?');">
+                                @if($promo->is_active)
+                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Active</span>
+                                @else
+                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600">Inactive</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4">
+                                <a href="{{ route('admin.promos.edit', $promo->id) }}" class="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit</a> |
+                                <form action="{{ route('admin.promos.destroy', $promo->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete promo?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="text-red-600 hover:text-red-800 text-xs font-medium">Delete</button>
@@ -46,7 +60,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-6 text-center text-gray-500">No promos found.</td>
+                            <td colspan="7" class="px-6 py-6 text-center text-gray-500">No promos found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -77,9 +91,23 @@
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Discount Value</label>
                     <input type="number" step="0.01" name="discount_value" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="25">
                 </div>
-                <div class="mb-6">
+                <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Minimum Purchase (IDR)</label>
                     <input type="number" step="100" name="min_purchase" required value="0" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Start Date & Time</label>
+                    <input type="datetime-local" name="starts_at" required value="{{ now()->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">End Date & Time</label>
+                    <input type="datetime-local" name="ends_at" required value="{{ now()->addDays(30)->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="mb-6">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        <span class="text-sm font-semibold text-gray-700">Promo aktif</span>
+                    </label>
                 </div>
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg shadow transition">
                     Save Promo

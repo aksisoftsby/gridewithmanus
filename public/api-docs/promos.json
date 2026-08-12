@@ -1,0 +1,47 @@
+{
+  "endpoint": "GET /api/promos",
+  "group": "Promos",
+  "description": "Mengambil daftar promo / voucher diskon yang sedang aktif di platform, termasuk periode berlaku promo (tanggal dan jam mulai hingga selesai).",
+  "method": "GET",
+  "url": "/api/promos",
+  "authentication": "Tidak diperlukan (publik)",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data", "type": "array", "description": "Daftar promo yang aktif (is_active = true)." },
+    { "field": "data.*.id", "type": "integer", "description": "ID promo." },
+    { "field": "data.*.code", "type": "string", "description": "Kode voucher." },
+    { "field": "data.*.title", "type": "string", "description": "Judul promo." },
+    { "field": "data.*.discount_type", "type": "string", "description": "Jenis diskon: PERCENTAGE atau FIXED." },
+    { "field": "data.*.discount_value", "type": "float", "description": "Nilai diskon (persen atau Rupiah)." },
+    { "field": "data.*.min_purchase", "type": "float", "description": "Minimum pembelian untuk menggunakan promo." },
+    { "field": "data.*.starts_at", "type": "datetime", "description": "Tanggal dan jam promo mulai berlaku." },
+    { "field": "data.*.ends_at", "type": "datetime", "description": "Tanggal dan jam promo berakhir." },
+    { "field": "data.*.expires_at", "type": "datetime", "description": "Batas kedaluwarsa promo." },
+    { "field": "data.*.is_active", "type": "boolean", "description": "Status keaktifan promo." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "code": "GRIDEHEMAT50",
+        "title": "Diskon 50% Makanan & Belanja",
+        "discount_type": "PERCENTAGE",
+        "discount_value": 50.00,
+        "min_purchase": 30000.00,
+        "starts_at": "2026-08-12T00:00:00.000000Z",
+        "ends_at": "2026-09-11T00:00:00.000000Z",
+        "expires_at": "2026-09-11T00:00:00.000000Z",
+        "is_active": true
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/promos\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika tidak ada promo aktif." }
+  ]
+}

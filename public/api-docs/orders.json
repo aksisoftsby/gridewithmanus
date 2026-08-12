@@ -1,0 +1,47 @@
+{
+  "endpoint": "GET /api/orders",
+  "group": "Orders",
+  "description": "Mengambil daftar transaksi pesanan terbaru di platform (maksimal 50 pesanan terakhir), diurutkan dari yang terbaru. Digunakan oleh aplikasi Driver untuk melihat antrian pesanan.",
+  "method": "GET",
+  "url": "/api/orders",
+  "authentication": "Tidak diperlukan (publik)",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data", "type": "array", "description": "Daftar pesanan terbaru (maksimal 50)." },
+    { "field": "data.*.id", "type": "integer", "description": "ID pesanan." },
+    { "field": "data.*.user_id", "type": "integer", "description": "ID customer pemilik pesanan." },
+    { "field": "data.*.merchant_id", "type": "integer", "description": "ID merchant asal pesanan." },
+    { "field": "data.*.driver_id", "type": "integer", "description": "ID driver yang ditugaskan (null jika belum ada)."},
+    { "field": "data.*.status", "type": "string", "description": "Status pesanan: PENDING, PROCESSING, COMPLETED, CANCELLED." },
+    { "field": "data.*.total_amount", "type": "float", "description": "Total nilai pesanan dalam Rupiah." },
+    { "field": "data.*.payment_status", "type": "string", "description": "Status pembayaran." },
+    { "field": "data.*.delivery_address", "type": "string", "description": "Alamat pengiriman." },
+    { "field": "data.*.notes", "type": "string", "description": "Catatan pesanan (nullable)." },
+    { "field": "data.*.created_at", "type": "string", "description": "Waktu pesanan dibuat." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "user_id": 3,
+        "merchant_id": 1,
+        "driver_id": 4,
+        "status": "PROCESSING",
+        "total_amount": 35000.00,
+        "payment_status": "PAID",
+        "delivery_address": "Jl. Pemuda 55, Surabaya",
+        "notes": "Pedas ya",
+        "created_at": "2026-08-12T10:30:00.000000Z"
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/orders\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika belum ada pesanan." }
+  ]
+}

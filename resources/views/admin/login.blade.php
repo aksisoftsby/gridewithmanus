@@ -7,7 +7,7 @@
             <i class="fa-solid fa-lock text-xl"></i>
         </div>
         <h2 class="text-2xl font-bold text-gray-800">Admin Login</h2>
-        <p class="text-sm text-gray-500">SuperApp Control & Management Dashboard</p>
+        <p class="text-sm text-gray-500">Gride Superapp — Control & Management Dashboard</p>
     </div>
 
     <form action="{{ route('admin.login') }}" method="POST">

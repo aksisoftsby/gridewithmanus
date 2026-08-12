@@ -1,0 +1,36 @@
+{
+  "endpoint": "GET /api/products",
+  "group": "Products",
+  "description": "Mengambil katalog seluruh produk / menu item dari semua merchant di ekosistem Gride Superapp, disertai nama merchant pemiliknya. Cocok untuk fitur pencarian produk global di aplikasi Customer.",
+  "method": "GET",
+  "url": "/api/products",
+  "authentication": "Tidak diperlukan (publik)",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data", "type": "array", "description": "Daftar produk gabungan dari semua merchant." },
+    { "field": "data.*", "type": "mixed", "description": "Seluruh kolom tabel menu_items plus kolom merchant_name." },
+    { "field": "data.*.merchant_name", "type": "string", "description": "Nama merchant pemilik produk (hasil join tabel merchants)." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "merchant_id": 1,
+        "name": "Nasi Rendang",
+        "price": 25000.00,
+        "description": "Rendang daging sapi khas Padang",
+        "is_available": true,
+        "merchant_name": "Warung Gride Padang"
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/products\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika belum ada produk." }
+  ]
+}

@@ -190,11 +190,13 @@ class DatabaseSeeder extends Seeder
         // Create Promos
         DB::table('promos')->insert([
             [
-                'code' => 'GRABHEMAT50',
+                'code' => 'GRIDEHEMAT50',
                 'title' => 'Diskon 50% Makanan & Belanja',
                 'discount_type' => 'PERCENTAGE',
                 'discount_value' => 50.00,
                 'min_purchase' => 30000.00,
+                'starts_at' => now(),
+                'ends_at' => now()->addDays(30),
                 'expires_at' => now()->addDays(30),
                 'is_active' => true,
                 'created_at' => now(),
@@ -206,6 +208,8 @@ class DatabaseSeeder extends Seeder
                 'discount_type' => 'FIXED',
                 'discount_value' => 15000.00,
                 'min_purchase' => 20000.00,
+                'starts_at' => now(),
+                'ends_at' => now()->addDays(15),
                 'expires_at' => now()->addDays(15),
                 'is_active' => true,
                 'created_at' => now(),

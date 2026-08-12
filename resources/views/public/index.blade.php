@@ -4,7 +4,7 @@
 <!-- Hero Section -->
 <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white py-16 mb-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h1 class="text-4xl font-extrabold tracking-tight mb-4">SuperApp Ecosystem (Grab-Like)</h1>
+        <h1 class="text-4xl font-extrabold tracking-tight mb-4">Gride Superapp</h1>
         <p class="text-lg text-emerald-100 max-w-2xl mx-auto mb-8">Pesan makanan favorit, belanja kebutuhan harian, dan layanan kurir instan dalam satu aplikasi.</p>
         
         <!-- Search & Filter Bar -->
@@ -12,9 +12,9 @@
             <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari restoran, makanan, atau supermarket..." class="flex-grow px-4 py-3 rounded-xl text-gray-800 focus:outline-none">
             <select name="type" class="px-4 py-3 rounded-xl text-gray-800 bg-gray-50 focus:outline-none font-medium">
                 <option value="">Semua Layanan</option>
-                <option value="FOOD" @selected($type == 'FOOD')>GrabFood (Restoran)</option>
-                <option value="MART" @selected($type == 'MART')>GrabMart (Sembako)</option>
-                <option value="SHOP" @selected($type == 'SHOP')>GrabShop (Retail)</option>
+                <option value="FOOD" @selected($type == 'FOOD')>GrideFood (Restoran)</option>
+                <option value="MART" @selected($type == 'MART')>GrideMart (Sembako)</option>
+                <option value="SHOP" @selected($type == 'SHOP')>GrideShop (Retail)</option>
             </select>
             <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-semibold transition">
                 <i class="fa-solid fa-magnifying-glass mr-2"></i>Cari
