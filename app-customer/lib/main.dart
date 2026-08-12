@@ -263,11 +263,6 @@ class _KirimPageState extends State<KirimPage> {
   double? _dropoffLat;
   double? _dropoffLng;
 
-  // Tarif dari server (GET /api/settings)
-  double _costPerKm = 5000;
-  int _baseFare = 10000;
-  bool _settingsLoaded = false;
-
   // Estimasi ongkos
   double? _distanceKm;
   int? _estimatedFee;
@@ -276,42 +271,6 @@ class _KirimPageState extends State<KirimPage> {
   bool _submitting = false;
   String? _error;
   String? _successOrder;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    try {
-      final res = await http.get(Uri.parse('$baseUrl/settings'));
-      if (res.statusCode == 200) {
-        final d = jsonDecode(res.body)['data'];
-        final cost = double.tryParse(d['ride_cost_per_km'] ?? '5000') ?? 5000;
-        final base = int.tryParse(d['ride_base_fare'] ?? '10000') ?? 10000;
-        setState(() {
-          _costPerKm = cost;
-          _baseFare = base;
-          _settingsLoaded = true;
-        });
-        // Muat ulang estimasi bila koordinat sudah ada
-        if (_pickupLat != null && _dropoffLat != null) _recalcEstimate();
-        return;
-      }
-    } catch (_) {}
-    setState(() => _settingsLoaded = true);
-  }
-
-  void _recalcEstimate() {
-    if (_pickupLat == null || _dropoffLat == null) return;
-    final d = haversineKm(_pickupLat!, _pickupLng!, _dropoffLat!, _dropoffLng!);
-    final fee = _baseFare + (d * _costPerKm).round();
-    setState(() {
-      _distanceKm = d;
-      _estimatedFee = ((fee / 100).round() * 100).clamp(10000, 10000000);
-    });
-  }
 
   @override
   void dispose() {
@@ -375,7 +334,13 @@ class _KirimPageState extends State<KirimPage> {
         _geocoding = false;
       });
 
-      _recalcEstimate();
+      // Haversine distance (km) & estimasi ongkos
+      final d = haversineKm(_pickupLat!, _pickupLng!, _dropoffLat!, _dropoffLng!);
+      final fee = 10000 + (d * 2500).round();
+      setState(() {
+        _distanceKm = d;
+        _estimatedFee = ((fee / 100).round() * 100).clamp(10000, 10000000);
+      });
     } catch (e) {
       setState(() {
         _geocoding = false;
@@ -452,23 +417,8 @@ class _KirimPageState extends State<KirimPage> {
           (res.statusCode == 200 && data['status'] == 'success')) {
         setState(() {
           _submitting = false;
-          final invoice = data['data']?['invoice'];
-          final lines = <String>['Pesanan dikirim! Nomor: ${data['data']?['order_number'] ?? '-'}'];
-          if (invoice != null) {
-            if (invoice['trip_distance_km'] != null) {
-              lines.add('Jarak: ${double.tryParse(invoice['trip_distance_km'].toString())?.toStringAsFixed(1) ?? '-'} km');
-            }
-            lines.add('Tarif dasar: Rp ${NumberFormatRp((invoice['base_fare'] ?? 0).round())}');
-            lines.add('Biaya perjalanan: Rp ${NumberFormatRp((invoice['trip_cost'] ?? 0).round())}');
-            if ((invoice['admin_commission'] ?? 0) > 0) {
-              lines.add('${invoice['admin_commission_label']}: Rp ${NumberFormatRp((invoice['admin_commission']).round())}');
-            }
-            lines.add('TOTAL: Rp ${NumberFormatRp((invoice['total'] ?? 0).round())}');
-          } else {
-            lines.add('Ongkos kirim: Rp ${NumberFormatRp((data['data']?['delivery_fee'] ?? _estimatedFee ?? 0).round())}');
-            lines.add('Jarak: ${_distanceKm?.toStringAsFixed(1) ?? '-'} km');
-          }
-          _successOrder = lines.join('\n');
+          _successOrder =
+              'Pesanan dikirim! Nomor: ${data['data']?['order_number'] ?? '-'}\nOngkos kirim: Rp ${NumberFormatRp(data['data']?['delivery_fee'] ?? _estimatedFee)}\nJarak: ${_distanceKm!.toStringAsFixed(1)} km';
         });
       } else {
         setState(() {
@@ -564,7 +514,7 @@ class _KirimPageState extends State<KirimPage> {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.location_searching),
+                    : const Icon(Icons.search_location),
                 label: Text(_geocoding ? 'Mencari lokasi...' : 'Cari Lokasi & Hitung Ongkos'),
               ),
             ),
@@ -595,7 +545,7 @@ class _KirimPageState extends State<KirimPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Ongkos kirim (Rp ${NumberFormatRp(_baseFare)} + Rp ${NumberFormatRp(_costPerKm.round())}/km)'),
+                          Text('Ongkos kirim (Rp 10.000 + Rp 2.500/km)'),
                           Text('Rp ${NumberFormatRp(_estimatedFee!)}',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
