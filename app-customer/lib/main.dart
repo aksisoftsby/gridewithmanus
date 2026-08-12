@@ -36,7 +36,7 @@ class _CustomerHomeState extends State<CustomerHome> {
   bool isLoading = true;
   String selectedType = '';
 
-  final String baseUrl = 'http://10.0.2.2:8000/api'; 
+  final String baseUrl = 'https://gride.web.id/api'; 
 
   @override
   void initState() {

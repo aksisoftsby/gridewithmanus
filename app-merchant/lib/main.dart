@@ -33,7 +33,7 @@ class MerchantHome extends StatefulWidget {
 class _MerchantHomeState extends State<MerchantHome> {
   List merchants = [];
   bool isLoading = true;
-  final String baseUrl = 'http://10.0.2.2:8000/api';
+  final String baseUrl = 'https://gride.web.id/api';
 
   @override
   void initState() {
