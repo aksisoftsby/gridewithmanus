@@ -1,5 +1,4 @@
-package com.example.app_driver
-
+package com.gride.driver
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
