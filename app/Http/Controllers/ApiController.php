@@ -348,10 +348,24 @@ class ApiController extends Controller
             'delivery_address' => 'nullable|string',
             'delivery_fee' => 'nullable|numeric|min:0',
             'note' => 'nullable|string',
+            'items' => 'nullable|array',
+            'items.*.product_id' => 'nullable|integer',
+            'items.*.name' => 'nullable|string',
+            'items.*.qty' => 'nullable|integer|min:1',
+            'items.*.price' => 'nullable|numeric|min:0',
         ]);
 
         $orderType = $validated['order_type'];
+        // Hitung subtotal dari items bila dikirim oleh aplikasi Flutter
+        $items = $validated['items'] ?? null;
         $subtotal = $request->input('subtotal') ?? 0;
+        if ($items && is_array($items) && count($items) > 0) {
+            $subtotal = 0;
+            foreach ($items as $it) {
+                $subtotal += ((float) ($it['price'] ?? 0)) * ((int) ($it['qty'] ?? 1));
+            }
+            $subtotal = round($subtotal, 0);
+        }
         $deliveryFee = $validated['delivery_fee'] ?? 0;
 
         // Snapshot tarif & komisi pada saat order dibuat
@@ -418,6 +432,24 @@ class ApiController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        // Simpan item pesanan bila ada (FOOD/MART/SHOP)
+        if ($items && is_array($items) && count($items) > 0 && DB::getSchemaBuilder()->hasTable('order_items')) {
+            foreach ($items as $it) {
+                $qty = max(1, (int) ($it['qty'] ?? 1));
+                $unitPrice = (float) ($it['price'] ?? 0);
+                DB::table('order_items')->insert([
+                    'order_id' => $id,
+                    'menu_item_id' => $it['product_id'] ?? $it['menu_item_id'] ?? 0,
+                    'quantity' => $qty,
+                    'unit_price' => $unitPrice,
+                    'subtotal' => $qty * $unitPrice,
+                    'notes' => $it['name'] ?? null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
 
         $order = DB::table('orders')->where('id', $id)->first();
         $order->invoice = $this->buildInvoiceBreakdown($order);
