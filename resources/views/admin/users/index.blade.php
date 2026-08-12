@@ -1,0 +1,67 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">User Management</h1>
+            <p class="text-sm text-gray-500">Manage all registered customers, drivers, merchants, and admins.</p>
+        </div>
+        <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold">&larr; Back to Dashboard</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-50 text-gray-600 text-xs font-semibold uppercase border-b">
+                    <th class="px-6 py-3">ID</th>
+                    <th class="px-6 py-3">Full Name</th>
+                    <th class="px-6 py-3">Email</th>
+                    <th class="px-6 py-3">Phone</th>
+                    <th class="px-6 py-3">Role</th>
+                    <th class="px-6 py-3">Status</th>
+                    <th class="px-6 py-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 text-sm">
+                @foreach($users as $user)
+                    <tr>
+                        <td class="px-6 py-4 font-mono text-gray-500">#{{ $user->id }}</td>
+                        <td class="px-6 py-4 font-semibold text-gray-900">{{ $user->full_name }}</td>
+                        <td class="px-6 py-4 text-gray-600">{{ $user->email }}</td>
+                        <td class="px-6 py-4 text-gray-600">{{ $user->phone ?? '-' }}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
+                                @if($user->role == 'ADMIN') bg-purple-100 text-purple-800 
+                                @elseif($user->role == 'MERCHANT') bg-blue-100 text-blue-800 
+                                @elseif($user->role == 'DRIVER') bg-yellow-100 text-yellow-800 
+                                @else bg-gray-100 text-gray-800 @endif">
+                                {{ $user->role }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                                {{ $user->status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            @if($user->id !== auth()->id())
+                                <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-800 font-medium text-xs">Delete</button>
+                                </form>
+                            @else
+                                <span class="text-gray-400 text-xs">Current User</span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+        <div class="p-4 border-t border-gray-100">
+            {{ $users->links() }}
+        </div>
+    </div>
+</div>
+@endsection
