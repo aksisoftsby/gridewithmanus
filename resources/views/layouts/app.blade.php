@@ -21,9 +21,15 @@
                 <div class="flex items-center space-x-6">
                     <a href="{{ route('home') }}" class="hover:text-yellow-200 font-medium">Beranda</a>
                     @auth
+                        @php
+                            $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
+                        @endphp
                         @if(Auth::user()->role === 'ADMIN')
                             <a href="{{ route('admin.dashboard') }}" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold transition">
                                 <i class="fa-solid fa-gauge mr-1"></i> Admin Panel
+                            </a>
+                            <a href="{{ route('admin.api.docs') }}" class="hover:text-yellow-200 text-sm font-medium {{ str_starts_with($currentRoute ?? '', 'admin.api') ? 'text-yellow-300' : '' }}">
+                                <i class="fa-solid fa-book mr-1"></i> API Docs
                             </a>
                             <form action="{{ route('admin.logout') }}" method="POST" class="inline">
                                 @csrf
