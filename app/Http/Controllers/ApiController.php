@@ -419,9 +419,11 @@ class ApiController extends Controller
             'updated_at' => now(),
         ]);
 
+        $order = DB::table('orders')->where('id', $id)->first();
+        $order->invoice = $this->buildInvoiceBreakdown($order);
         return response()->json([
             'status' => 'success',
-            'data' => DB::table('orders')->where('id', $id)->first()
+            'data' => $order
         ], 201);
     }
 
