@@ -454,12 +454,231 @@ class ApiController extends Controller
             }
         }
 
+        // Auto-assign driver untuk pesanan antar-jemput/kirim
+        $assignedDriverId = null;
+        if (in_array($orderType, ['RIDE', 'DELIVERY']) && DB::getSchemaBuilder()->hasTable('drivers')) {
+            $assigned = DB::table('drivers')
+                ->where('status', 'ONLINE')
+                ->orderBy('id')
+                ->first();
+            if ($assigned) {
+                $assignedDriverId = $assigned->id;
+                DB::table('orders')->where('id', $id)->update([
+                    'driver_id' => $assignedDriverId,
+                    'status' => 'ASSIGNED',
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
         $order = DB::table('orders')->where('id', $id)->first();
         $order->invoice = $this->buildInvoiceBreakdown($order);
         return response()->json([
             'status' => 'success',
             'data' => $order
         ], 201);
+    }
+
+    /**
+     * Register a new driver account. Creates user (role DRIVER), drivers profile,
+     * driver wallet (balance 0) and optional vehicle row.
+     * POST /api/register-driver { full_name, email, phone?, password, vehicle_type?, plate_number? }
+     */
+    public function registerDriver(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name' => 'required|string|min:2|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
+            'password' => 'required|string|min:6',
+            'vehicle_type' => 'nullable|string|in:MOTOR,MOBIL',
+            'plate_number' => 'nullable|string|max:20',
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        if (DB::table('users')->where('email', $email)->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email sudah terdaftar. Silakan login.',
+            ], 409);
+        }
+
+        $phone = trim($validated['phone'] ?? '');
+        if ($phone === '') {
+            $phone = preg_replace('/[^0-9]/', '', $email);
+            if (strlen($phone) > 20) $phone = substr($phone, 0, 20);
+        }
+        if (DB::table('users')->where('phone', $phone)->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor HP sudah terdaftar.',
+            ], 409);
+        }
+
+        $userId = DB::table('users')->insertGetId([
+            'full_name' => $validated['full_name'],
+            'name' => explode(' ', trim($validated['full_name']))[0],
+            'email' => $email,
+            'phone' => $phone,
+            'password' => \Hash::make($validated['password']),
+            'role' => 'DRIVER',
+            'status' => 'ACTIVE',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $driverId = DB::table('drivers')->insertGetId([
+            'user_id' => $userId,
+            'status' => 'OFFLINE',
+            'is_verified' => true,
+            'rating' => 5.00,
+            'total_trips' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if (DB::getSchemaBuilder()->hasTable('driver_wallets')) {
+            DB::table('driver_wallets')->insert([
+                'driver_id' => $driverId,
+                'balance' => 0,
+                'pending_balance' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $vehicleType = $validated['vehicle_type'] ?? 'MOTOR';
+        if (!empty($validated['plate_number'])) {
+            if (DB::getSchemaBuilder()->hasTable('driver_vehicles')) {
+                DB::table('driver_vehicles')->insert([
+                    'driver_id' => $driverId,
+                    'vehicle_type' => $vehicleType,
+                    'plate_number' => strtoupper(trim($validated['plate_number'])),
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun driver berhasil dibuat. Silakan login.',
+            'data' => [
+                'id' => $userId,
+                'full_name' => $validated['full_name'],
+                'email' => $email,
+                'phone' => $phone,
+                'role' => 'DRIVER',
+                'driver_id' => $driverId,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Driver profile + wallet balance.
+     * GET /api/driver/me?user_id=
+     */
+    public function driverMe(Request $request)
+    {
+        $userId = (int) $request->query('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
+        }
+        $user = DB::table('users')->where('id', $userId)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan.'], 404);
+        }
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        $wallet = ['balance' => 0, 'pending_balance' => 0];
+        if ($driver && DB::getSchemaBuilder()->hasTable('driver_wallets')) {
+            $w = DB::table('driver_wallets')->where('driver_id', $driver->id)->first();
+            if ($w) {
+                $wallet = ['balance' => (float) $w->balance, 'pending_balance' => (float) $w->pending_balance];
+            }
+        }
+        $vehicle = null;
+        if ($driver && DB::getSchemaBuilder()->hasTable('driver_vehicles')) {
+            $vehicle = DB::table('driver_vehicles')
+                ->where('driver_id', $driver->id)
+                ->where('is_active', true)
+                ->first();
+        }
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $user->id,
+                'full_name' => $user->full_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+                'rating' => $driver ? (float) $driver->rating : null,
+                'total_trips' => $driver ? (int) $driver->total_trips : 0,
+                'driver_status' => $driver ? $driver->status : null,
+                'wallet' => $wallet,
+                'vehicle' => $vehicle ? [
+                    'vehicle_type' => $vehicle->vehicle_type,
+                    'brand' => $vehicle->brand,
+                    'model' => $vehicle->model,
+                    'plate_number' => $vehicle->plate_number,
+                ] : null,
+            ],
+        ]);
+    }
+
+    /**
+     * Riwayat pemasukan driver + total saldo.
+     * GET /api/driver/earnings?user_id=
+     * driver_net = delivery_fee - komisi admin (untuk RIDE/DELIVERY);
+     * status COMPLETED = sudah cair, selainnya = pending.
+     */
+    public function driverEarnings(Request $request)
+    {
+        $userId = (int) $request->query('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
+        }
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $orders = DB::table('orders')
+            ->where('driver_id', $driver->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
+
+        $earned = 0.0;
+        $pending = 0.0;
+        $history = [];
+        foreach ($orders as $o) {
+            $net = (float) (($o->delivery_fee ?? 0) - ($o->admin_commission_snapshot ?? 0));
+            if ($net < 0) $net = 0;
+            if (strtoupper((string) ($o->status ?? '')) === 'COMPLETED') {
+                $earned += $net;
+            } else {
+                $pending += $net;
+            }
+            $history[] = [
+                'order_number' => $o->order_number,
+                'order_type' => $o->order_type,
+                'status' => $o->status,
+                'pickup_address' => $o->pickup_address,
+                'dropoff_address' => $o->dropoff_address,
+                'driver_net' => round($net, 0),
+                'created_at' => $o->created_at,
+            ];
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'driver_id' => $driver->id,
+                'total_earned' => round($earned, 0),
+                'total_pending' => round($pending, 0),
+                'history' => $history,
+            ],
+        ]);
     }
 
     /**

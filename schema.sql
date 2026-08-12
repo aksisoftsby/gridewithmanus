@@ -1,4 +1,31 @@
 -- ============================================================================
+-- MIGRASI TAMBAHAN (2026-08-12)
+-- Tabel driver_wallets & driver_vehicles belum ada di production PostgreSQL.
+-- Karena production menggunakan BIGINT (auto-increment) untuk kolom id,
+-- tabel baru dibuat dengan BIGSERIAL agar cocok dengan FK production:
+--   CREATE TABLE IF NOT EXISTS driver_wallets (
+--     id BIGSERIAL PRIMARY KEY,
+--     driver_id BIGINT UNIQUE NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+--     balance DECIMAL(15,2) DEFAULT 0,
+--     pending_balance DECIMAL(15,2) DEFAULT 0,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+--   );
+--   CREATE TABLE IF NOT EXISTS driver_vehicles (
+--     id BIGSERIAL PRIMARY KEY,
+--     driver_id BIGINT NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+--     vehicle_type VARCHAR(20) DEFAULT 'MOTOR',
+--     brand VARCHAR(100),
+--     model VARCHAR(100),
+--     plate_number VARCHAR(20),
+--     is_active BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+--   );
+-- API baru: POST /api/register-driver, GET /api/driver/me, GET /api/driver/earnings
+-- ============================================================================
+
+-- ============================================================================
 -- SUPER APP DATABASE SCHEMA (Grab-Like SuperApp Ecosystem)
 -- Project     : Laravel SuperApp (Customer, Driver, Merchant, Admin)
 -- Framework   : Laravel 10 / 11
