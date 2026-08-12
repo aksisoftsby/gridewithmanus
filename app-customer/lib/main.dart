@@ -95,6 +95,26 @@ class _MainShellState extends State<MainShell> {
 String formatRp(int value) =>
     'Rp ${value.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
 
+/// Helper to perform HTTP GET with auto-retry up to 3 times on failure.
+Future<http.Response> httpGetWithRetry(String url, {int maxRetries = 3}) async {
+  int attempt = 0;
+  while (true) {
+    attempt++;
+    try {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      // Consider 5xx errors as server drop/temporary failure that warrants retry.
+      if (response.statusCode >= 500 && attempt < maxRetries) {
+        await Future.delayed(Duration(seconds: 1 * attempt)); // Exponential backoff-ish
+        continue;
+      }
+      return response;
+    } catch (e) {
+      if (attempt >= maxRetries) rethrow;
+      await Future.delayed(Duration(seconds: 1 * attempt));
+    }
+  }
+}
+
 /// Home: promo, merchant list (FOOD/MART/SHOP), search & filter, resilient
 /// against partial API failures (shows error card + retry button).
 class CustomerHome extends StatefulWidget {
@@ -126,7 +146,7 @@ class _CustomerHomeState extends State<CustomerHome> {
 
   Future<void> fetchNews() async {
     try {
-      final res = await http.get(Uri.parse('$kApiBase/news?limit=5'));
+      final res = await httpGetWithRetry('$kApiBase/news?limit=5');
       if (res.statusCode == 200) {
         final list = (jsonDecode(res.body)['data'] as List).cast<Map<String, dynamic>>();
         if (mounted) {
@@ -174,7 +194,7 @@ class _CustomerHomeState extends State<CustomerHome> {
         : '$kApiBase/merchants?type=$selectedType';
 
     // Fetch promos independently of merchants so one failure never blanks the page.
-    http.get(Uri.parse('$kApiBase/promos')).then((pRes) {
+    httpGetWithRetry('$kApiBase/promos').then((pRes) {
       if (pRes.statusCode == 200) {
         setState(() => promos = jsonDecode(pRes.body)['data']);
       } else {
@@ -185,7 +205,7 @@ class _CustomerHomeState extends State<CustomerHome> {
     });
 
     try {
-      final mRes = await http.get(Uri.parse(merchantUrl));
+      final mRes = await httpGetWithRetry(merchantUrl);
       if (mRes.statusCode == 200) {
         var list = (jsonDecode(mRes.body)['data'] as List).cast<Map<String, dynamic>>();
         if (search.isNotEmpty) {
