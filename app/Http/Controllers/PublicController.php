@@ -60,6 +60,11 @@ class PublicController extends Controller
         return view('public.merchant', compact('merchant', 'menuItems'));
     }
 
+    public function proposal()
+    {
+        return view('public.proposal');
+    }
+
     public function newsDetail($slug)
     {
         if (!DB::getSchemaBuilder()->hasTable('news')) {
