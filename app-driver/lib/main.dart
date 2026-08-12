@@ -12,9 +12,9 @@ class DriverApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SuperApp Driver',
+      title: 'Gride Driver',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.amber),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
       home: const DriverHome(),
@@ -56,12 +56,60 @@ class _DriverHomeState extends State<DriverHome> {
     }
   }
 
+  /// Invoice breakdown sesuai jenis pesanan. Driver hanya melihat komponen
+  /// yang menjadi bagiannya: biaya perjalanan dan pendapatannya.
+  List<Widget> _invoiceRows(Map<String, dynamic> invoice, Map<String, dynamic> order) {
+    final rows = <Widget>[];
+    final t = invoice['order_type'] ?? '';
+    if (t == 'RIDE' || t == 'DELIVERY') {
+      if (invoice['trip_distance_km'] != null) {
+        rows.add(_row('Jarak', '${double.tryParse(invoice['trip_distance_km'].toString())?.toStringAsFixed(1) ?? '-'} km'));
+      }
+      rows.add(_row('Tarif dasar', 'Rp ${NumberFormatRp((invoice['base_fare'] ?? 0).round())}'));
+      if ((invoice['trip_cost'] ?? 0) > 0) {
+        rows.add(_row(invoice['trip_cost_label'] ?? 'Biaya perjalanan', 'Rp ${NumberFormatRp((invoice['trip_cost'] ?? 0).round())}'));
+      }
+      if ((invoice['admin_commission'] ?? 0) > 0) {
+        rows.add(_row(invoice['admin_commission_label'] ?? 'Potongan admin',
+            '- Rp ${NumberFormatRp((invoice['admin_commission']).round())}',
+            negative: true));
+      }
+      rows.add(_row(invoice['driver_net_label'] ?? 'Pendapatan Driver',
+          'Rp ${NumberFormatRp((invoice['driver_net'] ?? 0).round())}',
+          bold: true));
+    } else {
+      rows.add(_row('Subtotal', 'Rp ${NumberFormatRp((invoice['subtotal'] ?? 0).round())}'));
+      if ((invoice['delivery_fee'] ?? 0) > 0) {
+        rows.add(_row('Ongkos kirim', 'Rp ${NumberFormatRp((invoice['delivery_fee'] ?? 0).round())}'));
+      }
+      rows.add(_row('Total pesanan', 'Rp ${NumberFormatRp((invoice['total'] ?? 0).round())}'));
+    }
+    return rows;
+  }
+
+  Widget _row(String label, String value, {bool bold = false, bool negative = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+          Text(value, style: TextStyle(
+            fontSize: 13,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+            color: negative ? Colors.red[700] : (bold ? Colors.teal[800] : Colors.black87),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SuperApp Driver Dashboard'),
-        backgroundColor: Colors.amber[800],
+        title: const Text('Gride Driver'),
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
       body: isLoading
@@ -74,16 +122,16 @@ class _DriverHomeState extends State<DriverHome> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.amber[50],
+                      color: Colors.teal.shade50,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.amber),
+                      border: Border.all(color: Colors.teal),
                     ),
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Status Driver: ONLINE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown)),
+                        Text('Status Driver: ONLINE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
                         SizedBox(height: 8),
-                        Text('Siap menerima pesanan pengantaran makanan dan kurir instan di sekitar Anda.', style: TextStyle(fontSize: 13, color: Colors.black87)),
+                        Text('Siap menerima pesanan pengantaran dan antar-jemput di sekitar Anda.', style: TextStyle(fontSize: 13, color: Colors.black87)),
                       ],
                     ),
                   ),
@@ -96,6 +144,7 @@ class _DriverHomeState extends State<DriverHome> {
                     itemCount: orders.length,
                     itemBuilder: (context, index) {
                       final order = orders[index];
+                      final invoice = Map<String, dynamic>.from(order['invoice'] ?? {});
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -107,18 +156,30 @@ class _DriverHomeState extends State<DriverHome> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(order['order_number'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(order['order_number'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   Chip(
-                                    label: Text(order['status'], style: const TextStyle(fontSize: 11)),
-                                    backgroundColor: Colors.amber[100],
+                                    label: Text(order['status'] ?? '', style: const TextStyle(fontSize: 11)),
+                                    backgroundColor: Colors.teal.shade100,
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text('Customer: ${order['customer_name']}'),
-                              Text('Merchant: ${order['merchant_name']}'),
+                              if ((order['customer_name'] ?? '') != '') Text('Customer: ${order['customer_name']}'),
+                              if ((order['merchant_name'] ?? '') != '') Text('Merchant: ${order['merchant_name']}'),
+                              if ((order['pickup_address'] ?? '') != '') Text('Jemput: ${order['pickup_address']}'),
+                              if ((order['dropoff_address'] ?? '') != '') Text('Tujuan: ${order['dropoff_address']}'),
                               const SizedBox(height: 8),
-                              Text('Total: Rp ${order['total_amount']}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: _invoiceRows(invoice, order),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -131,3 +192,8 @@ class _DriverHomeState extends State<DriverHome> {
     );
   }
 }
+
+String NumberFormatRp(int value) => value.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );

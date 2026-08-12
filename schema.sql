@@ -493,12 +493,12 @@ CREATE TABLE payment_methods (
 );
 
 -- ----------------------------------------------------------------------------
--- ORDERS (Header Pesanan Layanan: FOOD, MART, SHOP, DELIVERY)
+-- ORDERS (Header Pesanan Layanan: FOOD, MART, SHOP, DELIVERY, RIDE)
 -- ----------------------------------------------------------------------------
 CREATE TABLE orders (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_number         VARCHAR(50) UNIQUE NOT NULL,
-    order_type           VARCHAR(20) NOT NULL, -- FOOD, MART, SHOP, DELIVERY
+    order_type           VARCHAR(20) NOT NULL, -- FOOD, MART, SHOP, DELIVERY, RIDE
     status               VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
     customer_id          UUID NOT NULL REFERENCES users(id),
     merchant_id          UUID REFERENCES merchants(id),
@@ -531,6 +531,12 @@ CREATE TABLE orders (
     cancel_reason        TEXT,
     cancelled_by         UUID,
     rating               DECIMAL(3,2),
+    -- Round 3: snapshot tarif & komisi saat transaksi (perubahan settings tidak mempengaruhi transaksi lama)
+    ride_distance_km           DECIMAL(10,2) DEFAULT NULL, -- Jarak tempuh RIDE/DELIVERY saat order dibuat
+    cost_per_km_snapshot       DECIMAL(10,2) DEFAULT NULL, -- Biaya per KM yang berlaku saat order dibuat
+    admin_commission_snapshot  DECIMAL(12,2) DEFAULT NULL, -- Potongan admin yang berlaku saat order dibuat
+    merchant_commission_snapshot   DECIMAL(12,2) DEFAULT NULL, -- Komisi merchant yang berlaku saat order dibuat
+    merchant_commission_pct_snapshot DECIMAL(5,2) DEFAULT NULL, -- Persen komisi merchant saat order dibuat
     created_at           TIMESTAMPTZ DEFAULT NOW(),
     updated_at           TIMESTAMPTZ DEFAULT NOW()
 );
@@ -883,6 +889,25 @@ CREATE TABLE app_settings (
     created_at  TIMESTAMPTZ DEFAULT NOW(),
     updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Round 3: kunci tarif & komisi yang dikelola admin di halaman /admin/settings
+-- Nilai disimpan sebagai angka murni (tanpa prefix "Rp") agar bisa dihitung backend.
+-- Nilai ini di-snapshot ke kolom snapshot pada tabel orders saat transaksi dibuat,
+-- sehingga perubahan settings TIDAK mempengaruhi transaksi lama.
+--
+-- ride_cost_per_km              = Biaya per KM untuk RIDE/DELIVERY (default 5000)
+-- ride_base_fare                = Tarif dasar RIDE (default 10000)
+-- food_commission_pct           = Persen komisi merchant/resto FOOD (default 20)
+-- shop_commission_pct           = Persen komisi merchant TOKO (default 20)
+-- admin_ride_commission_enabled = ON/OFF potongan admin untuk RIDE
+-- admin_ride_commission_amount  = Nominal potongan admin RIDE (default 2000)
+-- admin_food_commission_enabled = ON/OFF potongan admin untuk FOOD
+-- admin_food_commission_amount  = Nominal potongan admin FOOD (default 3000)
+-- admin_shop_commission_enabled = ON/OFF potongan admin untuk TOKO
+-- admin_shop_commission_amount  = Nominal potongan admin TOKO (default 5000)
+-- apk_download_url_customer     = URL publik APK Customer (default https://gride.web.id/apk/customer.apk)
+-- apk_download_url_driver       = URL publik APK Driver  (default https://gride.web.id/apk/driver.apk)
+-- apk_download_url_merchant     = URL publik APK Merchant (default https://gride.web.id/apk/merchant.apk)
 
 -- ----------------------------------------------------------------------------
 -- AUDIT LOGS (Log aktivitas & keamanan sistem admin)

@@ -89,9 +89,17 @@ class ApiController extends Controller
             $query->where('status', $status);
         }
 
+        $orders = $query->orderBy('created_at', 'desc')->limit(100)->get();
+
+        // Lampirkan invoice breakdown pada setiap order agar semua
+        // aplikasi (customer/driver/merchant) bisa menampilkan komponen biaya.
+        foreach ($orders as $order) {
+            $order->invoice = $this->buildInvoiceBreakdown($order);
+        }
+
         return response()->json([
             'status' => 'success',
-            'data' => $query->orderBy('created_at', 'desc')->limit(100)->get()
+            'data' => $orders
         ]);
     }
 
@@ -202,14 +210,133 @@ class ApiController extends Controller
     }
 
     /**
-     * Create a new order. Supports DELIVERY (GPS antar-jemput) orders.
+     * Read a tariff/commission setting value from app_settings.
+     * Returns string|null.
+     */
+    private function getSetting(string $key): ?string
+    {
+        if (!DB::getSchemaBuilder()->hasTable('app_settings')) {
+            return null;
+        }
+        return DB::table('app_settings')->where('setting_key', $key)->value('setting_value');
+    }
+
+    private function getSettingFloat(string $key, float $fallback = 0.0): float
+    {
+        $v = $this->getSetting($key);
+        if ($v === null || $v === '') {
+            return $fallback;
+        }
+        $num = (float) preg_replace('/[^0-9.]/', '', $v);
+        return is_finite($num) ? $num : $fallback;
+    }
+
+    private function getSettingBool(string $key): bool
+    {
+        return strtolower((string) $this->getSetting($key)) === 'on';
+    }
+
+    /**
+     * Bangun invoice breakdown dari snapshot kolom pada order.
+     */
+    private function buildInvoiceBreakdown($order): array
+    {
+        $type = $order->order_type ?? '';
+        $invoice = [
+            'order_type' => $type,
+            'subtotal' => (float) ($order->subtotal ?? 0),
+            'subtotal_label' => match ($type) {
+                'FOOD', 'MART' => 'Total Makanan',
+                'SHOP' => 'Total Belanja',
+                default => 'Subtotal',
+            },
+        ];
+
+        $distanceKm = (float) ($order->ride_distance_km ?? 0);
+        $costPerKm = (float) ($order->cost_per_km_snapshot ?? 0);
+        $tripCost = $distanceKm > 0 && $costPerKm > 0 ? round($distanceKm * $costPerKm, 0) : 0;
+        $deliveryFee = (float) ($order->delivery_fee ?? 0);
+
+        if (in_array($type, ['RIDE', 'DELIVERY'])) {
+            $invoice['trip_distance_km'] = $distanceKm;
+            $invoice['base_fare'] = round(max($deliveryFee - $tripCost, 0), 0);
+            $invoice['trip_cost'] = $tripCost;
+            $invoice['trip_cost_label'] = $distanceKm > 0 ? 'Biaya Perjalanan (' . $distanceKm . ' km × Rp ' . number_format($costPerKm, 0, ',', '.') . ')' : 'Tarif Dasar';
+        } else {
+            $invoice['delivery_fee'] = $deliveryFee;
+        }
+
+        $merchantCommission = (float) ($order->merchant_commission_snapshot ?? 0);
+        $merchantPct = (float) ($order->merchant_commission_pct_snapshot ?? 0);
+        $adminCommission = (float) ($order->admin_commission_snapshot ?? 0);
+        $adminLabel = match ($type) {
+            'RIDE', 'DELIVERY' => 'Potongan Komisi Admin Ride',
+            'FOOD', 'MART' => 'Potongan Komisi Admin Food',
+            'SHOP' => 'Potongan Komisi Admin Toko',
+            default => 'Potongan Komisi Admin',
+        };
+
+        $invoice['merchant_commission'] = $merchantCommission;
+        if ($merchantCommission > 0) {
+            $invoice['merchant_commission_label'] = 'Komisi Food/Restro (' . rtrim(rtrim((string) $merchantPct, '0'), '.') . '%)';
+        }
+        $invoice['admin_commission'] = $adminCommission;
+        $invoice['admin_commission_label'] = $adminLabel;
+
+        $total = $deliveryFee + ($order->subtotal ?? 0) + $adminCommission - (float) ($order->discount_amount ?? 0);
+        $invoice['total'] = $total;
+
+        if ($merchantCommission > 0) {
+            $invoice['merchant_net'] = max(($order->subtotal ?? 0) - $merchantCommission, 0);
+            $invoice['merchant_net_label'] = 'Pendapatan Bersih Resto';
+        }
+        if (in_array($type, ['RIDE', 'DELIVERY']) && $deliveryFee > 0 && $adminCommission >= 0) {
+            $invoice['driver_net'] = $deliveryFee - $adminCommission;
+            $invoice['driver_net_label'] = 'Pendapatan Driver';
+        }
+
+        return $invoice;
+    }
+
+    /**
+     * GET /api/settings — public, read-only tarif & komisi untuk aplikasi Flutter.
+     */
+    public function settings(Request $request)
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'ride_cost_per_km' => $this->getSetting('ride_cost_per_km') ?? '5000',
+                'ride_base_fare' => $this->getSetting('ride_base_fare') ?? '10000',
+                'food_commission_pct' => $this->getSetting('food_commission_pct') ?? '20',
+                'admin_ride_commission_enabled' => $this->getSetting('admin_ride_commission_enabled') ?? 'OFF',
+                'admin_ride_commission_amount' => $this->getSetting('admin_ride_commission_amount') ?? '0',
+                'admin_food_commission_enabled' => $this->getSetting('admin_food_commission_enabled') ?? 'OFF',
+                'admin_food_commission_amount' => $this->getSetting('admin_food_commission_amount') ?? '0',
+                'admin_shop_commission_enabled' => $this->getSetting('admin_shop_commission_enabled') ?? 'OFF',
+                'admin_shop_commission_amount' => $this->getSetting('admin_shop_commission_amount') ?? '0',
+                'apk_urls' => [
+                    'customer' => 'https://gride.web.id/apk/customer.apk',
+                    'driver' => 'https://gride.web.id/apk/driver.apk',
+                    'merchant' => 'https://gride.web.id/apk/merchant.apk',
+                ],
+            ]
+        ]);
+    }
+
+    /**
+     * Create a new order. Supports RIDE/DELIVERY (antar-jemput GPS) and
+     * FOOD/MART/SHOP orders. All tariff & commission values are computed
+     * from settings AT ORDER TIME and snapshot-ed on the order row, so later
+     * settings changes never affect old transactions.
+     *
      * POST /api/orders { order_type, user_id, pickup_address, pickup_lat, pickup_lng,
-     *  dropoff_address, dropoff_lat, dropoff_lng, delivery_fee, note? }
+     *  dropoff_address, dropoff_lat, dropoff_lng, subtotal?, delivery_fee?, note? }
      */
     public function ordersStore(Request $request)
     {
         $validated = $request->validate([
-            'order_type' => 'required|string|in:FOOD,MART,SHOP,DELIVERY',
+            'order_type' => 'required|string|in:FOOD,MART,SHOP,DELIVERY,RIDE',
             'user_id' => 'required|integer|exists:users,id',
             'merchant_id' => 'nullable|integer|exists:merchants,id',
             'pickup_address' => 'nullable|string',
@@ -224,16 +351,40 @@ class ApiController extends Controller
         ]);
 
         $orderType = $validated['order_type'];
-        $subtotal = 0;
-        $deliveryFee = $validated['delivery_fee'] ?? 10000;
+        $subtotal = $request->input('subtotal') ?? 0;
+        $deliveryFee = $validated['delivery_fee'] ?? 0;
 
-        // For DELIVERY orders, compute distance-based fee if GPS provided
-        if ($orderType === 'DELIVERY' && isset($validated['pickup_lat'], $validated['dropoff_lat'])) {
-            $km = $this->haversineKm(
+        // Snapshot tarif & komisi pada saat order dibuat
+        $costPerKm = $this->getSettingFloat('ride_cost_per_km', 5000);
+        $baseFare = $this->getSettingFloat('ride_base_fare', 10000);
+        $foodCommissionPct = $this->getSettingFloat('food_commission_pct', 20);
+
+        $distanceKm = null;
+        $adminCommission = 0;
+        $merchantCommission = 0;
+        $merchantCommissionPct = 0;
+
+        // Ride / antar-jemput: biaya = base fare + biaya per KM x jarak
+        if (in_array($orderType, ['RIDE', 'DELIVERY']) && isset($validated['pickup_lat'], $validated['dropoff_lat'])) {
+            $distanceKm = round($this->haversineKm(
                 (float) $validated['pickup_lat'], (float) $validated['pickup_lng'],
                 (float) $validated['dropoff_lat'], (float) $validated['dropoff_lng']
-            );
-            $deliveryFee = round(10000 + ($km * 2500), -2); // Rp 10.000 base + Rp 2.500/km
+            ), 2);
+            $deliveryFee = round($baseFare + ($distanceKm * $costPerKm), -2);
+            if ($this->getSettingBool('admin_ride_commission_enabled')) {
+                $adminCommission = $this->getSettingFloat('admin_ride_commission_amount', 0);
+            }
+        } elseif (in_array($orderType, ['FOOD', 'MART'])) {
+            // Komisi Food/Restro % (dari subtotal makanan)
+            $merchantCommission = round($subtotal * ($foodCommissionPct / 100), 0);
+            $merchantCommissionPct = $foodCommissionPct;
+            if ($this->getSettingBool('admin_food_commission_enabled')) {
+                $adminCommission = $this->getSettingFloat('admin_food_commission_amount', 0);
+            }
+        } elseif ($orderType === 'SHOP') {
+            if ($this->getSettingBool('admin_shop_commission_enabled')) {
+                $adminCommission = $this->getSettingFloat('admin_shop_commission_amount', 0);
+            }
         }
 
         $count = DB::table('orders')->count();
@@ -257,7 +408,12 @@ class ApiController extends Controller
             'subtotal' => $subtotal,
             'delivery_fee' => $deliveryFee,
             'discount_amount' => 0,
-            'total_amount' => $subtotal + $deliveryFee,
+            'total_amount' => $subtotal + $deliveryFee + $adminCommission,
+            'ride_distance_km' => $distanceKm,
+            'cost_per_km_snapshot' => in_array($orderType, ['RIDE', 'DELIVERY']) ? $costPerKm : null,
+            'admin_commission_snapshot' => $adminCommission,
+            'merchant_commission_snapshot' => $merchantCommission,
+            'merchant_commission_pct_snapshot' => $merchantCommissionPct,
             'note' => $validated['note'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),

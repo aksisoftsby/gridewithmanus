@@ -92,6 +92,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // Settings (GitHub APK artifact download links)
     Route::get('/settings', [AdminController::class, 'settingsIndex'])->name('settings.index');
+    Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
     Route::post('/settings/refresh-links', [AdminController::class, 'settingsRefreshLinks'])->name('settings.refresh-links');
 
     // API documentation (admin-only, removed from public)

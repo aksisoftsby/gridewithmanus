@@ -772,7 +772,89 @@ class AdminController extends Controller
         }
         $trialEnds = '2026-12-31';
         $trialActive = now()->lte(\Carbon\Carbon::parse($trialEnds));
-        return view('admin.settings.index', compact('links', 'trialEnds', 'trialActive'));
+        $s = function (string $key, string $default = ''): string {
+            if (!DB::getSchemaBuilder()->hasTable('app_settings')) {
+                return $default;
+            }
+            return DB::table('app_settings')->where('setting_key', $key)->value('setting_value') ?? $default;
+        };
+        $settings = [
+            'ride_cost_per_km' => $s('ride_cost_per_km', '5000'),
+            'ride_base_fare' => $s('ride_base_fare', '10000'),
+            'food_commission_pct' => $s('food_commission_pct', '20'),
+            'admin_ride_commission_enabled' => $s('admin_ride_commission_enabled', 'OFF'),
+            'admin_ride_commission_amount' => $s('admin_ride_commission_amount', '2000'),
+            'admin_food_commission_enabled' => $s('admin_food_commission_enabled', 'OFF'),
+            'admin_food_commission_amount' => $s('admin_food_commission_amount', '3000'),
+            'admin_shop_commission_enabled' => $s('admin_shop_commission_enabled', 'OFF'),
+            'admin_shop_commission_amount' => $s('admin_shop_commission_amount', '5000'),
+            'apk_download_url_customer' => $s('apk_download_url_customer', 'https://gride.web.id/apk/customer.apk'),
+            'apk_download_url_driver' => $s('apk_download_url_driver', 'https://gride.web.id/apk/driver.apk'),
+            'apk_download_url_merchant' => $s('apk_download_url_merchant', 'https://gride.web.id/apk/merchant.apk'),
+        ];
+        return view('admin.settings.index', compact('links', 'trialEnds', 'trialActive', 'settings'));
+    }
+
+    /**
+     * Simpan setting tarif & komisi. Hanya admin.
+     * Input nominal hanya menerima angka; 'Rp 10.000' dinormalisasi menjadi 10000.
+     */
+    public function settingsUpdate(Request $request)
+    {
+        $numeric = function ($v) {
+            if (!is_string($v) && !is_numeric($v)) {
+                return null;
+            }
+            $clean = preg_replace('/[^0-9]/', '', (string) $v);
+            return $clean !== '' ? (int) $clean : 0;
+        };
+
+        $numericPct = function ($v) {
+            $clean = preg_replace('/[^0-9.]/', '', (string) $v);
+            $n = (float) $clean;
+            return is_finite($n) && $n >= 0 && $n <= 100 ? $n : 0;
+        };
+
+        $rules = [
+            'ride_cost_per_km' => 'nullable|string',
+            'ride_base_fare' => 'nullable|string',
+            'food_commission_pct' => 'nullable|string',
+            'admin_ride_commission_enabled' => 'nullable|string|in:ON,OFF',
+            'admin_ride_commission_amount' => 'nullable|string',
+            'admin_food_commission_enabled' => 'nullable|string|in:ON,OFF',
+            'admin_food_commission_amount' => 'nullable|string',
+            'admin_shop_commission_enabled' => 'nullable|string|in:ON,OFF',
+            'admin_shop_commission_amount' => 'nullable|string',
+            'apk_download_url_customer' => 'nullable|string|url',
+            'apk_download_url_driver' => 'nullable|string|url',
+            'apk_download_url_merchant' => 'nullable|string|url',
+        ];
+
+        $data = $request->validate($rules);
+
+        $pairs = [
+            'ride_cost_per_km' => (string) $numeric($data['ride_cost_per_km'] ?? 5000),
+            'ride_base_fare' => (string) $numeric($data['ride_base_fare'] ?? 10000),
+            'food_commission_pct' => (string) $numericPct($data['food_commission_pct'] ?? 20),
+            'admin_ride_commission_enabled' => in_array($data['admin_ride_commission_enabled'] ?? 'OFF', ['ON', 'OFF']) ? ($data['admin_ride_commission_enabled'] ?? 'OFF') : 'OFF',
+            'admin_ride_commission_amount' => (string) $numeric($data['admin_ride_commission_amount'] ?? 2000),
+            'admin_food_commission_enabled' => in_array($data['admin_food_commission_enabled'] ?? 'OFF', ['ON', 'OFF']) ? ($data['admin_food_commission_enabled'] ?? 'OFF') : 'OFF',
+            'admin_food_commission_amount' => (string) $numeric($data['admin_food_commission_amount'] ?? 3000),
+            'admin_shop_commission_enabled' => in_array($data['admin_shop_commission_enabled'] ?? 'OFF', ['ON', 'OFF']) ? ($data['admin_shop_commission_enabled'] ?? 'OFF') : 'OFF',
+            'admin_shop_commission_amount' => (string) $numeric($data['admin_shop_commission_amount'] ?? 5000),
+            'apk_download_url_customer' => trim($data['apk_download_url_customer'] ?? 'https://gride.web.id/apk/customer.apk'),
+            'apk_download_url_driver' => trim($data['apk_download_url_driver'] ?? 'https://gride.web.id/apk/driver.apk'),
+            'apk_download_url_merchant' => trim($data['apk_download_url_merchant'] ?? 'https://gride.web.id/apk/merchant.apk'),
+        ];
+
+        foreach ($pairs as $key => $value) {
+            DB::table('app_settings')->updateOrInsert(
+                ['setting_key' => $key],
+                ['setting_value' => $value, 'updated_at' => now()]
+            );
+        }
+
+        return back()->with('success', 'Pengaturan tarif & komisi berhasil disimpan.');
     }
 
     public function settingsRefreshLinks()
@@ -784,7 +866,9 @@ class AdminController extends Controller
                 ['setting_value' => json_encode($links), 'updated_at' => now()]
             );
         }
-        return back()->with('success', $links ? 'APK download links refreshed from GitHub Actions.' : 'No artifacts found yet — run the Build Flutter APKs workflow first.');
+        // APK download sudah di-host di gride.web.id/apk/; tautan GitHub dipakai
+        // hanya sebagai catatan historis build.
+        return back()->with('success', $links ? 'Build links dari GitHub Actions diperbarui.' : 'Belum ada build terbaru.');
     }
 
     private function fetchGitHubApkArtifacts()
