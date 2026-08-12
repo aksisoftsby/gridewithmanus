@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use Carbon\Carbon;
 
 class AdminController extends Controller
 {
@@ -319,7 +320,13 @@ class AdminController extends Controller
             ->join('users', 'drivers.user_id', '=', 'users.id')
             ->select('drivers.*', 'users.full_name', 'users.email', 'users.phone')
             ->orderBy('drivers.created_at', 'desc')
-            ->paginate(10);
+            ->paginate(10)
+            ->through(function ($d) {
+                if ($d->created_at) {
+                    $d->created_at = Carbon::parse($d->created_at)->format('d M Y');
+                }
+                return $d;
+            });
         return view('admin.drivers.index', compact('drivers'));
     }
 
