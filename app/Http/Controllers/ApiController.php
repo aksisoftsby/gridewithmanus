@@ -80,6 +80,7 @@ class ApiController extends Controller
     {
         $driverId = $request->query('driver_id');
         $userId = $request->query('user_id');
+        $merchantId = $request->query('merchant_id');
         $status = $request->query('status');
         $query = DB::table('orders');
         if ($driverId) {
@@ -87,6 +88,9 @@ class ApiController extends Controller
         }
         if ($userId) {
             $query->where('user_id', $userId);
+        }
+        if ($merchantId) {
+            $query->where('merchant_id', $merchantId);
         }
         if ($status) {
             $query->where('status', $status);
@@ -674,6 +678,329 @@ class ApiController extends Controller
             'status' => 'success',
             'data' => [
                 'driver_id' => $driver->id,
+                'total_earned' => round($earned, 0),
+                'total_pending' => round($pending, 0),
+                'history' => $history,
+            ],
+        ]);
+    }
+
+    /**
+     * Register a new merchant account (one universal users login).
+     * POST /api/register-merchant { full_name, email, phone?, password, merchant_name, merchant_type?, merchant_city? }
+     */
+    public function registerMerchant(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name' => 'required|string|min:2|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
+            'password' => 'required|string|min:6',
+            'merchant_name' => 'required|string|min:2|max:255',
+            'merchant_type' => 'nullable|string|max:20',
+            'merchant_city' => 'nullable|string|max:100',
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        if (DB::table('users')->where('email', $email)->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email sudah terdaftar. Silakan login.',
+            ], 409);
+        }
+
+        $userId = DB::table('users')->insertGetId([
+            'full_name' => $validated['full_name'],
+            'name' => explode(' ', trim($validated['full_name']))[0],
+            'email' => $email,
+            'phone' => $validated['phone'] ?? null,
+            'password' => \Hash::make($validated['password']),
+            'role' => 'MERCHANT',
+            'status' => 'ACTIVE',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $type = strtoupper(trim((string) ($validated['merchant_type'] ?? 'FOOD')));
+        if (!in_array($type, ['FOOD', 'MART', 'SHOP'], true)) {
+            $type = 'FOOD';
+        }
+        $slug = \Str::slug($validated['merchant_name'], '-');
+        if (DB::table('merchants')->where('slug', $slug)->exists()) {
+            $slug .= '-' . substr((string) $userId, -4);
+        }
+        $merchantId = DB::table('merchants')->insertGetId([
+            'owner_id' => $userId,
+            'type' => $type,
+            'name' => trim($validated['merchant_name']),
+            'slug' => $slug,
+            'description' => '',
+            'logo_url' => '',
+            'banner_url' => '',
+            'phone' => trim((string) ($validated['phone'] ?? '')),
+            'address_line' => '',
+            'city' => $validated['merchant_city'] ?? '',
+            'latitude' => 0,
+            'longitude' => 0,
+            'status' => 'ACTIVE',
+            'is_open' => true,
+            'rating' => 0,
+            'total_orders' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun merchant berhasil dibuat. Silakan login.',
+            'data' => [
+                'id' => $userId,
+                'full_name' => $validated['full_name'],
+                'email' => $email,
+                'phone' => $validated['phone'] ?? null,
+                'role' => 'MERCHANT',
+                'merchant_id' => $merchantId,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Profil merchant pemilik toko + saldo sederhana.
+     * GET /api/merchant/me?user_id=
+     */
+    public function merchantMe(Request $request)
+    {
+        $userId = (int) $request->query('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
+        }
+        $user = DB::table('users')->where('id', $userId)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan.'], 404);
+        }
+        $merchant = DB::table('merchants')->where('owner_id', $userId)->first();
+        if (!$merchant) {
+            return response()->json(['status' => 'error', 'message' => 'Toko tidak ditemukan untuk akun ini.'], 404);
+        }
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $user->id,
+                'full_name' => $user->full_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+                'merchant' => [
+                    'id' => $merchant->id,
+                    'type' => $merchant->type,
+                    'name' => $merchant->name,
+                    'slug' => $merchant->slug,
+                    'description' => $merchant->description,
+                    'logo_url' => $merchant->logo_url,
+                    'banner_url' => $merchant->banner_url,
+                    'phone' => $merchant->phone,
+                    'address_line' => $merchant->address_line,
+                    'city' => $merchant->city,
+                    'status' => $merchant->status,
+                    'is_open' => (bool) $merchant->is_open,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Update info toko milik merchant.
+     * POST /api/merchant/update { user_id, name?, description?, phone?, address_line?, city?, logo_url?, banner_url? }
+     */
+    public function merchantUpdate(Request $request)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|min:1',
+            'name' => 'nullable|string|min:2|max:255',
+            'description' => 'nullable|string|max:2000',
+            'phone' => 'nullable|string|max:20',
+            'address_line' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'logo_url' => 'nullable|url|max:1000',
+            'banner_url' => 'nullable|url|max:1000',
+        ]);
+
+        $merchant = DB::table('merchants')->where('owner_id', $validated['user_id'])->first();
+        if (!$merchant) {
+            return response()->json(['status' => 'error', 'message' => 'Toko tidak ditemukan untuk akun ini.'], 404);
+        }
+        $updates = ['updated_at' => now()];
+        foreach (['name', 'description', 'phone', 'address_line', 'city', 'logo_url', 'banner_url'] as $field) {
+            if (array_key_exists($field, $validated) && $validated[$field] !== null) {
+                $updates[$field] = trim((string) $validated[$field]);
+            }
+        }
+        DB::table('merchants')->where('id', $merchant->id)->update($updates);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Info toko berhasil diperbarui.',
+        ]);
+    }
+
+    /**
+     * Tambah produk baru ke toko merchant.
+     * POST /api/products { user_id, merchant_id?, name, description?, price, image_url?, is_available? }
+     */
+    public function storeProduct(Request $request)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|min:1',
+            'merchant_id' => 'nullable|integer|min:1',
+            'name' => 'required|string|min:2|max:255',
+            'description' => 'nullable|string|max:2000',
+            'price' => 'required|numeric|min:0',
+            'image_url' => 'nullable|url|max:1000',
+            'is_available' => 'nullable|boolean',
+        ]);
+
+        $merchant = DB::table('merchants')->where('owner_id', $validated['user_id'])
+            ->when(!empty($validated['merchant_id']), function ($q) use ($validated) {
+                return $q->where('id', $validated['merchant_id']);
+            })
+            ->first();
+        if (!$merchant) {
+            return response()->json(['status' => 'error', 'message' => 'Toko tidak ditemukan untuk akun ini.'], 404);
+        }
+        $slug = \Str::slug($validated['name'], '-') . '-' . substr(uniqid(), -4);
+        $id = DB::table('menu_items')->insertGetId([
+            'merchant_id' => $merchant->id,
+            'name' => trim($validated['name']),
+            'slug' => $slug,
+            'description' => trim((string) ($validated['description'] ?? '')),
+            'price' => (float) $validated['price'],
+            'image_url' => $validated['image_url'] ?? null,
+            'is_available' => (bool) ($validated['is_available'] ?? true),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Produk berhasil ditambahkan.',
+            'data' => ['id' => $id],
+        ], 201);
+    }
+
+    /**
+     * Edit produk milik toko merchant.
+     * PUT /api/products/{id} { user_id, name?, description?, price?, image_url?, is_available? }
+     */
+    public function updateProduct(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|min:1',
+            'name' => 'nullable|string|min:2|max:255',
+            'description' => 'nullable|string|max:2000',
+            'price' => 'nullable|numeric|min:0',
+            'image_url' => 'nullable|url|max:1000',
+            'is_available' => 'nullable|boolean',
+        ]);
+
+        $product = DB::table('menu_items')->where('id', $id)->first();
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Produk tidak ditemukan.'], 404);
+        }
+        $merchant = DB::table('merchants')->where('id', $product->merchant_id)
+            ->where('owner_id', $validated['user_id'])
+            ->first();
+        if (!$merchant) {
+            return response()->json(['status' => 'error', 'message' => 'Produk bukan milik toko Anda.'], 403);
+        }
+        $updates = ['updated_at' => now()];
+        foreach (['name', 'description', 'price', 'image_url'] as $field) {
+            if (array_key_exists($field, $validated) && $validated[$field] !== null) {
+                $updates[$field] = is_string($validated[$field]) ? trim($validated[$field]) : $validated[$field];
+            }
+        }
+        if (array_key_exists('is_available', $validated)) {
+            $updates['is_available'] = (bool) $validated['is_available'];
+        }
+        DB::table('menu_items')->where('id', $id)->update($updates);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Produk berhasil diperbarui.',
+        ]);
+    }
+
+    /**
+     * Nonaktifkan/hapus produk milik toko merchant.
+     * DELETE /api/products/{id}?user_id=
+     */
+    public function toggleProduct(Request $request, $id)
+    {
+        $userId = (int) $request->query('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
+        }
+        $product = DB::table('menu_items')->where('id', $id)->first();
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Produk tidak ditemukan.'], 404);
+        }
+        $merchant = DB::table('merchants')->where('id', $product->merchant_id)
+            ->where('owner_id', $userId)
+            ->first();
+        if (!$merchant) {
+            return response()->json(['status' => 'error', 'message' => 'Produk bukan milik toko Anda.'], 403);
+        }
+        DB::table('menu_items')->where('id', $id)->delete();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Produk berhasil dihapus.',
+        ]);
+    }
+
+    /**
+     * Saldo & riwayat transaksi merchant pemilik toko.
+     * GET /api/merchant/earnings?user_id=
+     * merchant_net = subtotal - komisi toko (COMPLETED = sudah cair).
+     */
+    public function merchantEarnings(Request $request)
+    {
+        $userId = (int) $request->query('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
+        }
+        $merchant = DB::table('merchants')->where('owner_id', $userId)->first();
+        if (!$merchant) {
+            return response()->json(['status' => 'error', 'message' => 'Toko tidak ditemukan untuk akun ini.'], 404);
+        }
+        $orders = DB::table('orders')
+            ->where('merchant_id', $merchant->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
+
+        $earned = 0.0;
+        $pending = 0.0;
+        $history = [];
+        foreach ($orders as $o) {
+            $subtotal = (float) ($o->subtotal ?? 0);
+            $commission = (float) ($o->merchant_commission_snapshot ?? 0);
+            $net = max($subtotal - $commission, 0);
+            if (strtoupper((string) ($o->status ?? '')) === 'COMPLETED') {
+                $earned += $net;
+            } else {
+                $pending += $net;
+            }
+            $history[] = [
+                'order_number' => $o->order_number,
+                'order_type' => $o->order_type,
+                'status' => $o->status,
+                'total_amount' => round((float) $o->total_amount, 0),
+                'merchant_net' => round($net, 0),
+                'created_at' => $o->created_at,
+            ];
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'merchant_id' => $merchant->id,
+                'merchant_name' => $merchant->name,
                 'total_earned' => round($earned, 0),
                 'total_pending' => round($pending, 0),
                 'history' => $history,
