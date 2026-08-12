@@ -8,6 +8,7 @@ use App\Http\Controllers\AdminController;
 // Public Pages
 Route::get('/', [PublicController::class, 'index'])->name('home');
 Route::get('/merchant/{slug}', [PublicController::class, 'merchantDetail'])->name('merchant.detail');
+Route::get('/news/{slug}', [PublicController::class, 'newsDetail'])->name('news.detail');
 
 
 // Admin Auth

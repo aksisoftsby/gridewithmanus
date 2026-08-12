@@ -107,6 +107,7 @@
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @foreach($news as $item)
+                <a href="{{ route('news.detail', $item->slug) }}" class="block">
                 <article class="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition">
                     @if($item->featured_image)
                         <img src="{{ $item->featured_image }}" alt="{{ $item->title }}" class="w-full h-44 object-cover">
@@ -122,6 +123,7 @@
                         <p class="text-sm text-gray-600 line-clamp-3">{{ $item->excerpt ?: strip_tags($item->content) }}</p>
                     </div>
                 </article>
+                </a>
             @endforeach
         </div>
     </div>

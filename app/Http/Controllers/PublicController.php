@@ -59,4 +59,23 @@ class PublicController extends Controller
 
         return view('public.merchant', compact('merchant', 'menuItems'));
     }
+
+    public function newsDetail($slug)
+    {
+        if (!DB::getSchemaBuilder()->hasTable('news')) {
+            abort(404);
+        }
+
+        $item = DB::table('news')
+            ->leftJoin('news_categories', 'news.news_category_id', '=', 'news_categories.id')
+            ->select('news.*', 'news_categories.name as category_name')
+            ->where('news.slug', $slug)
+            ->where('news.status', 'PUBLISHED')
+            ->first();
+        if (!$item) {
+            abort(404);
+        }
+
+        return view('public.news-detail', compact('item'));
+    }
 }

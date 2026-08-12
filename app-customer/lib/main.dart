@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -103,16 +104,59 @@ class CustomerHome extends StatefulWidget {
 class _CustomerHomeState extends State<CustomerHome> {
   List merchants = [];
   List promos = [];
+  List news = [];
   bool isLoading = true;
   String? merchantError;
   String? promoError;
   String selectedType = '';
   String search = '';
 
+  PageController? _newsPageCtrl;
+  Timer? _newsTimer;
+  int _newsIndex = 0;
+
   @override
   void initState() {
     super.initState();
     fetchData();
+  }
+
+  Future<void> fetchNews() async {
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/news?limit=5'));
+      if (res.statusCode == 200) {
+        final list = (jsonDecode(res.body)['data'] as List).cast<Map<String, dynamic>>();
+        if (mounted) {
+          setState(() => news = list);
+          _startNewsAutoSlide();
+        }
+      }
+    } catch (_) {
+      // News unavailable -> hide the section gracefully; existing page still works.
+    }
+  }
+
+  void _startNewsAutoSlide() {
+    _newsTimer?.cancel();
+    if (news.length < 2) return;
+    _newsTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || _newsPageCtrl == null || !_newsPageCtrl!.hasClients) return;
+      final idx = _newsPageCtrl!.page!.round();
+      final next = (idx + 1) % news.length;
+      _newsIndex = next;
+      _newsPageCtrl!.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _newsTimer?.cancel();
+    _newsPageCtrl?.dispose();
+    super.dispose();
   }
 
   Future<void> fetchData() async {
@@ -121,6 +165,7 @@ class _CustomerHomeState extends State<CustomerHome> {
       merchantError = null;
       promoError = null;
     });
+    fetchNews();
     final merchantUrl = selectedType.isEmpty
         ? '$kApiBase/merchants'
         : '$kApiBase/merchants?type=$selectedType';
@@ -313,6 +358,93 @@ class _CustomerHomeState extends State<CustomerHome> {
                 );
               },
             ),
+            if (news.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              const Text('Berita Terbaru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 170,
+                child: PageView.builder(
+                  controller: _newsPageCtrl = PageController(viewportFraction: 0.92),
+                  itemCount: news.length,
+                  onPageChanged: (i) => _newsIndex = i,
+                  itemBuilder: (context, index) {
+                    final n = news[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => NewsDetailPage(news: Map<String, dynamic>.from(n)),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          image: (n['featured_image'] ?? '').toString().isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(n['featured_image'] as String),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          gradient: (n['featured_image'] ?? '').toString().isEmpty
+                              ? const LinearGradient(colors: [Colors.teal, Colors.green])
+                              : LinearGradient(colors: [Colors.black.withOpacity(0.65), Colors.black.withOpacity(0.15)], begin: Alignment.bottomCenter, end: Alignment.topCenter),
+                          color: (n['featured_image'] ?? '').toString().isEmpty ? null : Colors.black,
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))],
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              left: 16,
+                              right: 16,
+                              bottom: 14,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (n['category_name'] != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(color: Colors.teal.shade700, borderRadius: BorderRadius.circular(8)),
+                                      child: Text('${n['category_name']}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    n['title'] ?? '',
+                                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(news.length, (i) {
+                  final active = i == _newsIndex;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 18 : 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: active ? Colors.teal : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  );
+                }),
+              ),
+            ],
           ],
         ),
       ),
@@ -1604,6 +1736,92 @@ class _MerchantMenuPageState extends State<MerchantMenuPage> {
               },
               icon: const Icon(Icons.shopping_cart),
               label: const Text('Pesan dari merchant ini'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// News detail page opened from the home news carousel.
+class NewsDetailPage extends StatelessWidget {
+  final Map<String, dynamic> news;
+
+  const NewsDetailPage({super.key, required this.news});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = (news['featured_image'] ?? '').toString();
+    final publishedAt = news['published_at']?.toString() ?? '';
+    String dateText = publishedAt;
+    if (publishedAt.contains(' ')) dateText = publishedAt.split(' ').first;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: imageUrl.isNotEmpty ? 260 : 120,
+            pinned: true,
+            backgroundColor: Colors.teal,
+            foregroundColor: Colors.white,
+            flexibleSpace: imageUrl.isNotEmpty
+                ? FlexibleSpaceBar(
+                    background: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: Colors.teal.shade300),
+                    ),
+                  )
+                : const FlexibleSpaceBar(background: SizedBox.shrink()),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (news['category_name'] != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${news['category_name']}',
+                            style: TextStyle(color: Colors.teal.shade800, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      const Spacer(),
+                      if (dateText.isNotEmpty)
+                        Text(dateText, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    news['title'] ?? '',
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.25),
+                  ),
+                  const SizedBox(height: 14),
+                  if ((news['excerpt'] ?? '').toString().isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.teal.shade50, borderRadius: BorderRadius.circular(12)),
+                      child: Text(
+                        '${news['excerpt']}',
+                        style: TextStyle(color: Colors.teal.shade800, fontSize: 14, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  const SizedBox(height: 18),
+                  Text(
+                    (news['content'] ?? '').toString(),
+                    style: const TextStyle(fontSize: 16, height: 1.6),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
