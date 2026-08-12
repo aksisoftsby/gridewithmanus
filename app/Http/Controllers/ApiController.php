@@ -79,11 +79,14 @@ class ApiController extends Controller
     public function orders(Request $request)
     {
         $driverId = $request->query('driver_id');
+        $userId = $request->query('user_id');
         $status = $request->query('status');
         $query = DB::table('orders');
-
         if ($driverId) {
             $query->where('driver_id', $driverId);
+        }
+        if ($userId) {
+            $query->where('user_id', $userId);
         }
         if ($status) {
             $query->where('status', $status);
@@ -457,6 +460,92 @@ class ApiController extends Controller
             'status' => 'success',
             'data' => $order
         ], 201);
+    }
+
+    /**
+     * Register a new customer account.
+     * POST /api/register { full_name, email, phone?, password }
+     */
+    public function register(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name' => 'required|string|min:2|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
+            'password' => 'required|string|min:6',
+        ]);
+
+        if (DB::table('users')->where('email', strtolower(trim($validated['email'])))->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email sudah terdaftar. Silakan login.',
+            ], 409);
+        }
+
+        $userId = DB::table('users')->insertGetId([
+            'full_name' => $validated['full_name'],
+            'name' => explode(' ', trim($validated['full_name']))[0],
+            'email' => strtolower(trim($validated['email'])),
+            'phone' => $validated['phone'] ?? null,
+            'password' => \Hash::make($validated['password']),
+            'role' => 'CUSTOMER',
+            'status' => 'ACTIVE',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $user = DB::table('users')->where('id', $userId)->first();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun berhasil dibuat. Silakan login.',
+            'data' => [
+                'id' => $user->id,
+                'full_name' => $user->full_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Login customer account.
+     * POST /api/login { email, password }
+     */
+    public function login(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        $user = DB::table('users')
+            ->where('email', strtolower(trim($validated['email'])))
+            ->first();
+
+        if (!$user || !\Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email atau password salah.',
+            ], 401);
+        }
+
+        if ($user->status !== 'ACTIVE') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akun tidak aktif.',
+            ], 403);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $user->id,
+                'full_name' => $user->full_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+            ],
+        ]);
     }
 
     /**
