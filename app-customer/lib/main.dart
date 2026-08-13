@@ -114,6 +114,9 @@ class _MainShellState extends State<MainShell> {
 String formatRp(int value) =>
     'Rp ${value.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
 
+/// Biaya layanan (admin fee) — terlihat di bottom sheet pesanan.
+const int kAdminFee = 2000;
+
 /// Helper to perform HTTP GET with auto-retry up to 3 times on failure.
 Future<http.Response> httpGetWithRetry(String url, {int maxRetries = 3}) async {
   int attempt = 0;
@@ -773,6 +776,7 @@ class _KirimPageState extends State<KirimPage> {
   // Estimasi ongkos
   double? _distanceKm;
   int? _estimatedFee;
+  String _paymentMethod = 'CASH';
 
   bool _geocoding = false;
   bool _submitting = false;
@@ -1157,9 +1161,10 @@ class _KirimPageState extends State<KirimPage> {
       },
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('Gride Kirim'),
-        backgroundColor: Colors.teal,
+        title: const Text('GR-Kirim'),
+        backgroundColor: kPurpleMain,
         foregroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () {
@@ -1168,358 +1173,511 @@ class _KirimPageState extends State<KirimPage> {
           },
         ),
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+      body: Stack(
+      children: [
+        // ===== Peta full-screen dengan garis rute merah =====
+        FlutterMap(
+          mapController: _mapCtrl,
+          options: MapOptions(
+            initialCenter: ll.LatLng(
+                _pickMode != null ? _pickLat : (_pickupLat ?? -7.2575),
+                _pickMode != null ? _pickLng : (_pickupLng ?? 112.0178)),
+            initialZoom: 13,
+            onTap: (tapPos, point) {
+              if (_pickMode == null) return; // mode peta aktif: ketuk untuk pilih titik
+              setState(() {
+                _pickLat = point.latitude;
+                _pickLng = point.longitude;
+              });
+              _reverseGeocode();
+            },
+          ),
           children: [
-            const Text('Antar-jemput ke titik GPS tujuan',
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _pickupController,
-              decoration: const InputDecoration(
-                labelText: 'Lokasi Penjemputan',
-                hintText: 'e.g. Tunjungan Plaza, Surabaya',
-                prefixIcon: Icon(Icons.place),
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Isi lokasi penjemputan' : null,
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.gride.app',
+              maxNativeZoom: 19,
             ),
-            if (_pickMode == null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => _openMapPicker('pickup'),
-                  icon: const Icon(Icons.map, size: 18),
-                  label: const Text('Pilih titik penjemputan dari peta'),
-                ),
+            // Garis rute merah mengikuti jalan raya
+            if (_routePoints.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: _routePoints,
+                    strokeWidth: 4.5,
+                    color: Colors.redAccent.shade700,
+                  ),
+                ],
               ),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _dropoffController,
-              decoration: const InputDecoration(
-                labelText: 'Alamat Tujuan',
-                hintText: 'e.g. Bandara Juanda, Sidoarjo',
-                prefixIcon: Icon(Icons.location_on),
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Isi alamat tujuan' : null,
-            ),
-            if (_pickMode == null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => _openMapPicker('dropoff'),
-                  icon: const Icon(Icons.map, size: 18),
-                  label: const Text('Pilih titik tujuan dari peta'),
-                ),
-              ),
-            const SizedBox(height: 6),
-            if (_pickMode != null)
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    Container(
-                      height: 300,
-                      color: Colors.grey.shade200,
-                      child: FlutterMap(
-                        mapController: _mapCtrl,
-                        options: MapOptions(
-                          initialCenter: ll.LatLng(_pickLat, _pickLng),
-                          initialZoom: 14,
-                          onTap: (_, point) {
-                            setState(() {
-                              _pickLat = point.latitude;
-                              _pickLng = point.longitude;
-                            });
-                            _reverseGeocode();
-                          },
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.gride.app',
-                            maxNativeZoom: 19,
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: ll.LatLng(_pickLat, _pickLng),
-                                width: 44,
-                                height: 44,
-                                child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
-                              ),
-                              if (_pickupLat != null && _dropoffLat != null) ...[
-                                Marker(
-                                  point: ll.LatLng(_pickupLat!, _pickupLng!),
-                                  width: 44,
-                                  height: 44,
-                                  child: const Icon(Icons.location_on, color: Colors.green, size: 40),
-                                ),
-                                Marker(
-                                  point: ll.LatLng(_dropoffLat!, _dropoffLng!),
-                                  width: 44,
-                                  height: 44,
-                                  child: const Icon(Icons.flag, color: Colors.deepPurple, size: 40),
-                                ),
-                              ],
-                            ],
-                          ),
-                          if (_routePoints.length >= 2)
-                            PolylineLayer(
-                              polylines: [
-                                Polyline(
-                                  points: _routePoints,
-                                  strokeWidth: 4.5,
-                                  color: Colors.redAccent.shade700,
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _pickMode == 'pickup' ? 'Titik Penjemputan' : 'Titik Tujuan',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _pickReverse
-                                ? 'Mencari alamat...'
-                                : (_pickAddress ?? 'Ketuk peta untuk memilih titik.'),
-                            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              FilledButton.tonalIcon(
-                                onPressed: _pickUsingGps ? null : _useMyLocation,
-                                icon: _pickUsingGps
-                                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                                    : const Icon(Icons.my_location, size: 18),
-                                label: const Text('GPS saya'),
-                              ),
-                              FilledButton.icon(
-                                onPressed: _pickReverse || _pickAddress == null ? null : _confirmPoint,
-                                icon: const Icon(Icons.check, size: 18),
-                                label: const Text('Konfirmasi titik'),
-                              ),
-                              OutlinedButton(
-                                onPressed: _cancelPick,
-                                child: const Text('Batal'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _recipientController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama Penerima',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+            MarkerLayer(
+              markers: [
+                if (_pickupLat != null)
+                  Marker(
+                    point: ll.LatLng(_pickupLat!, _pickupLng!),
+                    width: 44,
+                    height: 44,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                          color: Color(0xFF1E88E5), shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)]),
+                      child: const Icon(Icons.my_location, color: Colors.white, size: 26),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'No. HP Penerima',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
+                if (_dropoffLat != null)
+                  Marker(
+                    point: ll.LatLng(_dropoffLat!, _dropoffLng!),
+                    width: 44,
+                    height: 44,
+                    child: const Icon(Icons.location_on, color: Color(0xFFD32F2F), size: 42),
                   ),
-                ),
+                if (_pickMode != null)
+                  Marker(
+                    point: ll.LatLng(_pickLat, _pickLng),
+                    width: 44,
+                    height: 44,
+                    child: Icon(Icons.location_pin,
+                        color: _pickMode == 'pickup' ? Colors.green : Colors.deepPurple, size: 44),
+                  ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _noteController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Catatan (opsional)',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _geocoding ? null : _geocode,
-                icon: _geocoding
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.location_searching),
-                label: Text(_geocoding ? 'Mencari lokasi...' : 'Cari Lokasi & Hitung Ongkos'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (_distanceKm != null && _estimatedFee != null)
-              Card(
-                color: Colors.teal.shade50,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+          ],
+        ),
+
+        // ===== Tombol saat memilih titik di peta =====
+        if (_pickMode != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 190,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: const Offset(0, 3))],
+                  ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Estimasi Ongkos Kirim',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal.shade800)),
-                      const SizedBox(height: 8),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Jarak jalan raya'),
-                          Text('${_distanceKm!.toStringAsFixed(1)} km \u2192 dibulatkan ${_distanceKm!.ceil()} km',
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: _pickMode == 'pickup' ? Colors.green : Colors.deepPurple,
+                            child: const Icon(Icons.location_on, color: Colors.white, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _pickMode == 'pickup' ? 'Titik Penjemputan' : 'Titik Tujuan',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ),
                         ],
                       ),
-                      if (_routeDurationSec != null) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Estimasi waktu tempuh'),
-                            Text('${(_routeDurationSec! / 60).round()} menit',
-                                style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ],
                       const SizedBox(height: 6),
+                      Text(
+                        _pickReverse
+                            ? 'Mencari alamat...'
+                            : (_pickAddress ?? 'Ketuk pada peta untuk memilih titik.'),
+                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 10),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${_distanceKm!.ceil()} km \u00d7 ${formatRp(_costPerKm.round())}/km'),
-                          Text('Rp ${formatRp(_estimatedFee!)}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.teal)),
+                          Expanded(
+                            child: FilledButton.tonalIcon(
+                              onPressed: _pickUsingGps ? null : _useMyLocation,
+                              icon: _pickUsingGps
+                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Icon(Icons.my_location, size: 16),
+                              label: const Text('GPS saya'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _cancelPick,
+                              icon: const Icon(Icons.close, size: 16),
+                              label: const Text('Batal'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _pickReverse || _pickAddress == null ? null : _confirmPoint,
+                              icon: const Icon(Icons.check, size: 16),
+                              label: const Text('Pilih'),
+                            ),
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
+
+        // ===== Kartu alamat melayang (atas) =====
+        if (_pickMode == null)
+          Positioned(
+            top: 14,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 4))],
               ),
-            if (_routePoints.length >= 2 && _pickMode == null)
-              Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Row(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Ikon pickup (biru) + connector + ikon tujuan (merah)
+                  SizedBox(
+                    width: 28,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
+                          child: const Icon(Icons.near_me, color: Colors.white, size: 15),
+                        ),
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            margin: const EdgeInsets.symmetric(vertical: 3),
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: const BoxDecoration(color: Color(0xFFD32F2F), shape: BoxShape.circle),
+                          child: const Icon(Icons.location_on, color: Colors.white, size: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Alamat
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _openMapPicker('pickup'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: const BoxDecoration(
+                              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                            ),
+                            child: Text(
+                              _pickupController.text.isEmpty ? 'Pilih lokasi penjemputan' : _pickupController.text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: _pickupController.text.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _openMapPicker('dropoff'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              _dropoffController.text.isEmpty ? 'Pilih lokasi tujuan' : _dropoffController.text,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: _dropoffController.text.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_pickupLat != null || _dropoffLat != null)
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Color(0xFF6B7280), size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        setState(() {
+                          _pickupController.clear();
+                          _dropoffController.clear();
+                          _pickupLat = null;
+                          _pickupLng = null;
+                          _dropoffLat = null;
+                          _dropoffLng = null;
+                          _distanceKm = null;
+                          _estimatedFee = null;
+                          _routePoints = [];
+                          _routeDurationSec = null;
+                          _error = null;
+                          _successOrder = null;
+                        });
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+        // ===== Bottom sheet: Payment / Price / Discount / Admin Fee / Total / ORDER =====
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 470),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, -4))],
+            ),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(3)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Form singkat: penerima (nama + HP) + catatan
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          Icon(Icons.route, color: Colors.teal.shade800, size: 18),
-                          const SizedBox(width: 6),
-                          Text('Rute Perjalanan (OpenStreetMap)',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade800, fontSize: 14)),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _recipientController,
+                              decoration: InputDecoration(
+                                labelText: 'Nama Penerima',
+                                labelStyle: const TextStyle(fontSize: 12, color: Colors.black87),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                                floatingLabelStyle: const TextStyle(fontSize: 12, color: Colors.black87),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.only(left: 12, right: 12, top: 18, bottom: 8),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _phoneController,
+                              decoration: InputDecoration(
+                                labelText: 'No. HP',
+                                labelStyle: const TextStyle(fontSize: 12, color: Colors.black87),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                                floatingLabelStyle: const TextStyle(fontSize: 12, color: Colors.black87),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.only(left: 12, right: 12, top: 18, bottom: 8),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    Container(
-                      height: 280,
-                      color: Colors.grey.shade200,
-                      child: FlutterMap(
-                        mapController: _mapCtrl,
-                        options: const MapOptions(
-                          initialZoom: 13,
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _noteController,
+                        decoration: InputDecoration(
+                          labelText: 'Catatan (opsional)',
+                          labelStyle: const TextStyle(fontSize: 12, color: Colors.black87),
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          floatingLabelStyle: const TextStyle(fontSize: 12, color: Colors.black87),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.only(left: 12, right: 12, top: 18, bottom: 8),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                         ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.gride.app',
-                            maxNativeZoom: 19,
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: ll.LatLng(_pickupLat!, _pickupLng!),
-                                width: 44,
-                                height: 44,
-                                child: const Icon(Icons.location_on, color: Colors.green, size: 40),
-                              ),
-                              Marker(
-                                point: ll.LatLng(_dropoffLat!, _dropoffLng!),
-                                width: 44,
-                                height: 44,
-                                child: const Icon(Icons.flag, color: Colors.deepPurple, size: 40),
-                              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Payment | Price
+                Row(
+                  children: [
+                    const Text('Payment', style: TextStyle(fontSize: 14, color: Color(0xFF4B5563))),
+                    const Spacer(),
+                    Text('Price', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _paymentMethod,
+                            isExpanded: true,
+                            icon: const Icon(Icons.keyboard_arrow_down),
+                            items: const [
+                              DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                              DropdownMenuItem(value: 'GRIDEPAY', child: Text('GridePay')),
                             ],
+                            onChanged: (v) => setState(() => _paymentMethod = v ?? 'CASH'),
                           ),
-                          PolylineLayer(
-                            polylines: [
-                              Polyline(
-                                points: _routePoints,
-                                strokeWidth: 4.5,
-                                color: Colors.redAccent.shade700,
-                              ),
-                            ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _estimatedFee != null ? formatRp(_estimatedFee! + kAdminFee) : formatRp(_baseFare + kAdminFee),
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4B1D7E)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _distanceKm != null ? '${_distanceKm!.toStringAsFixed(1)} Km' : '',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Divider(color: Colors.grey.shade200),
+                const SizedBox(height: 6),
+                // Discount row
+                Row(
+                  children: [
+                    Icon(Icons.confirmation_number_outlined,
+                        color: Colors.purple.shade400, size: 19),
+                    const SizedBox(width: 8),
+                    const Text('Input Discount Code', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    Text('Discount Code', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Admin Fee
+                Row(
+                  children: [
+                    Text('Admin Fee', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
+                    const Spacer(),
+                    Text(formatRp(kAdminFee), style: const TextStyle(fontSize: 14)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Total
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('Total price', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                        Text(
+                          _estimatedFee != null
+                              ? formatRp(_estimatedFee! + kAdminFee)
+                              : formatRp(_baseFare + kAdminFee),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (_error != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+                    child: Text(_error!, style: TextStyle(color: Colors.red.shade800, fontSize: 12.5)),
+                  ),
+                if (_successOrder != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
+                    child: Text(_successOrder!, style: TextStyle(color: Colors.green.shade800, fontSize: 12.5)),
+                  ),
+                // Chat + ORDER
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: kPurpleMain,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Chat dengan driver akan hadir sebentar lagi.')));
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 54,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kPurpleMain,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
-                        ],
+                          onPressed: _submitting ? null : _submitOrder,
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Text('ORDER', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            if (_error != null)
-              Card(
-                color: Colors.red.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(_error!, style: TextStyle(color: Colors.red.shade800)),
-                ),
-              ),
-            if (_successOrder != null)
-              Card(
-                color: Colors.green.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(_successOrder!,
-                      style: TextStyle(color: Colors.green.shade800)),
-                ),
-              ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _submitting ? null : _submitOrder,
-                icon: _submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.directions_car),
-                label: Text(_submitting ? 'Mengirim pesanan...' : 'Pesan Gride Kirim'),
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
-      ),
+      ],
+    ),
     ));
   }
 }
@@ -1747,13 +1905,47 @@ class _OrderMerchantPageState extends State<OrderMerchantPage> {
   bool isLoading = true;
   String? error;
   String _address = '';
+  String _paymentMethod = 'CASH';
   bool _submitting = false;
   String? resultMsg;
+
+  // Peta tujuan pengiriman (OSM gratis)
+  final MapController _mapCtrl = MapController();
+  double? _dropoffLat;
+  double? _dropoffLng;
+  bool _geocodingAddress = false;
 
   @override
   void initState() {
     super.initState();
     _loadMenu();
+  }
+
+  Future<void> _geocodeAddress() async {
+    if (_address.trim().isEmpty) return;
+    setState(() => _geocodingAddress = true);
+    try {
+      final res = await http.get(
+        Uri.https('nominatim.openstreetmap.org', '/search', {
+          'q': _address.trim(),
+          'format': 'json',
+          'limit': '1',
+          'countrycodes': 'id',
+        }),
+        headers: {'User-Agent': 'gride-customer-app/1.0'},
+      );
+      final list = jsonDecode(res.body) as List;
+      if (mounted && list.isNotEmpty) {
+        final lat = double.parse(list[0]['lat'].toString());
+        final lon = double.parse(list[0]['lon'].toString());
+        setState(() {
+          _dropoffLat = lat;
+          _dropoffLng = lon;
+        });
+        _mapCtrl.move(ll.LatLng(lat, lon), 16);
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _geocodingAddress = false);
   }
 
   Future<void> _loadMenu() async {
@@ -1859,104 +2051,306 @@ class _OrderMerchantPageState extends State<OrderMerchantPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.merchant['name'] ?? 'Menu'),
-        backgroundColor: Colors.teal,
+        backgroundColor: kPurpleMain,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : error != null
-                    ? Center(
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text(error!, style: TextStyle(color: Colors.red.shade800)),
-                          const SizedBox(height: 8),
-                          FilledButton(onPressed: _loadMenu, child: const Text('Coba lagi')),
-                        ]),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: menu.length,
-                        itemBuilder: (context, index) {
-                          final item = menu[index];
-                          final qty = _cart[item['id']] ?? 0;
-                          final price = (double.tryParse(item['price']?.toString() ?? '0') ?? 0).round();
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              title: Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(item['description'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(formatRp(price), style: const TextStyle(color: Colors.teal)),
-                                  const SizedBox(width: 10),
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline),
-                                    onPressed: qty <= 0
-                                        ? null
-                                        : () => setState(() => _cart[item['id']] = qty - 1),
-                                  ),
-                                  Text('$qty', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle, color: Colors.teal),
-                                    onPressed: () => setState(() => _cart[item['id']] = qty + 1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: const Offset(0, -2))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    hintText: 'Alamat pengiriman / nama jalan...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    isDense: true,
+          Column(
+            children: [
+              // ===== Peta tujuan pengiriman (OSM gratis) =====
+              Container(
+                height: 260,
+                clipBehavior: Clip.antiAlias,
+                child: FlutterMap(
+                  mapController: _mapCtrl,
+                  options: MapOptions(
+                    initialCenter: ll.LatLng(
+                        _dropoffLat ?? (double.tryParse((widget.merchant['lat'] ?? '-7.8013').toString()) ?? -7.8013),
+                        _dropoffLng ?? (double.tryParse((widget.merchant['lng'] ?? '112.0117').toString()) ?? 112.0117)),
+                    initialZoom: 14,
                   ),
-                  onChanged: (v) => _address = v,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Keranjang: ${_cart.values.fold<int>(0, (a, b) => a + b)} item',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text('Subtotal: ${formatRp(_subtotal())}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.gride.app',
+                      maxNativeZoom: 19,
+                    ),
+                    if (_dropoffLat != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: ll.LatLng(_dropoffLat!, _dropoffLng!),
+                            width: 44,
+                            height: 44,
+                            child: const Icon(Icons.location_on, color: Color(0xFFD32F2F), size: 42),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (resultMsg != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(resultMsg!,
-                        style: TextStyle(
-                          color: (resultMsg!.contains('Pesanan') || resultMsg!.contains('Nomor'))
-                              ? Colors.green.shade800
-                              : Colors.red.shade800,
-                        )),
+              ),
+              // ===== Daftar menu =====
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : error != null
+                        ? Center(
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Text(error!, style: TextStyle(color: Colors.red.shade800)),
+                              const SizedBox(height: 8),
+                              FilledButton(onPressed: _loadMenu, child: const Text('Coba lagi')),
+                            ]),
+                          )
+                        : menu.isEmpty
+                            ? const Center(child: Text('Menu kosong.'))
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 300),
+                                itemCount: menu.length,
+                                itemBuilder: (context, index) {
+                                  final item = menu[index];
+                                  final qty = _cart[item['id']] ?? 0;
+                                  final price = (double.tryParse(item['price']?.toString() ?? '0') ?? 0).round();
+                                  return Card(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      title: Text(item['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      subtitle: Text(item['description'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(formatRp(price), style: const TextStyle(color: kPurpleMain)),
+                                          const SizedBox(width: 10),
+                                          IconButton(
+                                            icon: const Icon(Icons.remove_circle_outline),
+                                            onPressed: qty <= 0
+                                                ? null
+                                                : () => setState(() => _cart[item['id']] = qty - 1),
+                                          ),
+                                          Text('$qty', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                          IconButton(
+                                            icon: const Icon(Icons.add_circle, color: kPurpleMain),
+                                            onPressed: () => setState(() => _cart[item['id']] = qty + 1),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+              ),
+            ],
+          ),
+          // ===== Bottom sheet: Payment / Price / Discount / Admin Fee / Total / ORDER =====
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 420),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, -4))],
+              ),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(3)),
+                    ),
                   ),
-                FilledButton(
-                  onPressed: _submitting ? null : _submitOrder,
-                  child: _submitting
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Kirim Pesanan'),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  // Alamat pengiriman + tombol cari di peta
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: TextEditingController(text: _address),
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Alamat pengiriman',
+                            hintText: 'e.g. Jl. Dharmawangsa, Kediri',
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none),
+                            suffixIcon: _geocodingAddress
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : null,
+                          ),
+                          onChanged: (v) {
+                            _address = v;
+                            if (_dropoffLat == null) return;
+                            // Alamat berubah, hapus marker dulu; pencarian ulang via tombol
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: _geocodingAddress ? null : _geocodeAddress,
+                        icon: const Icon(Icons.search, color: kPurpleMain),
+                        tooltip: 'Cari di peta',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Payment | Price
+                  Row(
+                    children: [
+                      const Text('Payment', style: TextStyle(fontSize: 14, color: Color(0xFF4B5563))),
+                      const Spacer(),
+                      Text('Price', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _paymentMethod,
+                              isExpanded: true,
+                              icon: const Icon(Icons.keyboard_arrow_down),
+                              items: const [
+                                DropdownMenuItem(value: 'CASH', child: Text('Cash')),
+                                DropdownMenuItem(value: 'GRIDEPAY', child: Text('GridePay')),
+                              ],
+                              onChanged: (v) => setState(() => _paymentMethod = v ?? 'CASH'),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            formatRp(_subtotal() + kAdminFee),
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4B1D7E)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Subtotal: ${formatRp(_subtotal())}',
+                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: Colors.grey.shade200),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.confirmation_number_outlined,
+                          color: Colors.purple.shade400, size: 19),
+                      const SizedBox(width: 8),
+                      const Text('Input Discount Code', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      Text('Discount Code', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text('Admin Fee', style: TextStyle(color: Colors.grey.shade700, fontSize: 14)),
+                      const Spacer(),
+                      Text(formatRp(kAdminFee), style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('Total price', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                          Text(
+                            formatRp(_subtotal() + kAdminFee),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (resultMsg != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: (resultMsg!.contains('Pesanan') || resultMsg!.contains('Nomor'))
+                            ? Colors.green.shade50
+                            : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(resultMsg!,
+                          style: TextStyle(
+                            color: (resultMsg!.contains('Pesanan') || resultMsg!.contains('Nomor'))
+                                ? Colors.green.shade800
+                                : Colors.red.shade800,
+                            fontSize: 12.5)),
+                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: kPurpleMain,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Chat dengan merchant akan hadir sebentar lagi.')));
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 54,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: kPurpleMain,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: _submitting ? null : _submitOrder,
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Text('ORDER', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
