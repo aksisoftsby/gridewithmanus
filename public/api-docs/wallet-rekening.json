@@ -1,0 +1,59 @@
+{
+  "endpoint": "GET/POST/PUT/DELETE /api/wallet/rekening",
+  "group": "Wallet",
+  "description": "Kelola rekening bank tujuan penarikan dana GridePay milik user: tambah rekening baru, ubah (set default), dan hapus. Rekening pertama yang ditambahkan otomatis menjadi default. Untuk produksi, verifikasi nama pemilik rekening dilakukan melalui inquiry ke bank API.",
+  "method": "GET",
+  "url": "/api/wallet/rekening?user_id={user_id}",
+  "authentication": "Wajib login.",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [
+    { "field": "user_id", "type": "integer", "description": "ID user pemilik rekening (wajib).", "required": true }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data", "type": "array", "description": "Daftar rekening bank milik user." },
+    { "field": "data.*.id", "type": "integer", "description": "ID rekening." },
+    { "field": "data.*.bank_name", "type": "string", "description": "Nama bank, mis. BCA, Mandiri, BRI." },
+    { "field": "data.*.account_number", "type": "string", "description": "Nomor rekening." },
+    { "field": "data.*.account_holder", "type": "string", "description": "Nama pemilik rekening." },
+    { "field": "data.*.is_default", "type": "boolean", "description": "True jika ini rekening utama penarikan." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "user_id": 3,
+        "bank_name": "BCA",
+        "account_number": "1234567890",
+        "account_holder": "Siti Customer",
+        "is_default": true
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/wallet/rekening?user_id=3\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 422, "description": "user_id tidak dikirim atau bukan integer." }
+  ],
+  "additional_methods": [
+    {
+      "method": "POST",
+      "url": "/api/wallet/rekening",
+      "body": "user_id (wajib), bank_name (wajib), account_number (wajib), account_holder (wajib), is_default (opsional)",
+      "description": "Tambah rekening baru. Berhasil = HTTP 201."
+    },
+    {
+      "method": "PUT",
+      "url": "/api/wallet/rekening/{id}",
+      "body": "user_id (wajib), is_default (boolean, wajib)",
+      "description": "Ubah rekening, umumnya untuk menjadikan rekening utama."
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/wallet/rekening/{id}?user_id={user_id}",
+      "description": "Hapus rekening milik user. Hanya pemilik yang dapat menghapus."
+    }
+  ]
+}

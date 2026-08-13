@@ -86,6 +86,11 @@ CREATE TABLE users (
     phone_verified  BOOLEAN DEFAULT FALSE,
     last_login_at   TIMESTAMPTZ,
     remember_token  VARCHAR(100),
+    -- WALLET / GridePay (ditambah 2026-08-13): PIN 6 digit ter-hash bcrypt.
+    -- Salah 5x berturut-turut → wallet terkunci 5 menit (wallet_locked_until).
+    wallet_pin          VARCHAR(255),
+    wallet_pin_attempts INTEGER DEFAULT 0,
+    wallet_locked_until TIMESTAMPTZ,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ

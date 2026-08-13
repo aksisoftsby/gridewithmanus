@@ -1,0 +1,40 @@
+{
+  "endpoint": "GET /api/wallets",
+  "group": "Wallet",
+  "description": "Dompet digital GridePay pengguna (saldo, status). Tabel wallet dibuat otomatis (autocreate) saat pertama kali diakses. Saldo disimpan sebagai BIGINT sen (100000 = Rp 100.000) di backend, dan ditampilkan sebagai rupiah di aplikasi.",
+  "method": "GET",
+  "url": "/api/wallets?user_id={user_id}",
+  "authentication": "Wajib login (user_id dari akun yang login).",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [
+    { "field": "user_id", "type": "integer", "description": "ID user yang login. Wallet akan dibuat otomatis jika belum ada." }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data", "type": "array", "description": "Array berisi wallet milik user_id (0 atau 1 item)." },
+    { "field": "data.*.id", "type": "integer", "description": "ID wallet." },
+    { "field": "data.*.user_id", "type": "integer", "description": "ID pemilik wallet." },
+    { "field": "data.*.balance", "type": "integer", "description": "Saldo saat ini (rupiah)." },
+    { "field": "data.*.points", "type": "integer", "description": "Poin reward." },
+    { "field": "data.*.status", "type": "string", "description": "Status wallet, default ACTIVE." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "user_id": 3,
+        "balance": 50000,
+        "points": 0,
+        "status": "ACTIVE"
+      }
+    ]
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/wallets?user_id=3\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 422, "description": "user_id tidak dikirim atau bukan integer." },
+    { "code": 500, "description": "Gagal membuat tabel wallet di database." }
+  ]
+}

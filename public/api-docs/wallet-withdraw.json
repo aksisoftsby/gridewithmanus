@@ -1,0 +1,43 @@
+{
+  "endpoint": "POST /api/wallet/withdraw",
+  "group": "Wallet",
+  "description": "Tarik dana (withdraw) saldo GridePay ke rekening bank tersimpan. Minimal Rp 25.000, maksimal Rp 5.000.000 per transaksi. Wajib verifikasi PIN wallet 6 digit yang benar; salah 5x berturut-turut akan mengunci wallet 5 menit. Saldo divalidasi ulang di server saat submit untuk mencegah race condition, dan idempotency_key mencegah duplikasi saat koneksi putus.",
+  "method": "POST",
+  "url": "/api/wallet/withdraw",
+  "authentication": "Wajib login.",
+  "headers": {
+    "Content-Type": "application/json",
+    "Accept": "application/json"
+  },
+  "request_body": [
+    { "field": "user_id", "type": "integer", "description": "ID user yang login (wajib).", "required": true },
+    { "field": "amount", "type": "integer", "description": "Nominal penarikan, 25.000 s.d. 5.000.000 (wajib).", "required": true },
+    { "field": "rekening_id", "type": "integer", "description": "ID rekening tujuan dari daftar rekening tersimpan (wajib).", "required": true },
+    { "field": "pin", "type": "string", "description": "PIN wallet 6 digit milik user (wajib).", "required": true },
+    { "field": "idempotency_key", "type": "string", "description": "Kunci unik per request, mis. wd-{user_id}-{timestamp}.", "required": true }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data.id", "type": "integer", "description": "ID transaksi penarikan." },
+    { "field": "data.reference_no", "type": "string", "description": "Nomor referensi penarikan." },
+    { "field": "data.amount", "type": "integer", "description": "Nominal yang ditarik." },
+    { "field": "data.new_balance", "type": "integer", "description": "Saldo setelah dipotong." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": {
+      "id": 2,
+      "reference_no": "WD-20260813-3-50000",
+      "amount": 50000,
+      "new_balance": 50000
+    }
+  },
+  "example_curl": "curl -X POST \"https://gride.web.id/api/wallet/withdraw\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"amount\":50000,\"rekening_id\":1,\"pin\":\"123456\",\"idempotency_key\":\"wd-3-1723521700000\"}'",
+  "errors": [
+    { "code": 401, "description": "PIN salah — sisa percobaan ditampilkan (maks 5x, lalu terkunci 5 menit)." },
+    { "code": 422, "description": "Nominal di luar batas, rekening tidak ditemukan, atau field wajib kosong." },
+    { "code": 423, "description": "Saldo tidak cukup atau wallet sedang terkunci." },
+    { "code": 409, "description": "Request duplikat (idempotency_key sudah diproses)." },
+    { "code": 500, "description": "Gagal memproses penarikan di server." }
+  ]
+}

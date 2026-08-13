@@ -1,0 +1,40 @@
+{
+  "endpoint": "POST /api/wallet/topup",
+  "group": "Wallet",
+  "description": "Top up saldo GridePay. Minimal Rp 10.000, maksimal Rp 10.000.000 per transaksi. Setiap request menggunakan idempotency_key agar tidak terjadi top up ganda saat koneksi putus. Pada versi produksi, status akan diproses payment gateway (VA/QRIS/e-wallet); saat ini pembayaran diproses langsung sebagai simulasi.",
+  "method": "POST",
+  "url": "/api/wallet/topup",
+  "authentication": "Wajib login.",
+  "headers": {
+    "Content-Type": "application/json",
+    "Accept": "application/json"
+  },
+  "request_body": [
+    { "field": "user_id", "type": "integer", "description": "ID user yang login (wajib).", "required": true },
+    { "field": "amount", "type": "integer", "description": "Nominal top up, 10.000 s.d. 10.000.000 (wajib).", "required": true },
+    { "field": "method", "type": "string", "description": "Metode: VA_BANK, EWALLET, QRIS, CARD. Default VA_BANK.", "required": false },
+    { "field": "idempotency_key", "type": "string", "description": "Kunci unik per request, mis. topup-{user_id}-{timestamp}. Request dengan key yang sama tidak akan diproses dua kali.", "required": true }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data.id", "type": "integer", "description": "ID transaksi top up." },
+    { "field": "data.reference_no", "type": "string", "description": "Nomor referensi top up." },
+    { "field": "data.amount", "type": "integer", "description": "Nominal yang ditambahkan." },
+    { "field": "data.new_balance", "type": "integer", "description": "Saldo setelah top up." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": {
+      "id": 1,
+      "reference_no": "TOPUP-20260813-3-100000",
+      "amount": 100000,
+      "new_balance": 150000
+    }
+  },
+  "example_curl": "curl -X POST \"https://gride.web.id/api/wallet/topup\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"amount\":100000,\"method\":\"VA_BANK\",\"idempotency_key\":\"topup-3-1723521600000\"}'",
+  "errors": [
+    { "code": 422, "description": "Nominal di luar batas atau user_id/method hilang." },
+    { "code": 409, "description": "Request duplikat (idempotency_key sudah diproses sebelumnya)." },
+    { "code": 500, "description": "Gagal memproses top up di server." }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "endpoint": "GET /api/wallet/transactions",
+  "group": "Wallet",
+  "description": "Riwayat mutasi saldo GridePay (Top Up, Tarik Dana, Pembayaran, Refund, Bonus). Mendukung pagination dan filter tipe transaksi serta rentang tanggal.",
+  "method": "GET",
+  "url": "/api/wallet/transactions?user_id={user_id}&type={type}&from={YYYY-MM-DD}&to={YYYY-MM-DD}&page={n}",
+  "authentication": "Wajib login (user_id dari akun yang login).",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "query_parameters": [
+    { "field": "user_id", "type": "integer", "description": "ID user pemilik wallet (wajib).", "required": true },
+    { "field": "type", "type": "string", "description": "Filter tipe: TOPUP, WITHDRAW, PAYMENT, REFUND, BONUS. Kosong = semua.", "required": false },
+    { "field": "from", "type": "date", "description": "Filter tanggal mulai (YYYY-MM-DD).", "required": false },
+    { "field": "to", "type": "date", "description": "Filter tanggal selesai (YYYY-MM-DD).", "required": false },
+    { "field": "page", "type": "integer", "description": "Halaman pagination, default 1 (15 item per halaman).", "required": false }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data", "type": "object", "description": "Struktur paginator Laravel (items, total, current_page, last_page)." },
+    { "field": "data.items", "type": "array", "description": "Daftar transaksi pada halaman yang diminta." },
+    { "field": "data.items.*.id", "type": "integer", "description": "ID transaksi." },
+    { "field": "data.items.*.wallet_id", "type": "integer", "description": "ID wallet terkait." },
+    { "field": "data.items.*.user_id", "type": "integer", "description": "ID pemilik wallet." },
+    { "field": "data.items.*.type", "type": "string", "description": "Tipe: TOPUP, WITHDRAW, PAYMENT, REFUND, BONUS." },
+    { "field": "data.items.*.amount", "type": "integer", "description": "Nominal (rupiah)." },
+    { "field": "data.items.*.balance_before", "type": "integer", "description": "Saldo sebelum transaksi." },
+    { "field": "data.items.*.balance_after", "type": "integer", "description": "Saldo setelah transaksi." },
+    { "field": "data.items.*.status", "type": "string", "description": "SUCCESS atau FAILED." },
+    { "field": "data.items.*.method", "type": "string", "description": "Metode (mis. VA_BANK, QRIS) — khusus top up / withdraw." },
+    { "field": "data.items.*.reference_no", "type": "string", "description": "Nomor referensi unik transaksi." },
+    { "field": "data.items.*.description", "type": "string", "description": "Keterangan transaksi." },
+    { "field": "data.items.*.failure_reason", "type": "string", "description": "Alasan kegagalan (jika status FAILED)." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": {
+      "items": [
+        {
+          "id": 2,
+          "wallet_id": 1,
+          "user_id": 3,
+          "type": "WITHDRAW",
+          "amount": 50000,
+          "balance_before": 100000,
+          "balance_after": 50000,
+          "status": "SUCCESS",
+          "method": null,
+          "reference_no": "WD-20260813-3-50000",
+          "description": "Tarik dana ke rekening BCA 1234567890",
+          "failure_reason": null,
+          "created_at": "2026-08-13T04:30:00.000000Z"
+        }
+      ],
+      "total": 2,
+      "current_page": 1,
+      "last_page": 1
+    }
+  },
+  "example_curl": "curl -X GET \"https://gride.web.id/api/wallet/transactions?user_id=3&type=WITHDRAW&page=1\" -H \"Accept: application/json\"",
+  "errors": [
+    { "code": 422, "description": "user_id tidak dikirim atau bukan integer." },
+    { "code": 401, "description": "Wallet tidak ditemukan untuk user tersebut." }
+  ]
+}

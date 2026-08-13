@@ -1,0 +1,37 @@
+{
+  "endpoint": "POST /api/wallet/pin/verify dan /api/wallet/pin/set",
+  "group": "Wallet",
+  "description": "Manajemen PIN wallet GridePay 6 digit. PIN disimpan ter-hash bcrypt di backend. Gagal 5x berturut-turut mengunci wallet selama 5 menit. PIN wajib untuk top up, tarik dana, dan pengiriman transaksi keuangan lainnya.",
+  "method": "POST",
+  "url": "/api/wallet/pin/verify",
+  "authentication": "Wajib login.",
+  "headers": {
+    "Content-Type": "application/json",
+    "Accept": "application/json"
+  },
+  "request_body": [
+    { "field": "user_id", "type": "integer", "description": "ID user (wajib)." },
+    { "field": "pin", "type": "string", "description": "PIN 6 digit yang ingin diverifikasi (wajib)." }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "\"success\" pada respons normal." },
+    { "field": "data.valid", "type": "boolean", "description": "True jika PIN benar." },
+    { "field": "data.pin_set", "type": "boolean", "description": "True jika user sudah memiliki PIN wallet." },
+    { "field": "data.attempts_remaining", "type": "integer", "description": "Sisa percobaan sebelum terkunci." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": {
+      "valid": true,
+      "pin_set": true,
+      "attempts_remaining": 5
+    }
+  },
+  "example_curl": "curl -X POST \"https://gride.web.id/api/wallet/pin/verify\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"pin\":\"123456\"}'",
+  "errors": [
+    { "code": 401, "description": "PIN salah — pesan berisi sisa percobaan. Setelah 5x salah, wallet terkunci 5 menit." },
+    { "code": 423, "description": "Wallet sedang terkunci, coba lagi setelah masa lock habis." },
+    { "code": 422, "description": "user_id/pin kosong atau PIN bukan 6 digit angka." }
+  ],
+  "pin_set_note": "POST /api/wallet/pin/set body: user_id (wajib), new_pin (6 digit, wajib), old_pin (wajib jika PIN sudah ada — untuk mengganti PIN). Hash disimpan via bcrypt. Respons 200 = PIN berhasil dibuat/diubah."
+}
