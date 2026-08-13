@@ -306,6 +306,57 @@ class ApiController extends Controller
     }
 
     /**
+     * GET /api/wallets?user_id=X — saldo dompet pelanggan (GridePay) untuk app_customer.
+     * Autocreate wallets table & row bila belum ada (production menggunakan BIGINT).
+     */
+    public function wallets(Request $request)
+    {
+        $uid = $request->query('user_id');
+        if (!$uid) {
+            return response()->json(['status' => 'error', 'message' => 'user_id required'], 400);
+        }
+
+        // Production menggunakan BIGINT, contoh skema UUID. Selesaikan dengan aman.
+        $user = null;
+        if (is_numeric($uid)) {
+            $user = DB::table('users')->where('id', (int) $uid)->first();
+        }
+        if (!$user) {
+            $user = DB::table('users')->where('id', $uid)->first();
+        }
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+
+        if (!DB::getSchemaBuilder()->hasTable('wallets')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS wallets (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                balance NUMERIC(15,2) DEFAULT 0,
+                points INTEGER DEFAULT 0,
+                status VARCHAR(20) DEFAULT \'ACTIVE\',
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+        }
+
+        $wallet = DB::table('wallets')->where('user_id', $user->id)->first();
+        if (!$wallet) {
+            DB::table('wallets')->insert([
+                'user_id' => $user->id,
+                'balance' => 0,
+                'points' => 0,
+                'status' => 'ACTIVE',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $wallet = DB::table('wallets')->where('user_id', $user->id)->first();
+        }
+
+        return response()->json(['status' => 'success', 'data' => [$wallet]]);
+    }
+
+    /**
      * GET /api/settings — public, read-only tarif & komisi untuk aplikasi Flutter.
      */
     public function settings(Request $request)

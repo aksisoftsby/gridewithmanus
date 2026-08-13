@@ -14,6 +14,9 @@ void main() {
 
 const String kApiBase = 'https://gride.web.id/api';
 
+/// Global key exposing MainShell state so home tiles can switch bottom tabs.
+final GlobalKey<_MainShellState> _shellStateKey = GlobalKey<_MainShellState>();
+
 class CustomerApp extends StatelessWidget {
   const CustomerApp({super.key});
 
@@ -22,10 +25,10 @@ class CustomerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Gride',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4B1D7E)),
         useMaterial3: true,
       ),
-      home: const MainShell(),
+      home: MainShell(key: _shellStateKey),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -69,6 +72,8 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  /// Switch bottom tab programmatically (used by home service grid).
+  void jumpTo(int page) => setState(() => _page = page);
   int _page = 0;
 
   @override
@@ -78,15 +83,23 @@ class _MainShellState extends State<MainShell> {
         index: _page,
         children: const [CustomerHome(), KirimPage(), AntarPage(), AkunPage()],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _page,
-        onDestinationSelected: (i) => setState(() => _page = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.location_on_outlined), selectedIcon: Icon(Icons.location_on), label: 'Kirim'),
-          NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Antar'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Akun'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [Color(0xFF3A1566), Color(0xFF2A0E4E)]),
+          boxShadow: [BoxShadow(color: Color(0xFFE8B84B), blurRadius: 14, offset: Offset(0, -2))],
+        ),
+        child: NavigationBar(
+          height: 72,
+          backgroundColor: Colors.transparent,
+          indicatorColor: Colors.transparent,
+          selectedIndex: _page,
+          onDestinationSelected: (i) => setState(() => _page = i),
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.headset_mic_outlined, color: Color(0xFFE8B84B)), selectedIcon: Icon(Icons.headset_mic, color: Color(0xFFE8B84B)), label: 'Admin'),
+            NavigationDestination(icon: Icon(Icons.grid_view, color: Color(0xFFE8B84B)), selectedIcon: Icon(Icons.grid_view, color: Color(0xFFE8B84B)), label: 'Menu'),
+            NavigationDestination(icon: Icon(Icons.person_outline, color: Color(0xFFE8B84B)), selectedIcon: Icon(Icons.person, color: Color(0xFFE8B84B)), label: 'Profil'),
+          ],
+        ),
       ),
     );
   }
@@ -133,15 +146,54 @@ class _CustomerHomeState extends State<CustomerHome> {
   String? promoError;
   String selectedType = '';
   String search = '';
+  Map<String, dynamic>? _sessionUser;
+  int _walletBalance = 0;
+  bool _walletLoading = true;
 
   PageController? _newsPageCtrl;
   Timer? _newsTimer;
   int _newsIndex = 0;
 
+  static const Color kDeepPurple = Color(0xFF2A0E4E);
+  static const Color kPurple = Color(0xFF4B1D7E);
+  static const Color kPurpleCard = Color(0xFF5C2A96);
+  static const Color kGold = Color(0xFFE8B84B);
+  static const Color kGoldBright = Color(0xFFF7D27E);
+
   @override
   void initState() {
     super.initState();
+    _loadWallet();
     fetchData();
+  }
+
+  Future<void> _loadWallet() async {
+    final user = await Session.load();
+    if (!mounted) return;
+    setState(() => _sessionUser = user);
+    if (user == null) {
+      setState(() => _walletLoading = false);
+      return;
+    }
+    final uid = Session.userIdOf(user);
+    if (uid == null) {
+      setState(() => _walletLoading = false);
+      return;
+    }
+    try {
+      final res = await httpGetWithRetry('$kApiBase/wallets?user_id=$uid');
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body)['data'];
+        if (list is List && list.isNotEmpty) {
+          final bal = num.tryParse(list.first['balance'].toString()) ?? 0;
+          if (mounted) setState(() => _walletBalance = bal.toInt());
+        }
+      }
+    } catch (_) {
+      // Wallet unavailable -> show Rp 0 gracefully.
+    } finally {
+      if (mounted) setState(() => _walletLoading = false);
+    }
   }
 
   Future<void> fetchNews() async {
@@ -237,28 +289,108 @@ class _CustomerHomeState extends State<CustomerHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gride'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
-      body: RefreshIndicator(
-        onRefresh: fetchData,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Cari makanan atau toko...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kDeepPurple, kPurple, Color(0xFF6A35B8)],
+            stops: [0.0, 0.45, 1.0],
+          ),
+        ),
+        child: RefreshIndicator(
+          onRefresh: fetchData,
+          color: kGold,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Header: logo + profile
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset('assets/gride_logo.png', height: 84, fit: BoxFit.contain),
+                  GestureDetector(
+                    onTap: () => _shellStateKey.currentState?.jumpTo(3),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: kGold, width: 2),
+                        color: kGold.withOpacity(0.15),
+                      ),
+                      child: Icon(Icons.person, color: kGold, size: 28),
+                    ),
+                  ),
+                ],
               ),
-              onChanged: (v) {
-                search = v;
-                fetchData();
-              },
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 20),
+
+              // GridePay wallet card
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF5C2A96), Color(0xFF3D1570)]),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 8))],
+                  border: Border.all(color: kGold.withOpacity(0.35), width: 1),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(children: [Icon(Icons.account_balance_wallet, color: kGoldBright, size: 18), SizedBox(width: 8), Text('GridePay', style: TextStyle(color: Color(0xFFF7D27E), fontWeight: FontWeight.bold, fontSize: 14))]),
+                          const SizedBox(height: 8),
+                          Text(formatRp(_walletLoading ? 0 : _walletBalance),
+                              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 10),
+                          const Text('Tap for explore', style: TextStyle(color: Color(0xFFCFC3EE), fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        _walletActionButton(Icons.keyboard_arrow_up, 'Tarik'),
+                        const SizedBox(width: 12),
+                        _walletActionButton(Icons.add, 'Top Up'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // Layanan favorit Anda
+              const Text('Layanan favorit Anda', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _buildServicesGrid(),
+              const SizedBox(height: 28),
+
+              // Search bar
+              Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: TextField(
+                  style: const TextStyle(color: Color(0xFF2A0E4E)),
+                  decoration: InputDecoration(
+                    hintText: 'Cari makanan atau toko...',
+                    hintStyle: TextStyle(color: Colors.deepPurple.shade200),
+                    prefixIcon: Icon(Icons.search, color: kGold),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onChanged: (v) {
+                    search = v;
+                    fetchData();
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 8,
@@ -270,7 +402,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               ],
             ),
             const SizedBox(height: 20),
-            const Text('Promo Spesial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Promo Spesial', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             if (promoError != null)
               Padding(
@@ -284,7 +416,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                 itemCount: promos.isEmpty && promoError == null ? 1 : promos.length,
                 itemBuilder: (context, index) {
                   if (promos.isEmpty) {
-                    return const Center(child: Text('Belum ada promo', style: TextStyle(color: Colors.grey)));
+                    return const Center(child: Text('Belum ada promo', style: TextStyle(color: Color(0xFFCFC3EE))));
                   }
                   final promo = promos[index];
                   return Container(
@@ -292,18 +424,19 @@ class _CustomerHomeState extends State<CustomerHome> {
                     margin: const EdgeInsets.only(right: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Colors.teal, Colors.green]),
+                      gradient: const LinearGradient(colors: [Color(0xFFE8B84B), Color(0xFFB8862C)]),
                       borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: kGold.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(promo['code'] ?? '',
-                            style: const TextStyle(color: Colors.yellowAccent, fontWeight: FontWeight.bold)),
+                            style: const TextStyle(color: Color(0xFF2A0E4E), fontWeight: FontWeight.w900)),
                         const SizedBox(height: 4),
                         Text(promo['title'] ?? '',
-                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: Color(0xFF2A0E4E), fontSize: 14, fontWeight: FontWeight.bold),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis),
                       ],
@@ -313,7 +446,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Daftar Merchant', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Daftar Merchant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             if (merchantError != null)
               Card(
@@ -341,6 +474,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               itemBuilder: (context, index) {
                 final m = merchants[index];
                 return Card(
+                  color: const Color(0xFF3D1570),
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
@@ -355,15 +489,15 @@ class _CustomerHomeState extends State<CustomerHome> {
                         errorBuilder: (_, __, ___) => Container(
                           width: 60,
                           height: 60,
-                          decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.store, color: Colors.teal),
+                          decoration: BoxDecoration(color: kPurpleCard, borderRadius: BorderRadius.circular(8), border: Border.all(color: kGold.withOpacity(0.4))),
+                          child: const Icon(Icons.store, color: kGold),
                         ),
                         loadingBuilder: (context, child, progress) =>
                             progress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                       ),
                     ),
-                    title: Text(m['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${m['type'] ?? ''} • ${m['city'] ?? ''}'),
+                    title: Text(m['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    subtitle: Text('${m['type'] ?? ''} • ${m['city'] ?? ''}', style: const TextStyle(color: Color(0xFFCFC3EE))),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -407,11 +541,11 @@ class _CustomerHomeState extends State<CustomerHome> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           image: DecorationImage(
-                            image: NetworkImage((n['featured_image'] ?? '').toString().isNotEmpty ? n['featured_image'] : 'https://placehold.co/600x400/0d9488/ffffff?text=Gride+News'),
+                            image: NetworkImage((n['featured_image'] ?? '').toString().isNotEmpty ? n['featured_image'] : 'https://placehold.co/600x400/4B1D7E/E8B84B?text=Gride+News'),
                             fit: BoxFit.cover,
                           ),
                           gradient: (n['featured_image'] ?? '').toString().isEmpty
-                              ? const LinearGradient(colors: [Colors.teal, Colors.green])
+                              ? const LinearGradient(colors: [Color(0xFF5C2A96), Color(0xFFB8862C)])
                               : LinearGradient(colors: [Colors.black.withOpacity(0.65), Colors.black.withOpacity(0.15)], begin: Alignment.bottomCenter, end: Alignment.topCenter),
                           color: (n['featured_image'] ?? '').toString().isEmpty ? null : Colors.black,
                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))],
@@ -428,8 +562,8 @@ class _CustomerHomeState extends State<CustomerHome> {
                                   if (n['category_name'] != null)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: Colors.teal.shade700, borderRadius: BorderRadius.circular(8)),
-                                      child: Text('${n['category_name']}', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(8)),
+                                      child: Text('${n['category_name']}', style: const TextStyle(color: Color(0xFF2A0E4E), fontSize: 11, fontWeight: FontWeight.bold)),
                                     ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -459,7 +593,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                     width: active ? 18 : 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: active ? Colors.teal : Colors.grey.shade300,
+                      color: active ? kGold : Colors.white24,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   );
@@ -469,20 +603,128 @@ class _CustomerHomeState extends State<CustomerHome> {
           ],
         ),
       ),
+    ),
     );
   }
 
   Widget _buildCategoryChip(String label, String type) {
     final isSelected = selectedType == type;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(label, style: TextStyle(color: isSelected ? const Color(0xFF2A0E4E) : Colors.white)),
       selected: isSelected,
+      selectedColor: kGold,
+      backgroundColor: kPurpleCard.withOpacity(0.6),
+      side: BorderSide(color: kGold.withOpacity(0.6)),
       onSelected: (selected) {
         setState(() => selectedType = type);
         fetchData();
       },
     );
   }
+
+  /// Wallet action buttons (Tarik / Top Up) inside the GridePay card.
+  Widget _walletActionButton(IconData icon, String label) {
+    return GestureDetector(
+      onTap: () {
+        final msg = label == 'Tarik'
+            ? 'Fitur pencairan saldo akan segera hadir.'
+            : 'Fitur top up saldo akan segera hadir.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: kGold.withOpacity(0.18),
+              shape: BoxShape.circle,
+              border: Border.all(color: kGold, width: 1.5),
+            ),
+            child: Icon(icon, color: kGoldBright, size: 26),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  /// Grid layanan favorit: each tile routes to the matching app section.
+  Widget _buildServicesGrid() {
+    const services = <_ServiceItem>[
+      _ServiceItem('Motor', Icons.motorcycle),
+      _ServiceItem('Mobil', Icons.directions_car),
+      _ServiceItem('Bajaj', Icons.tram),
+      _ServiceItem('Food', Icons.fastfood),
+      _ServiceItem('Mart', Icons.storefront),
+      _ServiceItem('Ambulance', Icons.local_hospital),
+      _ServiceItem('Sayur Buah', Icons.eco),
+      _ServiceItem('Bengkel Panggilan', Icons.build),
+      _ServiceItem('Send', Icons.local_shipping),
+      _ServiceItem('PPOB', Icons.public),
+      _ServiceItem('Aneka Jasa', Icons.handyman),
+      _ServiceItem('Agro', Icons.grass),
+    ];
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 18, crossAxisSpacing: 12, childAspectRatio: 0.85),
+      itemCount: services.length,
+      itemBuilder: (context, index) {
+        final s = services[index];
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openService(s),
+          child: Column(
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: kPurpleCard,
+                  border: Border.all(color: kGold, width: 1.5),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 6, offset: const Offset(0, 3))],
+                ),
+                child: Icon(s.icon, color: kGoldBright, size: 30),
+              ),
+              const SizedBox(height: 8),
+              Text(s.label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center, maxLines: 2),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openService(_ServiceItem s) {
+    switch (s.label) {
+      case 'Motor':
+      case 'Mobil':
+      case 'Bajaj':
+      case 'Send':
+        _shellStateKey.currentState?.jumpTo(1);
+        break;
+      case 'Food':
+      case 'Mart':
+      case 'Sayur Buah':
+        _shellStateKey.currentState?.jumpTo(2);
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${s.label} akan segera hadir di Gride SuperApp.')),
+        );
+    }
+  }
+}
+
+/// Simple typed entry for the home services grid.
+class _ServiceItem {
+  final String label;
+  final IconData icon;
+  const _ServiceItem(this.label, this.icon);
 }
 class KirimPage extends StatefulWidget {
   const KirimPage({super.key});

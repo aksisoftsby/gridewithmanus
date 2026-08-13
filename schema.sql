@@ -726,7 +726,9 @@ CREATE TABLE payments (
 );
 
 -- ----------------------------------------------------------------------------
--- WALLETS (Dompet digital pengguna / pelanggan)
+-- WALLETS (Dompet digital pengguna / pelanggan — GridePay)
+-- Catatan: production PostgreSQL memakai BIGINT untuk users.id, maka versi
+-- production dibuat via API (CREATE TABLE IF NOT EXISTS dengan BIGSERIAL).
 -- ----------------------------------------------------------------------------
 CREATE TABLE wallets (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -737,6 +739,8 @@ CREATE TABLE wallets (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- API baru: GET /api/wallets?user_id=X (autocreate tabel BIGINT di production)
 
 -- ----------------------------------------------------------------------------
 -- WALLET TRANSACTIONS (Mutasi saldo dompet digital: Topup, Bayar, Withdraw)
