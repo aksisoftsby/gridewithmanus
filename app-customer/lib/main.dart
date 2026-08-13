@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:geolocator/geolocator.dart';
@@ -2372,6 +2373,7 @@ class AkunPage extends StatefulWidget {
 class _AkunPageState extends State<AkunPage> {
   Map<String, dynamic>? _user;
   List _orders = [];
+  Map<String, dynamic>? _wallet; // saldo GridePay
   bool showRegister = true; // true = form daftar, false = form login
   bool _busy = false;
   String? _msg;
@@ -2389,7 +2391,21 @@ class _AkunPageState extends State<AkunPage> {
   Future<void> _refreshSession() async {
     final u = await Session.load();
     setState(() => _user = u);
-    if (u != null) _loadOrders();
+    if (u != null) {
+      _loadOrders();
+      _loadWallet();
+    }
+  }
+
+  Future<void> _loadWallet() async {
+    if (_user == null) return;
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/wallets?user_id=${_user!['id']}'));
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body)['data'] as List?;
+        setState(() => _wallet = (list != null && list.isNotEmpty) ? Map<String, dynamic>.from(list.first as Map) : null);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadOrders() async {
@@ -2628,6 +2644,42 @@ class _AkunPageState extends State<AkunPage> {
                               label: const Text('Logout'),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // GridePay wallet card
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPage()));
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4B1D7E), Color(0xFF7B4DBF)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: kPurpleMain.withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 6))],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: const [
+                            Icon(Icons.account_balance_wallet, color: Color(0xFFD9B24A), size: 22),
+                            SizedBox(width: 10),
+                            Text('GridePay', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                            Spacer(),
+                            Icon(Icons.chevron_right, color: Colors.white54),
+                          ]),
+                          const SizedBox(height: 10),
+                          Text(formatRp((int.tryParse((_wallet?['balance'] ?? '0').toString()) ?? 0)),
+                              style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          const Text('Saldo GridePay • ketuk untuk Top Up, Tarik Dana & Riwayat',
+                              style: TextStyle(color: Colors.white70, fontSize: 12)),
                         ],
                       ),
                     ),
@@ -3676,6 +3728,1379 @@ class _IklanFormPageState extends State<IklanFormPage> {
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.send),
                     label: Text(_submitting ? 'Menyimpan...' : (editing ? 'Perbarui Iklan' : 'Pasang Iklan (Gratis)')),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+/// =========================================================================
+/// MODUL WALLET (GridePay) — saldo, top up, tarik dana, riwayat, detail,
+/// kelola rekening bank, dan PIN wallet (6 digit, rate-limit server-side).
+/// API: /api/wallets, /api/wallet/transactions, /api/wallet/topup,
+/// /api/wallet/withdraw, /api/wallet/rekening, /api/wallet/pin/set & /verify.
+/// =========================================================================
+
+class WalletPage extends StatefulWidget {
+  const WalletPage({super.key});
+  @override
+  State<WalletPage> createState() => _WalletPageState();
+}
+
+class _WalletPageState extends State<WalletPage> {
+  Map<String, dynamic>? _user;
+  Map<String, dynamic>? _wallet;
+  List _transactions = [];
+  bool _busy = false;
+  bool _hideBalance = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    _user = await Session.load();
+    if (_user == null) return;
+    await _loadWallet();
+    await _loadTransactions();
+  }
+
+  Future<void> _loadWallet() async {
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/wallets?user_id=${_user!['id']}'));
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body)['data'] as List?;
+        setState(() => _wallet = (list != null && list.isNotEmpty) ? Map<String, dynamic>.from(list.first as Map) : null);
+      }
+    } catch (e) {
+      setState(() => _error = 'Koneksi gagal: $e');
+    }
+  }
+
+  Future<void> _loadTransactions() async {
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/wallet/transactions?user_id=${_user!['id']}&page=1'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+        final list = data is Map ? (data['items'] as List?) ?? [] : (data as List? ?? []);
+        setState(() => _transactions = list.take(10).toList());
+      }
+    } catch (_) {}
+  }
+
+  int _balanceOf() => int.tryParse((_wallet?['balance'] ?? '0').toString()) ?? 0;
+
+  IconData _iconFor(String type) {
+    return {'TOPUP': Icons.add_circle_outline, 'WITHDRAW': Icons.remove_circle_outline, 'PAYMENT': Icons.shopping_bag_outlined, 'REFUND': Icons.replay_circle_filled, 'BONUS': Icons.card_giftcard}[type] ?? Icons.swap_horiz;
+  }
+
+  Color _colorFor(String type) {
+    return {'TOPUP': Colors.green.shade700, 'WITHDRAW': kPurpleMain, 'PAYMENT': Colors.blue.shade800, 'REFUND': Colors.teal.shade700, 'BONUS': Colors.orange.shade800}[type] ?? Colors.grey.shade700;
+  }
+
+  String _labelFor(String type) {
+    return {'TOPUP': 'Top Up', 'WITHDRAW': 'Tarik Dana', 'PAYMENT': 'Pembayaran', 'REFUND': 'Refund', 'BONUS': 'Bonus'}[type] ?? type;
+  }
+
+  Future<void> _openWithPinCheck(String route) async {
+    // Setiap aksi keuangan wajib verifikasi PIN wallet di backend.
+    final uid = _user!['id'];
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/pin/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': uid, 'pin': 'check'}),
+      );
+      final body = jsonDecode(res.body);
+      final pinSet = body['data'] != null && (body['data'] as Map)['pin_set'] == true;
+      if (!mounted) return;
+      if (!pinSet) {
+        _showPinRequired();
+        return;
+      }
+      _showPinDialog(route);
+    } catch (_) {
+      _showPinDialog(route);
+    }
+  }
+
+  void _showPinRequired() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('PIN Wallet Belum Dibuat'),
+        content: const Text('Untuk keamanan, buat PIN 6 digit terlebih dahulu sebelum menggunakan top up & tarik dana.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nanti')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPinPage()));
+            },
+            child: const Text('Buat PIN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPinDialog(String route) {
+    showDialog(
+      context: context,
+      builder: (ctx) => WalletPinDialog(
+        uid: _user!['id'],
+        onVerified: () {
+          Navigator.pop(ctx);
+          if (route == 'topup') {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletTopUpPage())).then((_) => _loadAll());
+          } else if (route == 'withdraw') {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletWithdrawPage())).then((_) => _loadAll());
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final balance = _balanceOf();
+    return Scaffold(
+      appBar: AppBar(title: const Text('GridePay'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: _user == null
+          ? _loginPrompt()
+          : RefreshIndicator(
+              onRefresh: _loadAll,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Saldo utama + hide/show
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF4B1D7E), Color(0xFF7B4DBF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [BoxShadow(color: kPurpleMain.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 7))],
+                    ),
+                    padding: const EdgeInsets.all(22),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Saldo GridePay', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Text(_hideBalance ? 'Rp ••••••' : formatRp(balance),
+                                      style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 12),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _hideBalance = !_hideBalance),
+                                    child: Icon(_hideBalance ? Icons.visibility_off : Icons.visibility, color: Colors.white70, size: 22),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text('Pembayaran aman dengan PIN wallet 6 digit', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Quick actions
+                  Row(
+                    children: [
+                      Expanded(child: _quickAction(Icons.add_circle_outline, 'Top Up', () => _openWithPinCheck('topup'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _quickAction(Icons.remove_circle_outline, 'Tarik Dana', () => _openWithPinCheck('withdraw'))),
+                      const SizedBox(width: 10),
+                      Expanded(child: _quickAction(Icons.history, 'Riwayat', () => _openHistory())),
+                      const SizedBox(width: 10),
+                      Expanded(child: _quickAction(Icons.key, 'PIN', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPinPage())).then((_) => _loadAll()))),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: _quickAction(Icons.account_balance, 'Rekening', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletRekeningPage())).then((_) => _loadAll()))),
+                  ]),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: const [Text('Transaksi Terakhir', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)), Spacer()],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_transactions.isEmpty) const Text('Belum ada transaksi.', style: TextStyle(color: Colors.grey)),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _transactions.length,
+                    itemBuilder: (context, i) {
+                      final t = _transactions[i] as Map;
+                      final amount = int.tryParse((t['amount'] ?? '0').toString()) ?? 0;
+                      final positive = t['type'] == 'TOPUP' || t['type'] == 'REFUND' || t['type'] == 'BONUS';
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          leading: CircleAvatar(radius: 22, backgroundColor: _colorFor(t['type'] ?? '').withOpacity(0.12),
+                              child: Icon(_iconFor(t['type'] ?? ''), color: _colorFor(t['type'] ?? ''))),
+                          title: Text(_labelFor(t['type'] ?? ''), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          subtitle: Text('${t['status'] ?? ''} • ${(t['created_at']?.toString() ?? '').substring(0, 16)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          trailing: Text(
+                            '${positive ? '+' : '-'}${formatRp(amount)}',
+                            style: TextStyle(color: positive ? Colors.green.shade700 : kPurpleMain, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => WalletTransactionDetailPage(uid: _user!['id'], transaction: t))).then((_) => _loadAll()),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  if (_transactions.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: _openHistory,
+                      icon: const Icon(Icons.history, size: 16),
+                      label: const Text('Lihat Semua Riwayat'),
+                    ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _loginPrompt() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.account_balance_wallet_outlined, size: 56, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('Login dulu untuk melihat GridePay kamu', textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () {
+                _shellStateKey.currentState?.jumpTo(2);
+                Navigator.pop(context);
+              },
+              child: const Text('Login / Daftar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openHistory() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => WalletHistoryPage(uid: _user!['id']))).then((_) => _loadAll());
+  }
+
+  Widget _quickAction(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+        decoration: BoxDecoration(
+          color: kPurpleCard.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: kPurpleCard.withOpacity(0.6)),
+        ),
+        child: Column(children: [Icon(icon, color: kPurpleMain, size: 26), const SizedBox(height: 6), Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))]),
+      ),
+    );
+  }
+}
+
+/// Dialog verifikasi PIN wallet sebelum aksi keuangan.
+class WalletPinDialog extends StatefulWidget {
+  final int uid;
+  final VoidCallback onVerified;
+  const WalletPinDialog({super.key, required this.uid, required this.onVerified});
+  @override
+  State<WalletPinDialog> createState() => _WalletPinDialogState();
+}
+
+class _WalletPinDialogState extends State<WalletPinDialog> {
+  final List<String> _digits = [];
+  bool _busy = false;
+  String? _error;
+
+  void _append(String d) {
+    if (_busy || _digits.length >= 6) return;
+    setState(() => _digits.add(d));
+    if (_digits.length == 6) _verify();
+  }
+
+  Future<void> _verify() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/pin/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': widget.uid, 'pin': _digits.join()}),
+      );
+      final body = jsonDecode(res.body);
+      if (!mounted) return;
+      if (res.statusCode == 200 && body['data']?['valid'] == true) {
+        widget.onVerified();
+      } else {
+        setState(() {
+          _busy = false;
+          _error = body['message'] ?? 'PIN salah.';
+          _digits.clear();
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _busy = false;
+        _error = 'Koneksi gagal: $e';
+        _digits.clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Verifikasi PIN', style: TextStyle(fontWeight: FontWeight.bold)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Masukkan PIN 6 digit wallet kamu', style: TextStyle(color: Colors.grey, fontSize: 13)),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(6, (i) {
+              final filled = i < _digits.length;
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 13, height: 13,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? kPurpleMain : Colors.grey.shade300),
+              );
+            }),
+          ),
+          if (_error != null)
+            Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: TextStyle(color: Colors.red.shade800, fontSize: 12))),
+          const SizedBox(height: 12),
+          for (var row in ['123', '456', '789', '⌫0'])
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: row.split('').map((c) {
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 5),
+                    child: IconButton(
+                      style: IconButton.styleFrom(minimumSize: const Size(56, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), backgroundColor: Colors.grey.shade200),
+                      onPressed: _busy ? null : () {
+                        if (c == '⌫') {
+                          if (_digits.isNotEmpty) setState(() { _digits.removeLast(); _error = null; });
+                        } else {
+                          _append(c);
+                        }
+                      },
+                      icon: c == '⌫' ? const Icon(Icons.backspace_outlined, color: Colors.black87) : Text(c, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Riwayat transaksi dengan filter tipe & rentang tanggal.
+class WalletHistoryPage extends StatefulWidget {
+  final int uid;
+  const WalletHistoryPage({super.key, required this.uid});
+  @override
+  State<WalletHistoryPage> createState() => _WalletHistoryPageState();
+}
+
+class _WalletHistoryPageState extends State<WalletHistoryPage> {
+  List _transactions = [];
+  bool _busy = false;
+  String _filter = 'ALL';
+  String? _from;
+  String? _to;
+  int _page = 1;
+  int _lastPage = 1;
+  int _total = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _busy = true);
+    try {
+      final q = {'user_id': '${widget.uid}', 'type': _filter, 'page': '$_page'};
+      if (_from != null) q['from'] = _from!;
+      if (_to != null) q['to'] = _to!;
+      final res = await httpGetWithRetry('$kApiBase/wallet/transactions?${Uri(queryParameters: q).query}');
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+        final list = data is Map ? (data['items'] as List?) ?? [] : (data as List? ?? []);
+        setState(() {
+          _transactions = (_page == 1 ? [] : _transactions)..addAll(list);
+          _page = data is Map ? (data['current_page'] ?? 1) : _page;
+          _lastPage = data is Map ? (data['last_page'] ?? 1) : 1;
+          _total = data is Map ? (data['total'] ?? 0) : list.length;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _pickDate(bool isFrom) async {
+    final d = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2040));
+    if (d != null) {
+      final s = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      setState(() {
+        if (isFrom) _from = s; else _to = s;
+        _page = 1;
+      });
+      _load();
+    }
+  }
+
+  IconData _iconFor(String type) {
+    return {'TOPUP': Icons.add_circle_outline, 'WITHDRAW': Icons.remove_circle_outline, 'PAYMENT': Icons.shopping_bag_outlined, 'REFUND': Icons.replay_circle_filled, 'BONUS': Icons.card_giftcard}[type] ?? Icons.swap_horiz;
+  }
+
+  Color _colorFor(String type) {
+    return {'TOPUP': Colors.green.shade700, 'WITHDRAW': kPurpleMain, 'PAYMENT': Colors.blue.shade800, 'REFUND': Colors.teal.shade700, 'BONUS': Colors.orange.shade800}[type] ?? Colors.grey.shade700;
+  }
+
+  String _labelFor(String type) {
+    return {'TOPUP': 'Top Up', 'WITHDRAW': 'Tarik Dana', 'PAYMENT': 'Pembayaran', 'REFUND': 'Refund', 'BONUS': 'Bonus'}[type] ?? type;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Riwayat Transaksi'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(children: [
+              SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: ['ALL', 'TOPUP', 'WITHDRAW', 'PAYMENT', 'REFUND', 'BONUS'].map((f) {
+                    final active = _filter == f;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() { _filter = f; _page = 1; _transactions = []; });
+                        _load();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: active ? kPurpleMain : Colors.white,
+                          border: Border.all(color: kPurpleMain.withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(_labelFor(f), style: TextStyle(color: active ? Colors.white : kPurpleMain, fontSize: 12, fontWeight: FontWeight.w600)),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(onPressed: () => _pickDate(true), icon: const Icon(Icons.date_range, size: 16), label: Text(_from ?? 'Dari tanggal', style: const TextStyle(fontSize: 12)))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton.icon(onPressed: () => _pickDate(false), icon: const Icon(Icons.date_range, size: 16), label: Text(_to ?? 'Sampai tanggal', style: const TextStyle(fontSize: 12)))),
+                const SizedBox(width: 8),
+                IconButton(icon: const Icon(Icons.refresh, size: 18), onPressed: () {
+                  setState(() { _page = 1; _transactions = []; });
+                  _load();
+                }),
+              ]),
+            ]),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _transactions.isEmpty && !_busy
+                ? Center(child: Text('Tidak ada transaksi${_filter != 'ALL' ? ' untuk filter ini' : ''}.', style: const TextStyle(color: Colors.grey)))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _transactions.length + (_page < _lastPage ? 1 : 0),
+                    itemBuilder: (context, i) {
+                      if (i == _transactions.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Center(child: _busy ? const CircularProgressIndicator() : FilledButton(onPressed: () => _load(), child: const Text('Muat Lebih Banyak'))),
+                        );
+                      }
+                      final t = _transactions[i] as Map;
+                      final amount = int.tryParse((t['amount'] ?? '0').toString()) ?? 0;
+                      final positive = t['type'] == 'TOPUP' || t['type'] == 'REFUND' || t['type'] == 'BONUS';
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          leading: CircleAvatar(radius: 22, backgroundColor: _colorFor(t['type'] ?? '').withOpacity(0.12), child: Icon(_iconFor(t['type'] ?? ''), color: _colorFor(t['type'] ?? ''))),
+                          title: Text(_labelFor(t['type'] ?? ''), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          subtitle: Text('${t['status'] ?? ''} • ${(t['created_at']?.toString() ?? '').substring(0, 16)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          trailing: Text('${positive ? '+' : '-'}${formatRp(amount)}', style: TextStyle(color: positive ? Colors.green.shade700 : kPurpleMain, fontWeight: FontWeight.bold, fontSize: 14)),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => WalletTransactionDetailPage(uid: widget.uid, transaction: t))),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Detail satu transaksi.
+class WalletTransactionDetailPage extends StatelessWidget {
+  final int uid;
+  final Map transaction;
+  const WalletTransactionDetailPage({super.key, required this.uid, required this.transaction});
+
+  IconData _iconFor(String type) {
+    return {'TOPUP': Icons.add_circle_outline, 'WITHDRAW': Icons.remove_circle_outline, 'PAYMENT': Icons.shopping_bag_outlined, 'REFUND': Icons.replay_circle_filled, 'BONUS': Icons.card_giftcard}[type] ?? Icons.swap_horiz;
+  }
+
+  String _labelFor(String type) {
+    return {'TOPUP': 'Top Up', 'WITHDRAW': 'Tarik Dana', 'PAYMENT': 'Pembayaran', 'REFUND': 'Refund', 'BONUS': 'Bonus'}[type] ?? type;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = transaction;
+    final amount = int.tryParse((t['amount'] ?? '0').toString()) ?? 0;
+    final positive = t['type'] == 'TOPUP' || t['type'] == 'REFUND' || t['type'] == 'BONUS';
+    final failed = (t['status'] ?? '').toUpperCase() == 'FAILED';
+    return Scaffold(
+      appBar: AppBar(title: const Text('Detail Transaksi'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const SizedBox(height: 8),
+          CircleAvatar(radius: 34, backgroundColor: _iconColor(t['type'] ?? '').withOpacity(0.12), child: Icon(_iconFor(t['type'] ?? ''), color: _iconColor(t['type'] ?? ''), size: 34)),
+          const SizedBox(height: 12),
+          Text('${positive ? '+' : '-'}${formatRp(amount)}', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: positive ? Colors.green.shade700 : kPurpleMain)),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+            decoration: BoxDecoration(
+              color: failed ? Colors.red.shade50 : Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: failed ? Colors.red.shade300 : Colors.green.shade300),
+            ),
+            child: Text((t['status'] ?? '').toUpperCase(), style: TextStyle(color: failed ? Colors.red.shade800 : Colors.green.shade800, fontWeight: FontWeight.w700, fontSize: 13)),
+          ),
+          const SizedBox(height: 22),
+          _row('Jenis', _labelFor(t['type'] ?? '')),
+          _row('Nominal', formatRp(amount)),
+          _row('Saldo Sebelum', formatRp(int.tryParse((t['balance_before'] ?? '0').toString()) ?? 0)),
+          _row('Saldo Setelah', formatRp(int.tryParse((t['balance_after'] ?? '0').toString()) ?? 0)),
+          if (t['method'] != null) _row('Metode', (t['method'] ?? '').replaceAll('_', ' ')),
+          if (t['reference_no'] != null) _rowWithCopy('Nomor Referensi', t['reference_no'].toString(), context),
+          if (t['created_at'] != null) _row('Waktu', t['created_at'].toString().substring(0, 19)),
+          if (t['description'] != null) _row('Keterangan', t['description'].toString()),
+          if (failed && t['failure_reason'] != null)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.shade200)),
+              child: Text('Alasan gagal: ${t['failure_reason']}', style: TextStyle(color: Colors.red.shade800, fontSize: 13)),
+            ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => _WalletHelpPage(uid: uid, transaction: t)));
+              },
+              icon: const Icon(Icons.help_outline),
+              label: const Text('Butuh Bantuan?'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _iconColor(String type) {
+    return {'TOPUP': Colors.green.shade700, 'WITHDRAW': kPurpleMain, 'PAYMENT': Colors.blue.shade800, 'REFUND': Colors.teal.shade700, 'BONUS': Colors.orange.shade800}[type] ?? Colors.grey.shade700;
+  }
+
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [Expanded(child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))), Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))]),
+    );
+  }
+
+  Widget _rowWithCopy(String label, String value, BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        Expanded(child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13))),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: () => Clipboard.setData(ClipboardData(text: value)).then((_) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nomor disalin'), duration: Duration(seconds: 1)));
+          }),
+          child: const Icon(Icons.copy, size: 16, color: Colors.grey),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Halaman bantuan / laporan issue transaksi.
+class _WalletHelpPage extends StatelessWidget {
+  final int uid;
+  final Map transaction;
+  const _WalletHelpPage({required this.uid, required this.transaction});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Butuh Bantuan?'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text('Hubungi customer service Gride untuk kendala transaksi ini.', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 14),
+          _row('Nomor Referensi', (transaction['reference_no'] ?? '-').toString()),
+          _row('Status', (transaction['status'] ?? '-').toString()),
+          const SizedBox(height: 16),
+          const Text('Cara menghubungi:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ListTile(leading: const Icon(Icons.chat_bubble_outline), title: const Text('Chat Customer Service'), subtitle: const Text('Menu Admin > Chat di aplikasi')),
+          ListTile(leading: const Icon(Icons.phone_outlined), title: const Text('Telepon CS Gride'), subtitle: const Text('0800-1-GRIDE (0800-1-47433)')),
+          ListTile(leading: const Icon(Icons.email_outlined), title: const Text('Email'), subtitle: const Text('cs@gride.web.id')),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) {
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [Text('$label: ', style: const TextStyle(color: Colors.grey)), Text(value, style: const TextStyle(fontWeight: FontWeight.w600))]));
+  }
+}
+
+/// Top Up: nominal + metode + konfirmasi. Status halaman langsung sukses (simulasi pembayaran manual).
+class WalletTopUpPage extends StatefulWidget {
+  const WalletTopUpPage({super.key});
+  @override
+  State<WalletTopUpPage> createState() => _WalletTopUpPageState();
+}
+
+class _WalletTopUpPageState extends State<WalletTopUpPage> {
+  Map<String, dynamic>? _user;
+  final _amountCtrl = TextEditingController();
+  String _method = 'VA_BANK';
+  bool _busy = false;
+  String? _error;
+  String? _successRef;
+
+  static const List<int> _chips = [50000, 100000, 200000, 500000];
+
+  @override
+  void initState() {
+    super.initState();
+    Session.load().then((u) => setState(() => _user = u));
+  }
+
+  Future<void> _submit() async {
+    final amount = int.tryParse(_amountCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (amount < 10000) {
+      setState(() => _error = 'Minimum top up Rp 10.000');
+      return;
+    }
+    if (amount > 10000000) {
+      setState(() => _error = 'Maksimum top up Rp 10.000.000 per transaksi');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _successRef = null;
+    });
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/topup'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': _user!['id'],
+          'amount': amount,
+          'method': _method,
+          'idempotency_key': 'topup-${_user!['id']}-${DateTime.now().millisecondsSinceEpoch}',
+        }),
+      );
+      final body = jsonDecode(res.body);
+      if (!mounted) return;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        setState(() {
+          _busy = false;
+          _successRef = body['data']?['reference_no']?.toString();
+        });
+      } else {
+        setState(() {
+          _busy = false;
+          _error = body['message'] ?? 'Top up gagal.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _busy = false;
+        _error = 'Koneksi gagal: $e';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Top Up GridePay'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          if (_successRef != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.green.shade300)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [Icon(Icons.check_circle, color: Colors.green.shade700), const SizedBox(width: 10), Text('Top Up Berhasil!', style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 16))]),
+                const SizedBox(height: 8),
+                Text('Nomor referensi: $_successRef', style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 10),
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kembali ke GridePay')),
+              ]),
+            ),
+          const Text('Nominal Top Up', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _amountCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: 'Masukkan nominal (min. Rp 10.000)',
+              prefixText: 'Rp ',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.payments_outlined),
+            ),
+            onChanged: (_) => setState(() => _error = null),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _chips.map((c) {
+              return ActionChip(
+                label: Text(formatRp(c)),
+                backgroundColor: kPurpleCard.withOpacity(0.4),
+                onPressed: () => setState(() { _amountCtrl.text = c.toString(); _error = null; }),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+          const Text('Metode Pembayaran', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 10),
+          for (final m in const [
+            ['VA_BANK', 'Virtual Account Bank'],
+            ['EWALLET', 'E-Wallet (OVO, DANA, GoPay)'],
+            ['QRIS', 'QRIS'],
+            ['CARD', 'Kartu Debit / Kredit'],
+          ])
+            RadioListTile<String>(
+              value: m[0],
+              groupValue: _method,
+              activeColor: kPurpleMain,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(m[1], style: const TextStyle(fontSize: 14)),
+              onChanged: (v) => setState(() => _method = v!),
+            ),
+          const SizedBox(height: 16),
+          if (_error != null)
+            Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: TextStyle(color: Colors.red.shade800, fontSize: 13))),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _busy ? null : (_successRef != null ? null : _submit),
+              icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check_circle_outline),
+              label: const Text('Konfirmasi Top Up'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text('Pembayaran diproses langsung (simulasi). Untuk produksi akan diarahkan ke payment gateway.', style: TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarik Dana: nominal, rekening tujuan, verifikasi PIN, submit.
+class WalletWithdrawPage extends StatefulWidget {
+  const WalletWithdrawPage({super.key});
+  @override
+  State<WalletWithdrawPage> createState() => _WalletWithdrawPageState();
+}
+
+class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
+  Map<String, dynamic>? _user;
+  Map<String, dynamic>? _wallet;
+  List _rekening = [];
+  final _amountCtrl = TextEditingController();
+  Map? _selectedRek;
+  bool _busy = false;
+  String? _error;
+  String? _successRef;
+  String? _pin;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    _user = await Session.load();
+    if (_user == null) return;
+    try {
+      final wr = await httpGetWithRetry('$kApiBase/wallets?user_id=${_user!['id']}');
+      if (wr.statusCode == 200) {
+        final list = jsonDecode(wr.body)['data'] as List?;
+        setState(() => _wallet = (list != null && list.isNotEmpty) ? Map<String, dynamic>.from(list.first as Map) : null);
+      }
+      final rr = await httpGetWithRetry('$kApiBase/wallet/rekening?user_id=${_user!['id']}');
+      if (rr.statusCode == 200) {
+        setState(() => _rekening = jsonDecode(rr.body)['data'] as List? ?? []);
+      }
+    } catch (_) {}
+  }
+
+  int _balanceOf() => int.tryParse((_wallet?['balance'] ?? '0').toString()) ?? 0;
+
+  Future<void> _requestPinDialog() async {
+    final res = await showDialog<Map>(
+      context: context,
+      builder: (ctx) => WalletPinDialog(
+        uid: _user!['id'],
+        onVerified: () {
+          Navigator.pop(ctx, <String, dynamic>{'ok': true});
+        },
+      ),
+    );
+    if (res == null) return;
+    _submit();
+  }
+
+  Future<void> _submit() async {
+    final amount = int.tryParse(_amountCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (amount < 25000) {
+      setState(() => _error = 'Minimum penarikan Rp 25.000');
+      return;
+    }
+    if (amount > 5000000) {
+      setState(() => _error = 'Maksimum penarikan Rp 5.000.000 per transaksi');
+      return;
+    }
+    if (_selectedRek == null) {
+      setState(() => _error = 'Pilih rekening tujuan terlebih dahulu.');
+      return;
+    }
+    if (amount > _balanceOf()) {
+      setState(() => _error = 'Saldo tidak cukup untuk penarikan ini.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _successRef = null;
+    });
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/withdraw'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': _user!['id'],
+          'amount': amount,
+          'rekening_id': _selectedRek!['id'],
+          'pin': _pin!,
+          'idempotency_key': 'wd-${_user!['id']}-${DateTime.now().millisecondsSinceEpoch}',
+        }),
+      );
+      final body = jsonDecode(res.body);
+      if (!mounted) return;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        setState(() {
+          _busy = false;
+          _successRef = body['data']?['reference_no']?.toString();
+        });
+      } else {
+        setState(() {
+          _busy = false;
+          _error = body['message'] ?? 'Penarikan gagal.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _busy = false;
+        _error = 'Koneksi gagal: $e';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final balance = _balanceOf();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Tarik Dana'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: kPurpleCard.withOpacity(0.4), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.account_balance_wallet_outlined, color: kPurpleMain),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Saldo tersedia', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(formatRp(balance), style: TextStyle(color: kPurpleMain, fontWeight: FontWeight.bold, fontSize: 17)),
+              ])),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          if (_successRef != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.green.shade300)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [Icon(Icons.check_circle, color: Colors.green.shade700), const SizedBox(width: 10), Text('Penarikan Berhasil Diproses!', style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold, fontSize: 16))]),
+                const SizedBox(height: 8),
+                Text('Nomor referensi: $_successRef\nDana akan ditransfer ke rekening tujuan kamu.', style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 10),
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kembali ke GridePay')),
+              ]),
+            ),
+          const Text('Nominal Penarikan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _amountCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: 'Min. Rp 25.000 • Maks. Rp 5.000.000',
+              prefixText: 'Rp ',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.payments_outlined),
+            ),
+            onChanged: (_) => setState(() => _error = null),
+          ),
+          const SizedBox(height: 16),
+          Row(children: const [Text('Rekening Tujuan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), Spacer()]),
+          const SizedBox(height: 10),
+          if (_rekening.isEmpty)
+            const Text('Belum ada rekening tersimpan. Tambahkan di menu Rekening.', style: TextStyle(color: Colors.grey, fontSize: 13))
+          else
+            for (final r in _rekening)
+              RadioListTile<Map>(
+                value: r as Map,
+                groupValue: _selectedRek,
+                activeColor: kPurpleMain,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text('${r['bank_name']} ${(r['account_number'] ?? '')}', style: const TextStyle(fontSize: 14)),
+                subtitle: Text('a.n. ${(r['account_holder'] ?? '')}${r['is_default'] == true ? ' • Rekening utama' : ''}', style: const TextStyle(fontSize: 12)),
+                onChanged: (v) => setState(() { _selectedRek = v; _error = null; }),
+              ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final r = await Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletRekeningPage()));
+                if (r == true) _load();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah Rekening Baru'),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_error != null)
+            Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: TextStyle(color: Colors.red.shade800, fontSize: 13))),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _busy ? null : (_successRef != null ? null : (_selectedRek == null || (_amountCtrl.text.replaceAll(RegExp(r'[^0-9]'), '').isEmpty) ? () => _submit() : () => _requestPinDialog())),
+              icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_outlined),
+              label: const Text('Konfirmasi Penarikan'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text('Penarikan perlu verifikasi PIN wallet. Validasi saldo dilakukan di server untuk mencegah duplikasi.', style: TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kelola rekening bank tersimpan (tambah, edit default, hapus).
+class WalletRekeningPage extends StatefulWidget {
+  const WalletRekeningPage({super.key});
+  @override
+  State<WalletRekeningPage> createState() => _WalletRekeningPageState();
+}
+
+class _WalletRekeningPageState extends State<WalletRekeningPage> {
+  Map<String, dynamic>? _user;
+  List _rekening = [];
+  bool _busy = false;
+  final _bankCtrl = TextEditingController();
+  final _noCtrl = TextEditingController();
+  final _namaCtrl = TextEditingController();
+  bool _showForm = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    _user = await Session.load();
+    if (_user == null) return;
+    try {
+      final res = await httpGetWithRetry('$kApiBase/wallet/rekening?user_id=${_user!['id']}');
+      if (res.statusCode == 200) setState(() => _rekening = jsonDecode(res.body)['data'] as List? ?? []);
+    } catch (_) {}
+  }
+
+  Future<void> _save() async {
+    if (_bankCtrl.text.trim().isEmpty || _noCtrl.text.trim().isEmpty || _namaCtrl.text.trim().isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/rekening'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': _user!['id'],
+          'bank_name': _bankCtrl.text.trim(),
+          'account_number': _noCtrl.text.trim(),
+          'account_holder': _namaCtrl.text.trim(),
+          'is_default': _rekening.isEmpty,
+        }),
+      );
+      if (!mounted) return;
+      if (res.statusCode == 201) {
+        _bankCtrl.clear();
+        _noCtrl.clear();
+        _namaCtrl.clear();
+        setState(() { _busy = false; _showForm = false; });
+        await _load();
+        Navigator.pop(context, true);
+      } else {
+        final body = jsonDecode(res.body);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(body['message'] ?? 'Gagal menyimpan')));
+        setState(() => _busy = false);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+      setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _setDefault(int id) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$kApiBase/wallet/rekening/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': _user!['id'], 'is_default': true}),
+      );
+      if (res.statusCode == 200) {
+        await _load();
+        Navigator.pop(context, true);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _delete(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Rekening?'),
+        content: const Text('Rekening ini akan dihapus dari wallet kamu.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hapus')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      final res = await http.delete(Uri.parse('$kApiBase/wallet/rekening/$id?user_id=${_user!['id']}'));
+      if (res.statusCode == 200) {
+        await _load();
+        Navigator.pop(context, true);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _bankCtrl.dispose();
+    _noCtrl.dispose();
+    _namaCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Kelola Rekening'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_showForm)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: kPurpleCard.withOpacity(0.4), borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Rekening Baru', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 10),
+                  TextField(controller: _bankCtrl, decoration: const InputDecoration(labelText: 'Nama Bank (mis. BCA, Mandiri, BRI)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.account_balance))),
+                  const SizedBox(height: 10),
+                  TextField(controller: _noCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Nomor Rekening', border: OutlineInputBorder(), prefixIcon: Icon(Icons.numbers))),
+                  const SizedBox(height: 10),
+                  TextField(controller: _namaCtrl, decoration: const InputDecoration(labelText: 'Nama Pemilik Rekening', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person))),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _save,
+                      icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
+                      label: const Text('Simpan Rekening'),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => setState(() => _showForm = true),
+                icon: const Icon(Icons.add),
+                label: const Text('Tambah Rekening Baru'),
+              ),
+            ),
+          const SizedBox(height: 10),
+          if (_rekening.isEmpty && !_showForm)
+            const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('Belum ada rekening tersimpan.', style: TextStyle(color: Colors.grey)))),
+          for (final r in _rekening)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                leading: CircleAvatar(radius: 22, backgroundColor: kPurpleCard.withOpacity(0.5), child: const Icon(Icons.account_balance, color: kPurpleMain)),
+                title: Text('${r['bank_name']} ${r['account_number']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('a.n. ${r['account_holder']}${r['is_default'] == true ? ' • Rekening utama' : ''}'),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (r['is_default'] != true)
+                    IconButton(icon: const Icon(Icons.star_border, size: 20), tooltip: 'Jadikan utama', onPressed: () => _setDefault(r['id'])),
+                  IconButton(icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red), tooltip: 'Hapus', onPressed: () => _delete(r['id'])),
+                ]),
+              ),
+            ),
+          const SizedBox(height: 10),
+          const Text('Untuk produksi, verifikasi nama pemilik akan melalui inquiry bank API.', style: TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Set / ubah PIN wallet 6 digit.
+class WalletPinPage extends StatefulWidget {
+  const WalletPinPage({super.key});
+  @override
+  State<WalletPinPage> createState() => _WalletPinPageState();
+}
+
+class _WalletPinPageState extends State<WalletPinPage> {
+  Map<String, dynamic>? _user;
+  bool _pinExists = false;
+  bool _loading = true;
+  final _oldCtrl = TextEditingController();
+  final _new1Ctrl = TextEditingController();
+  final _new2Ctrl = TextEditingController();
+  bool _busy = false;
+  String? _msg;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPin();
+  }
+
+  Future<void> _checkPin() async {
+    _user = await Session.load();
+    if (_user == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/pin/verify'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': _user!['id'], 'pin': ''}),
+      );
+      final body = jsonDecode(res.body);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _pinExists = body['data']?['pin_set'] == true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    final newPin = _new1Ctrl.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(newPin)) {
+      setState(() => _msg = 'PIN baru harus 6 digit angka.');
+      return;
+    }
+    if (newPin != _new2Ctrl.text.trim()) {
+      setState(() => _msg = 'Konfirmasi PIN tidak cocok.');
+      return;
+    }
+    if (_pinExists && !RegExp(r'^\d{6}$').hasMatch(_oldCtrl.text.trim())) {
+      setState(() => _msg = 'Masukkan PIN lama 6 digit.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _msg = null;
+    });
+    try {
+      final payload = {'user_id': _user!['id'], 'new_pin': newPin};
+      if (_pinExists) payload['old_pin'] = _oldCtrl.text.trim();
+      final res = await http.post(
+        Uri.parse('$kApiBase/wallet/pin/set'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      final body = jsonDecode(res.body);
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        setState(() {
+          _busy = false;
+          _msg = 'PIN berhasil ${_pinExists ? 'diubah' : 'dibuat'}.';
+        });
+      } else {
+        setState(() {
+          _busy = false;
+          _msg = body['message'] ?? 'Gagal menyimpan PIN.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _busy = false;
+        _msg = 'Koneksi gagal: $e';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _oldCtrl.dispose();
+    _new1Ctrl.dispose();
+    _new2Ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(_pinExists ? 'Ubah PIN Wallet' : 'Buat PIN Wallet'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: kPurpleCard.withOpacity(0.4), borderRadius: BorderRadius.circular(12)),
+                  child: const Row(children: [
+                    Icon(Icons.shield_outlined, color: kPurpleMain),
+                    SizedBox(width: 12),
+                    Expanded(child: Text('PIN 6 digit wajib untuk top up & tarik dana. PIN salah 5x akan mengunci wallet sementara 5 menit.', style: TextStyle(fontSize: 12))),
+                  ]),
+                ),
+                const SizedBox(height: 18),
+                if (_pinExists) ...[
+                  TextField(controller: _oldCtrl, obscureText: true, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: 'PIN Lama', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock_outline))),
+                  const SizedBox(height: 12),
+                ],
+                TextField(controller: _new1Ctrl, obscureText: true, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: 'PIN Baru (6 digit)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.key))),
+                const SizedBox(height: 12),
+                TextField(controller: _new2Ctrl, obscureText: true, keyboardType: TextInputType.number, maxLength: 6, decoration: const InputDecoration(labelText: 'Konfirmasi PIN Baru', border: OutlineInputBorder(), prefixIcon: Icon(Icons.key))),
+                const SizedBox(height: 16),
+                if (_msg != null)
+                  Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_msg!, style: TextStyle(color: _msg!.contains('berhasil') ? Colors.green.shade800 : Colors.red.shade800, fontSize: 13))),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : _save,
+                    icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check_circle_outline),
+                    label: const Text('Simpan PIN'),
                   ),
                 ),
               ],

@@ -1400,8 +1400,441 @@ class ApiController extends Controller
             DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_user ON iklan_gratis(user_id)');
             DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_category ON iklan_gratis(category_id)');
             DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_status ON iklan_gratis(status)');
-            DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_expired ON iklan_gratis(expired_at)');
+                        DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_expired ON iklan_gratis(expired_at)');
         }
     }
 
+    // =========================================================================
+    // MODUL WALLET (GridePay) — top up, withdraw, riwayat, rekening, PIN
+    // =========================================================================
+
+    /** Pastikan struktur wallet (table + kolom) tersedia di production BIGINT. */
+    private function ensureWalletTables()
+    {
+        if (!DB::getSchemaBuilder()->hasTable('user_payment_methods')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS user_payment_methods (
+                id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL,
+                provider VARCHAR(50) DEFAULT \'BANK\', bank_name VARCHAR(100),
+                account_number VARCHAR(100), account_holder VARCHAR(255),
+                is_default BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_upm_user ON user_payment_methods(user_id)');
+        }
+        if (!DB::getSchemaBuilder()->hasTable('wallet_transactions')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS wallet_transactions (
+                id BIGSERIAL PRIMARY KEY, wallet_id BIGINT NOT NULL,
+                type VARCHAR(30) NOT NULL, amount NUMERIC(15,2) DEFAULT 0,
+                balance_before NUMERIC(15,2) DEFAULT 0, balance_after NUMERIC(15,2) DEFAULT 0,
+                status VARCHAR(30) DEFAULT \'PENDING\', method VARCHAR(50),
+                reference_no VARCHAR(100), reference_id BIGINT,
+                idempotency_key VARCHAR(100), description TEXT, failure_reason TEXT,
+                expired_at TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_wtx_wallet ON wallet_transactions(wallet_id)');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_wtx_refno ON wallet_transactions(reference_no)');
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('users', 'wallet_pin')) {
+            DB::statement('ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_pin VARCHAR(255)');
+            DB::statement('ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_pin_attempts INTEGER DEFAULT 0');
+            DB::statement('ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_locked_until TIMESTAMPTZ');
+        }
+    }
+
+    /** Ambil user + wallet (autocreate baris bila belum ada), null bila user tidak ada. */
+    private function resolveWallet($userId)
+    {
+        $this->ensureWalletTables();
+        $user = null;
+        if (is_numeric($userId)) {
+            $user = DB::table('users')->where('id', (int) $userId)->first();
+        }
+        if (!$user) {
+            $user = DB::table('users')->where('id', $userId)->first();
+        }
+        if (!$user) {
+            return null;
+        }
+        $wallet = DB::table('wallets')->where('user_id', $user->id)->first();
+        if (!$wallet) {
+            DB::table('wallets')->insert([
+                'user_id' => $user->id, 'balance' => 0, 'points' => 0,
+                'status' => 'ACTIVE', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $wallet = DB::table('wallets')->where('user_id', $user->id)->first();
+        }
+        return ['user' => $user, 'wallet' => $wallet];
+    }
+
+    /** GET /api/wallet/transactions?user_id=X&type=&from=&to=&page= */
+    public function walletTransactions(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->query('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $this->ensureWalletTables();
+        $type = $request->query('type');
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 20;
+
+        $q = DB::table('wallet_transactions')->where('wallet_id', $resolved['wallet']->id);
+        if ($type && strtoupper($type) !== 'ALL' && strtoupper($type) !== 'SEMUA') {
+            $q->where('type', strtoupper($type));
+        }
+        if ($from) {
+            $q->where('created_at', '>=', $from);
+        }
+        if ($to) {
+            $q->where('created_at', '<=', $to . ' 23:59:59');
+        }
+        $total = $q->count();
+        $rows = $q->orderBy('created_at', 'desc')
+            ->offset(($page - 1) * $perPage)->limit($perPage)->get();
+
+        return response()->json(['status' => 'success', 'data' => [
+            'items' => $rows,
+            'current_page' => $page,
+            'total' => $total,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+        ]]);
+    }
+
+    /** GET /api/wallet/transactions/{id}?user_id=X */
+    public function walletTransactionDetail(Request $request, $id)
+    {
+        $resolved = $this->resolveWallet($request->query('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $row = DB::table('wallet_transactions')->where('id', $id)
+            ->where('wallet_id', $resolved['wallet']->id)->first();
+        if (!$row) {
+            return response()->json(['status' => 'error', 'message' => 'Transaksi tidak ditemukan'], 404);
+        }
+        return response()->json(['status' => 'success', 'data' => $row]);
+    }
+
+    /**
+     * POST /api/wallet/topup {user_id, amount, method, rekening_no?, account_holder?, idempotency_key}
+     * method: VA_BANK, EWALLET, QRIS, CARD. Simulasi pembayaran manual → langsung SUCCESS.
+     */
+    public function walletTopup(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $amount = (float) ($request->input('amount') ?? 0);
+        $method = strtoupper($request->input('method', 'VA_BANK'));
+        if (!in_array($method, ['VA_BANK', 'EWALLET', 'QRIS', 'CARD'])) {
+            $method = 'VA_BANK';
+        }
+        if ($amount < 10000) {
+            return response()->json(['status' => 'error', 'message' => 'Minimum top up Rp 10.000'], 400);
+        }
+        if ($amount > 10000000) {
+            return response()->json(['status' => 'error', 'message' => 'Maksimum top up Rp 10.000.000 per transaksi'], 400);
+        }
+        $this->ensureWalletTables();
+        // Idempotency: cegah double submit
+        $idem = $request->input('idempotency_key');
+        if ($idem) {
+            $dup = DB::table('wallet_transactions')->where('wallet_id', $resolved['wallet']->id)
+                ->where('idempotency_key', $idem)->first();
+            if ($dup) {
+                return response()->json(['status' => 'success', 'data' => $dup, 'message' => 'Permintaan sudah diproses sebelumnya.']);
+            }
+        }
+        $walletId = $resolved['wallet']->id;
+        $before = (float) $resolved['wallet']->balance;
+        $after = $before + $amount;
+        $refNo = 'TRX-' . strtoupper(substr(md5(uniqid((string) $walletId, true)), 0, 12));
+        DB::table('wallet_transactions')->insert([
+            'wallet_id' => $walletId, 'type' => 'TOPUP', 'amount' => $amount,
+            'balance_before' => $before, 'balance_after' => $after, 'status' => 'SUCCESS',
+            'method' => $method, 'reference_no' => $refNo, 'idempotency_key' => $idem,
+            'description' => 'Top up GridePay via ' . $method,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('wallets')->where('id', $walletId)
+            ->update(['balance' => $after, 'updated_at' => now()]);
+        $row = DB::table('wallet_transactions')->where('wallet_id', $walletId)
+            ->where('reference_no', $refNo)->first();
+        return response()->json(['status' => 'success', 'data' => $row], 201);
+    }
+
+    /** GET /api/wallet/topup/{reference_no}?user_id=X */
+    public function walletTopupStatus(Request $request, $referenceNo)
+    {
+        $resolved = $this->resolveWallet($request->query('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $row = DB::table('wallet_transactions')->where('wallet_id', $resolved['wallet']->id)
+            ->where('reference_no', $referenceNo)->first();
+        if (!$row) {
+            return response()->json(['status' => 'error', 'message' => 'Transaksi tidak ditemukan'], 404);
+        }
+        return response()->json(['status' => 'success', 'data' => $row]);
+    }
+
+    /** POST /api/wallet/topup/{reference_no}/complete {user_id} — konfirmasi manual pembayaran. */
+    public function walletTopupComplete(Request $request, $referenceNo)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $row = DB::table('wallet_transactions')->where('wallet_id', $resolved['wallet']->id)
+            ->where('reference_no', $referenceNo)->first();
+        if (!$row) {
+            return response()->json(['status' => 'error', 'message' => 'Transaksi tidak ditemukan'], 404);
+        }
+        if ($row->status === 'SUCCESS') {
+            return response()->json(['status' => 'success', 'data' => $row, 'message' => 'Sudah selesai.']);
+        }
+        if ($row->status !== 'PENDING') {
+            return response()->json(['status' => 'error', 'message' => 'Transaksi tidak bisa dikonfirmasi (status ' . $row->status . ')'], 400);
+        }
+        $walletId = $resolved['wallet']->id;
+        $after = (float) $resolved['wallet']->balance + (float) $row->amount;
+        DB::table('wallets')->where('id', $walletId)
+            ->update(['balance' => $after, 'updated_at' => now()]);
+        DB::table('wallet_transactions')->where('id', $row->id)->update([
+            'status' => 'SUCCESS', 'balance_after' => $after,
+            'updated_at' => now(),
+        ]);
+        return response()->json(['status' => 'success', 'data' => DB::table('wallet_transactions')->where('id', $row->id)->first()]);
+    }
+
+    /** GET /api/wallet/rekening?user_id=X */
+    public function walletRekening(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->query('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $this->ensureWalletTables();
+        $rows = DB::table('user_payment_methods')->where('user_id', $resolved['user']->id)
+            ->orderByDesc('is_default')->orderBy('created_at')->get();
+        return response()->json(['status' => 'success', 'data' => $rows]);
+    }
+
+    /** POST /api/wallet/rekening {user_id, bank_name, account_number, account_holder, is_default} */
+    public function walletRekeningStore(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $bankName = trim($request->input('bank_name', ''));
+        $accountNumber = trim($request->input('account_number', ''));
+        $accountHolder = trim($request->input('account_holder', ''));
+        if ($bankName === '' || $accountNumber === '' || $accountHolder === '') {
+            return response()->json(['status' => 'error', 'message' => 'Nama bank, nomor rekening, dan nama pemilik wajib diisi'], 400);
+        }
+        $this->ensureWalletTables();
+        $uid = $resolved['user']->id;
+        $isDefault = (bool) $request->input('is_default', false);
+        if ($isDefault) {
+            DB::table('user_payment_methods')->where('user_id', $uid)->update(['is_default' => false]);
+        }
+        $id = DB::table('user_payment_methods')->insertGetId([
+            'user_id' => $uid, 'provider' => 'BANK', 'bank_name' => $bankName,
+            'account_number' => $accountNumber, 'account_holder' => $accountHolder,
+            'is_default' => $isDefault, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return response()->json(['status' => 'success', 'data' => DB::table('user_payment_methods')->where('id', $id)->first()], 201);
+    }
+
+    /** PUT /api/wallet/rekening/{id} {user_id, is_default?, account_number?, account_holder?} */
+    public function walletRekeningUpdate(Request $request, $id)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $this->ensureWalletTables();
+        $row = DB::table('user_payment_methods')->where('id', $id)
+            ->where('user_id', $resolved['user']->id)->first();
+        if (!$row) {
+            return response()->json(['status' => 'error', 'message' => 'Rekening tidak ditemukan'], 404);
+        }
+        $payload = ['updated_at' => now()];
+        if ($request->has('is_default')) {
+            $isDefault = (bool) $request->input('is_default');
+            if ($isDefault) {
+                DB::table('user_payment_methods')->where('user_id', $resolved['user']->id)->update(['is_default' => false]);
+            }
+            $payload['is_default'] = $isDefault;
+        }
+        if ($request->has('account_number')) {
+            $payload['account_number'] = trim($request->input('account_number'));
+        }
+        if ($request->has('account_holder')) {
+            $payload['account_holder'] = trim($request->input('account_holder'));
+        }
+        DB::table('user_payment_methods')->where('id', $id)->update($payload);
+        return response()->json(['status' => 'success', 'data' => DB::table('user_payment_methods')->where('id', $id)->first()]);
+    }
+
+    /** DELETE /api/wallet/rekening/{id}?user_id=X */
+    public function walletRekeningDelete(Request $request, $id)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $this->ensureWalletTables();
+        $row = DB::table('user_payment_methods')->where('id', $id)
+            ->where('user_id', $resolved['user']->id)->first();
+        if (!$row) {
+            return response()->json(['status' => 'error', 'message' => 'Rekening tidak ditemukan'], 404);
+        }
+        DB::table('user_payment_methods')->where('id', $id)->delete();
+        return response()->json(['status' => 'success', 'message' => 'Rekening dihapus.']);
+    }
+
+    /**
+     * POST /api/wallet/withdraw {user_id, amount, rekening_id, pin, idempotency_key}
+     * Validasi PIN + rate-limit, saldo dicek server-side saat submit (anti race condition).
+     */
+    public function walletWithdraw(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $this->ensureWalletTables();
+        $pin = trim((string) $request->input('pin', ''));
+        // 1. Verifikasi PIN + rate limit
+        $user = $resolved['user'];
+        if ($user->wallet_pin === null) {
+            return response()->json(['status' => 'error', 'message' => 'PIN wallet belum dibuat. Buat PIN terlebih dahulu.'], 400);
+        }
+        $locked = $user->wallet_locked_until !== null && strtotime($user->wallet_locked_until) > time();
+        if ($locked) {
+            $mins = (int) ceil((strtotime($user->wallet_locked_until) - time()) / 60);
+            return response()->json(['status' => 'error', 'message' => "PIN terkunci karena terlalu banyak percobaan salah. Coba lagi dalam {$mins} menit."], 423);
+        }
+        if (!\Hash::check($pin, $user->wallet_pin)) {
+            $attempts = min(5, (int) ($user->wallet_pin_attempts ?? 0) + 1);
+            $update = ['wallet_pin_attempts' => $attempts, 'updated_at' => now()];
+            if ($attempts >= 5) {
+                $update['wallet_locked_until'] = now()->addMinutes(5);
+            }
+            DB::table('users')->where('id', $user->id)->update($update);
+            return response()->json(['status' => 'error', 'message' => $attempts >= 5 ? 'PIN salah 5x, wallet terkunci 5 menit.' : 'PIN salah. Sisa percobaan: ' . (5 - $attempts) . '.'], 401);
+        }
+        DB::table('users')->where('id', $user->id)->update(['wallet_pin_attempts' => 0, 'wallet_locked_until' => null]);
+
+        // 2. Validasi nominal & saldo (server-side)
+        $amount = (float) ($request->input('amount') ?? 0);
+        if ($amount < 25000) {
+            return response()->json(['status' => 'error', 'message' => 'Minimum penarikan Rp 25.000'], 400);
+        }
+        if ($amount > 5000000) {
+            return response()->json(['status' => 'error', 'message' => 'Maksimum penarikan Rp 5.000.000 per transaksi'], 400);
+        }
+        $rekeningId = $request->input('rekening_id');
+        $rekening = DB::table('user_payment_methods')->where('id', $rekeningId)
+            ->where('user_id', $user->id)->first();
+        if (!$rekening) {
+            return response()->json(['status' => 'error', 'message' => 'Rekening tujuan tidak ditemukan'], 404);
+        }
+        // Kunci baris wallet untuk mencegah race condition saldo
+        $wallet = DB::table('wallets')->where('id', $resolved['wallet']->id)->lockForUpdate()->first();
+        if ((float) $wallet->balance < $amount) {
+            return response()->json(['status' => 'error', 'message' => 'Saldo tidak cukup untuk penarikan ini.'], 400);
+        }
+
+        // Idempotency
+        $idem = $request->input('idempotency_key');
+        if ($idem) {
+            $dup = DB::table('wallet_transactions')->where('wallet_id', $wallet->id)
+                ->where('idempotency_key', $idem)->first();
+            if ($dup) {
+                return response()->json(['status' => 'success', 'data' => $dup, 'message' => 'Permintaan sudah diproses sebelumnya.']);
+            }
+        }
+
+        $refNo = 'WD-' . strtoupper(substr(md5(uniqid((string) $wallet->id, true)), 0, 12));
+        DB::table('wallet_transactions')->insert([
+            'wallet_id' => $wallet->id, 'type' => 'WITHDRAW', 'amount' => $amount,
+            'balance_before' => (float) $wallet->balance,
+            'balance_after' => (float) $wallet->balance - $amount,
+            'status' => 'SUCCESS', 'method' => 'BANK_TRANSFER',
+            'reference_no' => $refNo, 'reference_id' => $rekeningId, 'idempotency_key' => $idem,
+            'description' => "Tarik dana ke {$rekening->bank_name} {$rekening->account_number} a.n. {$rekening->account_holder}",
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('wallets')->where('id', $wallet->id)
+            ->update(['balance' => DB::raw('balance - ' . $amount), 'updated_at' => now()]);
+        $row = DB::table('wallet_transactions')->where('wallet_id', $wallet->id)
+            ->where('reference_no', $refNo)->first();
+        return response()->json(['status' => 'success', 'data' => $row, 'message' => 'Penarikan berhasil diproses.'], 201);
+    }
+
+    /** GET /api/wallet/withdraws?user_id=X */
+    public function walletWithdraws(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->query('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $rows = DB::table('wallet_transactions')->where('wallet_id', $resolved['wallet']->id)
+            ->where('type', 'WITHDRAW')->orderBy('created_at', 'desc')->limit(50)->get();
+        return response()->json(['status' => 'success', 'data' => $rows]);
+    }
+
+    /**
+     * POST /api/wallet/pin/set {user_id, old_pin? (wajib jika sudah punya PIN), new_pin (6 digit)}
+     */
+    public function walletPinSet(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $newPin = trim((string) $request->input('new_pin', ''));
+        if (!preg_match('/^\d{6}$/', $newPin)) {
+            return response()->json(['status' => 'error', 'message' => 'PIN harus 6 digit angka.'], 400);
+        }
+        $this->ensureWalletTables();
+        $user = $resolved['user'];
+        if ($user->wallet_pin !== null) {
+            $oldPin = trim((string) $request->input('old_pin', ''));
+            if (!\Hash::check($oldPin, $user->wallet_pin)) {
+                return response()->json(['status' => 'error', 'message' => 'PIN lama salah.'], 401);
+            }
+        }
+        DB::table('users')->where('id', $user->id)->update([
+            'wallet_pin' => \Hash::make($newPin),
+            'wallet_pin_attempts' => 0, 'wallet_locked_until' => null,
+            'updated_at' => now(),
+        ]);
+        return response()->json(['status' => 'success', 'message' => 'PIN wallet berhasil dibuat/diubah.']);
+    }
+
+    /** POST /api/wallet/pin/verify {user_id, pin} — cek status & validitas PIN. */
+    public function walletPinVerify(Request $request)
+    {
+        $resolved = $this->resolveWallet($request->input('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $user = $resolved['user'];
+        if ($user->wallet_pin === null) {
+            return response()->json(['status' => 'success', 'data' => ['pin_set' => false], 'message' => 'PIN belum dibuat.']);
+        }
+        $pin = trim((string) $request->input('pin', ''));
+        if (\Hash::check($pin, $user->wallet_pin)) {
+            DB::table('users')->where('id', $user->id)->update(['wallet_pin_attempts' => 0, 'wallet_locked_until' => null]);
+            return response()->json(['status' => 'success', 'data' => ['pin_set' => true, 'valid' => true]]);
+        }
+        return response()->json(['status' => 'error', 'message' => 'PIN salah.'], 401);
+    }
 }
