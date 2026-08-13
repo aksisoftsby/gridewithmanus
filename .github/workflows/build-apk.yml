@@ -46,6 +46,7 @@ jobs:
           for dir in app-customer app-driver app-merchant; do
             echo "org.gradle.daemon=false" >> $dir/android/gradle.properties
             echo "org.gradle.caching=false" >> $dir/android/gradle.properties
+            echo "org.gradle.vfs.watch=false" >> $dir/android/gradle.properties
           done
 
       - name: Flutter Clean + Pub Get (Customer)
