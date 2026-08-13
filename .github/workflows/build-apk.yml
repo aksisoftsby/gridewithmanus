@@ -7,10 +7,17 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# Prevent concurrent runs from racing on the same working directory
+# (old run cancelled automatically when a new push arrives)
+concurrency:
+  group: apk-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apks:
     name: Build APKs for Customer, Driver, and Merchant
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
       - name: Checkout Repository
@@ -29,15 +36,48 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Stop any leftover Gradle daemons
+        run: |
+          (./gradlew --stop || true)
+          pkill -f "GradleDaemon" || true
+
+      - name: Ensure Gradle daemon is disabled in CI (per app)
+        run: |
+          for dir in app-customer app-driver app-merchant; do
+            echo "org.gradle.daemon=false" >> $dir/android/gradle.properties
+            echo "org.gradle.caching=false" >> $dir/android/gradle.properties
+          done
+
+      - name: Flutter Clean + Pub Get (Customer)
+        run: |
+          flutter clean
+          flutter pub get
+        working-directory: ./app-customer
+
       - name: Build Customer App APK
+        timeout-minutes: 25
         run: flutter build apk --release
         working-directory: ./app-customer
 
+      - name: Flutter Clean + Pub Get (Driver)
+        run: |
+          flutter clean
+          flutter pub get
+        working-directory: ./app-driver
+
       - name: Build Driver App APK
+        timeout-minutes: 25
         run: flutter build apk --release
         working-directory: ./app-driver
 
+      - name: Flutter Clean + Pub Get (Merchant)
+        run: |
+          flutter clean
+          flutter pub get
+        working-directory: ./app-merchant
+
       - name: Build Merchant App APK
+        timeout-minutes: 25
         run: flutter build apk --release
         working-directory: ./app-merchant
 
