@@ -7,21 +7,24 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-# Prevent concurrent runs from racing on the same working directory
-# (old run cancelled automatically when a new push arrives)
+# Only one run at a time per branch; older queued runs are cancelled.
+# This prevents race conditions between runs on the same runner queue.
 concurrency:
   group: apk-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-apk:
-    name: Build ${{ matrix.app }} APK
+  build-apks:
+    name: Build APKs for Customer, Driver, and Merchant
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     strategy:
+      # Build the 3 apps in parallel, each on its own runner,
+      # so one slow app cannot block the others.
       matrix:
         app: [app-customer, app-driver, app-merchant]
+      max-parallel: 3
 
     steps:
       - name: Checkout Repository
@@ -40,17 +43,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Stop any leftover Gradle daemons
-        run: |
-          (./gradlew --stop || true)
-          pkill -f "GradleDaemon" || true
-
-      - name: Disable Gradle daemon and VFS file watching in CI
-        run: |
-          echo "org.gradle.daemon=false" >> ${{ matrix.app }}/android/gradle.properties
-          echo "org.gradle.caching=false" >> ${{ matrix.app }}/android/gradle.properties
-          echo "org.gradle.vfs.watch=false" >> ${{ matrix.app }}/android/gradle.properties
-
       - name: Flutter Clean + Pub Get
         run: |
           flutter clean
@@ -58,6 +50,7 @@ jobs:
         working-directory: ${{ matrix.app }}
 
       - name: Build APK (release)
+        timeout-minutes: 45
         run: flutter build apk --release
         working-directory: ${{ matrix.app }}
 
