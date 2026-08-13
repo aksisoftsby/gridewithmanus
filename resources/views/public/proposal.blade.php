@@ -439,6 +439,136 @@
         </div>
     </section>
 
+    <!-- Product Suite Section -->
+    <section class="py-24 container mx-auto px-6">
+        <div class="text-center mb-16">
+            <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">5 Produk Digital dalam 1 Ekosistem</h2>
+            <p class="text-lg text-slate-500 max-w-2xl mx-auto">Setiap komponen saling terhubung dalam satu backend, satu database, dan satu sistem operasi terintegrasi.</p>
+        </div>
+
+        <div class="space-y-8">
+
+            <!-- 1. Public Website -->
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-shrink-0 w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-globe"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-black">Website Publik &amp; Branding</h3>
+                        <a href="https://gride.web.id" target="_blank" class="inline-flex items-center mt-1 bg-white/15 hover:bg-white/25 transition px-4 py-1.5 rounded-full text-sm font-bold">
+                            <i class="fa-solid fa-link mr-2"></i> gride.web.id
+                        </a>
+                    </div>
+                    <span class="bg-white text-emerald-700 font-black px-5 py-2 rounded-full text-sm uppercase tracking-wider">Landing & Presentation</span>
+                </div>
+                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Branding Presentasi Gride</strong> &mdash; Identitas visual premium yang membangun kepercayaan investor &amp; calon pengguna.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Informasi Publik Merchant</strong> &mdash; Katalog restoran, toko sembako, dan retail lengkap dengan lokasi peta.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Menarik Customer via Website</strong> &mdash; Promo &amp; voucher, news, testimonial, dan halaman proposal investasi.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Link Download APK</strong> &mdash; Gerbang distribusi aplikasi Customer, Merchant, dan Driver.</p></div>
+                </div>
+            </div>
+
+            <!-- 2. Admin Website -->
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-shrink-0 w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-black">Admin Control Center</h3>
+                        <a href="https://gride.web.id/admin/login" target="_blank" class="inline-flex items-center mt-1 bg-white/15 hover:bg-white/25 transition px-4 py-1.5 rounded-full text-sm font-bold">
+                            <i class="fa-solid fa-link mr-2"></i> gride.web.id/admin/login
+                        </a>
+                    </div>
+                    <span class="bg-emerald-500 text-white font-black px-5 py-2 rounded-full text-sm uppercase tracking-wider">Super Admin</span>
+                </div>
+                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Data Management</strong> &mdash; Lihat, edit, dan hapus data user, merchant, driver, dan customer.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Tambah User / Driver / Merchant</strong> &mdash; Onboarding mitra baru langsung dari panel admin.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Monitoring Order &amp; Transaksi</strong> &mdash; Pantau status order seluruh ekosistem &amp; seluruh sesi chat antar pengguna.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">News, Promo &amp; Testimonial</strong> &mdash; Kelola konten publik, promo dengan jadwal, dan rating merchant.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Search &amp; Filter</strong> &mdash; Pencarian cepat untuk setiap data: user, driver, merchant, order.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Dokumentasi API &amp; Download APK</strong> &mdash; Akses internal API docs dan tombol download build aplikasi.</p></div>
+                </div>
+            </div>
+
+            <!-- 3. Customer App -->
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-shrink-0 w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-black">Aplikasi Gride Customer</h3>
+                        <a href="https://gride.web.id/customer.apk" target="_blank" class="inline-flex items-center mt-1 bg-white/15 hover:bg-white/25 transition px-4 py-1.5 rounded-full text-sm font-bold">
+                            <i class="fa-solid fa-download mr-2"></i> gride.web.id/customer.apk
+                        </a>
+                    </div>
+                    <span class="bg-white text-emerald-700 font-black px-5 py-2 rounded-full text-sm uppercase tracking-wider">Android &amp; iOS</span>
+                </div>
+                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">GrideFood &amp; Mart</strong> &mdash; Pesan makanan &amp; belanja sembako dengan filter lokasi real-time.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Menu Kirim &amp; Antar</strong> &mdash; Pesan antar-jemput orang &amp; barang ke titik GPS dengan hitung ongkir otomatis per KM.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Maps Point Picker</strong> &mdash; Pilih lokasi penjemputan &amp; tujuan langsung dari peta dengan presisi tinggi.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Live Tracking</strong> &mdash; Pantau posisi driver secara real-time saat pengiriman berlangsung.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Auto-Slide News</strong> &mdash; Berita dan promo terbaru langsung di beranda aplikasi.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Wallet &amp; History</strong> &mdash; Saldo, riwayat transaksi, dan penggunaan promo/voucher transparan.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Chat &amp; Rating</strong> &mdash; Komunikasi langsung dengan driver/merchant dan penilaian layanan.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Universal Login</strong> &mdash; Satu akun untuk semua layanan Gride dengan auto-retry koneksi server.</p></div>
+                </div>
+            </div>
+
+            <!-- 4. Merchant App -->
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-shrink-0 w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-black">Aplikasi Gride Merchant</h3>
+                        <a href="https://gride.web.id/merchant.apk" target="_blank" class="inline-flex items-center mt-1 bg-white/15 hover:bg-white/25 transition px-4 py-1.5 rounded-full text-sm font-bold">
+                            <i class="fa-solid fa-download mr-2"></i> gride.web.id/merchant.apk
+                        </a>
+                    </div>
+                    <span class="bg-white text-orange-700 font-black px-5 py-2 rounded-full text-sm uppercase tracking-wider">Android</span>
+                </div>
+                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Product Management</strong> &mdash; Tambah, edit, dan hapus produk/menu serta kelola stok mandiri.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Order Management</strong> &mdash; Terima dan proses pesanan masuk dengan notifikasi real-time.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Merchant Wallet</strong> &mdash; Pantau saldo merchant, pemasukan, dan riwayat transaksi harian.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Store Settings</strong> &mdash; Update profil toko, jam operasional, lokasi, dan info merchant.</p></div>
+                </div>
+            </div>
+
+            <!-- 5. Driver App -->
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-shrink-0 w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-motorcycle"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-2xl font-black">Aplikasi Gride Driver</h3>
+                        <a href="https://gride.web.id/driver.apk" target="_blank" class="inline-flex items-center mt-1 bg-white/15 hover:bg-white/25 transition px-4 py-1.5 rounded-full text-sm font-bold">
+                            <i class="fa-solid fa-download mr-2"></i> gride.web.id/driver.apk
+                        </a>
+                    </div>
+                    <span class="bg-white text-indigo-700 font-black px-5 py-2 rounded-full text-sm uppercase tracking-wider">Android</span>
+                </div>
+                <div class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Real-time Tracking</strong> &mdash; Update lokasi GPS otomatis untuk penugasan order yang akurat.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Wallet Driver</strong> &mdash; Pantau pendapatan real-time, saldo cair/pending, dan fitur pencairan (withdraw).</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Earnings History</strong> &mdash; Laporan detail pendapatan per order (driver_net) secara otomatis.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Order Flow Lengkap</strong> &mdash; Terima order, konfirmasi pickup, antarmakan, dan bukti penyerahan (POD).</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Universal Login</strong> &mdash; Satu akun untuk customer, driver, dan merchant bagi mitra multifungsi.</p></div>
+                    <div class="flex space-x-3"><i class="fa-solid fa-check text-emerald-600 mt-1"></i><p class="text-sm text-slate-600"><strong class="text-slate-900">Account Management</strong> &mdash; Kelola profil, kendaraan, dan status online/offline dari aplikasi.</p></div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
     <!-- Call to Action -->
     <footer class="py-24 bg-emerald-600 text-white text-center">
         <div class="container mx-auto px-6">
