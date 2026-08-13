@@ -546,7 +546,7 @@ class ApiController extends Controller
             'email' => 'required|email|max:255',
             'phone' => 'nullable|string|max:20',
             'password' => 'required|string|min:6',
-            'vehicle_type' => 'nullable|string|in:MOTOR,MOBIL',
+            'vehicle_type' => 'nullable|string|in:MOTOR,MOBIL,BAJAJ,TRUK,PICKUP_TERBUKA,PICKUP_BOX',
             'plate_number' => 'nullable|string|max:20',
         ]);
 
@@ -652,12 +652,21 @@ class ApiController extends Controller
                 $wallet = ['balance' => (float) $w->balance, 'pending_balance' => (float) $w->pending_balance];
             }
         }
+        $this->ensureKendaraanTables();
         $vehicle = null;
+        $vehicles = [];
         if ($driver && DB::getSchemaBuilder()->hasTable('driver_vehicles')) {
             $vehicle = DB::table('driver_vehicles')
                 ->where('driver_id', $driver->id)
                 ->where('is_active', true)
                 ->first();
+            $vehicles = DB::table('driver_vehicles')
+                ->where('driver_id', $driver->id)
+                ->whereNull('deleted_at')
+                ->orderBy('is_default', 'desc')
+                ->orderBy('id', 'asc')
+                ->get()
+                ->map(fn($v) => $this->kendaraanPayload($v));
         }
         return response()->json([
             'status' => 'success',
@@ -677,6 +686,7 @@ class ApiController extends Controller
                     'model' => $vehicle->model,
                     'plate_number' => $vehicle->plate_number,
                 ] : null,
+                'vehicles' => $vehicles,
             ],
         ]);
     }
@@ -1866,5 +1876,270 @@ class ApiController extends Controller
                 'hour' => $hour,
             ],
         ]);
+    }
+
+    /**
+     * Ensure kendaraan tables exist (portable, idempotent).
+     */
+    private function ensureKendaraanTables()
+    {
+        if (!DB::getSchemaBuilder()->hasTable('driver_vehicles')) {
+            DB::statement('CREATE TABLE driver_vehicles (
+                id SERIAL PRIMARY KEY,
+                driver_id BIGINT NOT NULL,
+                vehicle_type VARCHAR(30) NOT NULL,
+                brand VARCHAR(100) NULL,
+                model VARCHAR(100) NULL,
+                plate_number VARCHAR(20) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_dv_plat UNIQUE (plate_number)
+            )');
+        }
+        foreach ([
+            ['year_kendaraan', 'INT NULL'],
+            ['color', 'VARCHAR(30) NULL'],
+            ['foto_kendaraan', 'VARCHAR(255) NULL'],
+            ['foto_stnk', 'VARCHAR(255) NULL'],
+            ['status_verifikasi', "VARCHAR(20) NOT NULL DEFAULT 'approved'"],
+            ['is_default', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+            ['deleted_at', 'TIMESTAMP NULL'],
+        ] as $col) {
+            if (!DB::getSchemaBuilder()->hasColumn('driver_vehicles', $col[0])) {
+                DB::statement("ALTER TABLE driver_vehicles ADD COLUMN {$col[0]} {$col[1]}");
+            }
+        }
+    }
+
+    /**
+     * Transform driver_vehicles row to kendaraan payload.
+     */
+    private function kendaraanPayload($v)
+    {
+        return [
+            'id' => (int) $v->id,
+            'jenis_kendaraan' => $v->vehicle_type,
+            'plat_nomor' => $v->plate_number,
+            'merk' => $v->brand,
+            'model' => $v->model,
+            'tahun' => $v->year_kendaraan ?? null,
+            'warna' => $v->color ?? null,
+            'foto_kendaraan' => $v->foto_kendaraan ?? null,
+            'foto_stnk' => $v->foto_stnk ?? null,
+            'is_aktif' => (bool) $v->is_active,
+            'is_default' => (bool) ($v->is_default ?? false),
+            'status_verifikasi' => $v->status_verifikasi ?? 'approved',
+            'deleted_at' => $v->deleted_at ?? null,
+        ];
+    }
+
+    /**
+     * List kendaraan milik driver yang login.
+     * GET /api/driver/kendaraan?user_id=
+     */
+    public function kendaraanList(Request $request)
+    {
+        $this->ensureKendaraanTables();
+        $userId = (int) $request->query('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
+        }
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $list = DB::table('driver_vehicles')
+            ->where('driver_id', $driver->id)
+            ->whereNull('deleted_at')
+            ->orderBy('is_default', 'desc')
+            ->orderBy('id', 'asc')
+            ->get()
+            ->map(fn($v) => $this->kendaraanPayload($v));
+        return response()->json(['status' => 'success', 'data' => $list]);
+    }
+
+    /**
+     * Tambah kendaraan baru.
+     * POST /api/driver/kendaraan (json: user_id, jenis_kendaraan, plat_nomor, merk?, model?, tahun?, warna?, foto_kendaraan?, foto_stnk?)
+     */
+    public function kendaraanStore(Request $request)
+    {
+        $this->ensureKendaraanTables();
+        $validated = $request->validate([
+            'user_id' => 'required|integer',
+            'jenis_kendaraan' => 'required|string|in:MOTOR,MOBIL,BAJAJ,TRUK,PICKUP_TERBUKA,PICKUP_BOX',
+            'plat_nomor' => 'required|string|max:20',
+            'merk' => 'nullable|string|max:50',
+            'model' => 'nullable|string|max:50',
+            'tahun' => 'nullable|integer|min:1950|max:' . (date('Y') + 1),
+            'warna' => 'nullable|string|max:30',
+            'foto_kendaraan' => 'nullable|string|max:5000000',
+            'foto_stnk' => 'nullable|string|max:5000000',
+        ]);
+        $driver = DB::table('drivers')->where('user_id', (int) $validated['user_id'])->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $plate = strtoupper(trim($validated['plat_nomor']));
+        if (DB::table('driver_vehicles')->where('plate_number', $plate)->whereNull('deleted_at')->exists()) {
+            return response()->json(['status' => 'error', 'message' => 'Plat nomor sudah terdaftar di sistem.'], 409);
+        }
+        $isNewFirst = DB::table('driver_vehicles')->where('driver_id', $driver->id)->whereNull('deleted_at')->count() === 0;
+        $id = DB::table('driver_vehicles')->insertGetId([
+            'driver_id' => $driver->id,
+            'vehicle_type' => $validated['jenis_kendaraan'],
+            'brand' => $validated['merk'] ?? null,
+            'model' => $validated['model'] ?? null,
+            'year_kendaraan' => $validated['tahun'] ?? null,
+            'color' => $validated['warna'] ?? null,
+            'plate_number' => $plate,
+            'foto_kendaraan' => $validated['foto_kendaraan'] ?? null,
+            'foto_stnk' => $validated['foto_stnk'] ?? null,
+            'is_active' => true,
+            'is_default' => $isNewFirst,
+            'status_verifikasi' => 'approved',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $v = DB::table('driver_vehicles')->where('id', $id)->first();
+        return response()->json(['status' => 'success', 'message' => 'Kendaraan berhasil ditambahkan.', 'data' => $this->kendaraanPayload($v)], 201);
+    }
+
+    /**
+     * Update data kendaraan.
+     * PUT /api/driver/kendaraan/{id} (json: user_id, plat_nomor?, merk?, model?, tahun?, warna?, foto_kendaraan?, foto_stnk?)
+     */
+    public function kendaraanUpdate(Request $request, $id)
+    {
+        $this->ensureKendaraanTables();
+        $validated = $request->validate([
+            'user_id' => 'required|integer',
+            'plat_nomor' => 'nullable|string|max:20',
+            'merk' => 'nullable|string|max:50',
+            'model' => 'nullable|string|max:50',
+            'tahun' => 'nullable|integer|min:1950|max:' . (date('Y') + 1),
+            'warna' => 'nullable|string|max:30',
+            'foto_kendaraan' => 'nullable|string|max:5000000',
+            'foto_stnk' => 'nullable|string|max:5000000',
+        ]);
+        $driver = DB::table('drivers')->where('user_id', (int) $validated['user_id'])->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        if (!$v) {
+            return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
+        }
+        if (!empty($validated['plat_nomor'])) {
+            $plate = strtoupper(trim($validated['plat_nomor']));
+            if ($plate !== $v->plate_number && DB::table('driver_vehicles')->where('plate_number', $plate)->whereNull('deleted_at')->exists()) {
+                return response()->json(['status' => 'error', 'message' => 'Plat nomor sudah terdaftar di sistem.'], 409);
+            }
+        }
+        $upd = [
+            'brand' => $validated['merk'] ?? $v->brand,
+            'model' => $validated['model'] ?? $v->model,
+            'year_kendaraan' => $validated['tahun'] ?? $v->year_kendaraan,
+            'color' => $validated['warna'] ?? $v->color,
+            'foto_kendaraan' => $validated['foto_kendaraan'] ?? $v->foto_kendaraan,
+            'foto_stnk' => $validated['foto_stnk'] ?? $v->foto_stnk,
+            'updated_at' => now(),
+        ];
+        if (!empty($validated['plat_nomor'])) {
+            $upd['plate_number'] = strtoupper(trim($validated['plat_nomor']));
+        }
+        DB::table('driver_vehicles')->where('id', $id)->update($upd);
+        $v = DB::table('driver_vehicles')->where('id', $id)->first();
+        return response()->json(['status' => 'success', 'message' => 'Kendaraan berhasil diperbarui.', 'data' => $this->kendaraanPayload($v)]);
+    }
+
+    /**
+     * Soft delete kendaraan (tidak boleh hapus jika sedang dalam order berjalan).
+     * DELETE /api/driver/kendaraan/{id}?user_id=
+     */
+    public function kendaraanDestroy(Request $request, $id)
+    {
+        $this->ensureKendaraanTables();
+        $userId = (int) $request->query('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        if (!$v) {
+            return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
+        }
+        // Cek order berjalan: driver assigned & status aktif (bukan selesai/batal)
+        $inOrder = DB::table('orders')
+            ->where('driver_id', $driver->id)
+            ->whereNotIn('status', ['COMPLETED', 'CANCELED', 'FAILED'])
+            ->count();
+        if ($inOrder > 0) {
+            return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak dapat dihapus karena sedang dalam order berjalan.'], 409);
+        }
+        DB::table('driver_vehicles')->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
+        return response()->json(['status' => 'success', 'message' => 'Kendaraan berhasil dihapus.']);
+    }
+
+    /**
+     * Toggle aktif/nonaktif untuk bid. Aturan: max 1 kendaraan aktif per jenis kendaraan.
+     * PATCH /api/driver/kendaraan/{id}/toggle-aktif?user_id=
+     */
+    public function kendaraanToggleAktif(Request $request, $id)
+    {
+        $this->ensureKendaraanTables();
+        $userId = (int) $request->query('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        if (!$v) {
+            return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
+        }
+        if ($v->status_verifikasi !== 'approved') {
+            return response()->json(['status' => 'error', 'message' => 'Kendaraan belum terverifikasi sehingga tidak dapat diaktifkan.'], 409);
+        }
+        $newActive = !$v->is_active;
+        if ($newActive) {
+            // Max 1 aktif per jenis: matikan kendaraan aktif lain dengan jenis sama
+            DB::table('driver_vehicles')
+                ->where('driver_id', $driver->id)
+                ->where('vehicle_type', $v->vehicle_type)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->where('id', '!=', $id)
+                ->update(['is_active' => false, 'updated_at' => now()]);
+        }
+        DB::table('driver_vehicles')->where('id', $id)->update(['is_active' => $newActive, 'updated_at' => now()]);
+        $v = DB::table('driver_vehicles')->where('id', $id)->first();
+        return response()->json([
+            'status' => 'success',
+            'message' => $newActive ? 'Kendaraan aktif untuk menerima order.' : 'Kendaraan dinonaktifkan dari bid order.',
+            'data' => $this->kendaraanPayload($v),
+        ]);
+    }
+
+    /**
+     * Set kendaraan utama.
+     * PATCH /api/driver/kendaraan/{id}/set-default?user_id=
+     */
+    public function kendaraanSetDefault(Request $request, $id)
+    {
+        $this->ensureKendaraanTables();
+        $userId = (int) $request->query('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
+        }
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        if (!$v) {
+            return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
+        }
+        DB::table('driver_vehicles')->where('driver_id', $driver->id)->whereNull('deleted_at')->update(['is_default' => false, 'updated_at' => now()]);
+        DB::table('driver_vehicles')->where('id', $id)->update(['is_default' => true, 'updated_at' => now()]);
+        $v = DB::table('driver_vehicles')->where('id', $id)->first();
+        return response()->json(['status' => 'success', 'message' => 'Kendaraan utama berhasil diatur.', 'data' => $this->kendaraanPayload($v)]);
     }
 }

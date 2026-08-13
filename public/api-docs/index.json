@@ -1,7 +1,7 @@
 {
   "api_name": "Gride Superapp REST API",
   "base_url": "https://gride.web.id/api",
-  "version": "1.3",
+  "version": "1.4",
   "description": "REST API publik ekosistem Gride Superapp untuk aplikasi Customer, Driver, dan Merchant. Format respons selalu JSON.",
   "response_format": "Semua endpoint mengembalikan objek JSON dengan field \"status\" (success/error).",
   "error_format": {
@@ -147,6 +147,12 @@
       "group": "Wallet",
       "summary": "Verifikasi, pembuatan, dan pengubahan PIN wallet 6 digit (hashed bcrypt, rate limit 5x salah).",
       "doc_file": "/api-docs/wallet-pin.json"
+    },
+    {
+      "endpoint": "GET /api/driver/kendaraan, POST/PUT/DELETE /api/driver/kendaraan/{id}, PATCH /api/driver/kendaraan/{id}/toggle-aktif dan /set-default",
+      "group": "Driver Kendaraan",
+      "summary": "Manajemen kendaraan driver: tambah, edit, hapus (soft), toggle aktif, set default. 1 driver banyak kendaraan, max 1 aktif per jenis.",
+      "doc_file": "/api-docs/kendaraan.json"
     }
   ]
 }

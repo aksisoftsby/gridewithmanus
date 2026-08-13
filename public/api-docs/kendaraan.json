@@ -1,0 +1,85 @@
+{
+  "name": "Kendaraan Driver (Multi-Kendaraan)",
+  "description": "Manajemen kendaraan driver: 1 user driver dapat memiliki banyak kendaraan. Status aktif untuk bid melekat pada kendaraan (max 1 kendaraan aktif per jenis). Jenis: MOTOR, MOBIL, BAJAJ, TRUK, PICKUP_TERBUKA, PICKUP_BOX.",
+  "version": "1.4",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/driver/kendaraan?user_id=",
+      "description": "List semua kendaraan milik driver yang login (tidak termasuk yang di-soft-delete).",
+      "params": [
+        {"name": "user_id", "type": "integer", "required": true, "description": "ID user driver"}
+      ],
+      "response_sample": {
+        "status": "success",
+        "data": [
+          {
+            "id": 1,
+            "jenis_kendaraan": "MOBIL",
+            "plat_nomor": "AG 9999 ZZ",
+            "merk": "Toyota",
+            "model": "Avanza",
+            "tahun": 2022,
+            "warna": "Putih",
+            "foto_kendaraan": null,
+            "foto_stnk": null,
+            "is_aktif": true,
+            "is_default": true,
+            "status_verifikasi": "approved",
+            "deleted_at": null
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/kendaraan",
+      "description": "Tambah kendaraan baru. Kendaraan pertama otomatis aktif & jadi default. Plat nomor unik di seluruh sistem.",
+      "body": {
+        "user_id": "integer (required)",
+        "jenis_kendaraan": "enum MOTOR|MOBIL|BAJAJ|TRUK|PICKUP_TERBUKA|PICKUP_BOX (required)",
+        "plat_nomor": "string max 20 (required, di-uppercase otomatis)",
+        "merk": "string max 50 (optional)",
+        "model": "string max 50 (optional)",
+        "tahun": "integer 1950..tahun+1 (optional)",
+        "warna": "string max 30 (optional)",
+        "foto_kendaraan": "base64 string (optional, max ~5MB)",
+        "foto_stnk": "base64 string (optional, max ~5MB)"
+      },
+      "response_sample": {"status": "success", "message": "Kendaraan berhasil ditambahkan.", "data": {}}
+    },
+    {
+      "method": "PUT",
+      "path": "/api/driver/kendaraan/{id}",
+      "description": "Update data kendaraan. Hanya boleh update kendaraan milik sendiri.",
+      "body": {"user_id": "integer (required)", "plat_nomor": "optional", "merk": "optional", "model": "optional", "tahun": "optional", "warna": "optional", "foto_kendaraan": "optional", "foto_stnk": "optional"}
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/driver/kendaraan/{id}?user_id=",
+      "description": "Soft delete kendaraan (is_deleted_at di-set). Ditolak 409 jika driver sedang dalam order berjalan (status bukan COMPLETED/CANCELED/FAILED).",
+      "params": [{"name": "user_id", "type": "integer", "required": true}]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/driver/kendaraan/{id}/toggle-aktif?user_id=",
+      "description": "Toggle ON/OFF kendaraan untuk bid order. Saat mengaktifkan, kendaraan aktif lain dengan JENIS SAMA milik driver yang sama otomatis dinonaktifkan (max 1 aktif per jenis). Kendaraan harus status_verifikasi=approved.",
+      "params": [{"name": "user_id", "type": "integer", "required": true}]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/driver/kendaraan/{id}/set-default?user_id=",
+      "description": "Set kendaraan utama. Kendaraan default lain milik driver otomatis di-unset.",
+      "params": [{"name": "user_id", "type": "integer", "required": true}]
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me?user_id=",
+      "description": "Sekarang juga mengembalikan array 'vehicles' berisi semua kendaraan driver + 'vehicle' (kendaraan aktif utama).",
+      "response_extra": {
+        "vehicles": "array kendaraan lengkap (lihat kendaraanList)",
+        "vehicle": "kendaraan aktif (compatibility, field lama)"
+      }
+    }
+  ]
+}

@@ -210,6 +210,11 @@ CREATE INDEX idx_drivers_location ON drivers(current_lat, current_lng);
 -- ----------------------------------------------------------------------------
 -- DRIVER VEHICLES (Data kendaraan aktif & riwayat kendaraan driver)
 -- ----------------------------------------------------------------------------
+-- MULTI-VEHICLE (2026-08-13): 1 driver bisa punya banyak kendaraan. Aturan bisnis:
+--   - vehicle_type sekarang: MOTOR, MOBIL, BAJAJ, TRUK, PICKUP_TERBUKA, PICKUP_BOX
+--   - is_active melekat pada kendaraan (per jenis max 1 aktif untuk bid); user OFFLINE/ONLINE tetap di tabel drivers
+--   - status_verifikasi: pending/approved/rejected (admin bisa approve; default 'approved')
+--   - deleted_at: soft delete (tidak boleh hapus saat ada order berjalan)
 CREATE TABLE driver_vehicles (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     driver_id       UUID NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
@@ -220,9 +225,16 @@ CREATE TABLE driver_vehicles (
     plate_number    VARCHAR(20) UNIQUE NOT NULL,
     color           VARCHAR(50),
     is_active       BOOLEAN DEFAULT TRUE,
+    is_default      BOOLEAN NOT NULL DEFAULT FALSE,
+    status_verifikasi VARCHAR(20) NOT NULL DEFAULT 'approved',
+    foto_kendaraan  VARCHAR(255),
+    foto_stnk       VARCHAR(255),
+    deleted_at      TIMESTAMPTZ,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migrasi data existing: kendaraan lama di tabel user/driver dipindah ke baris pertama dengan is_active = TRUE.
 
 -- ----------------------------------------------------------------------------
 -- DRIVER DOCUMENTS (Dokumen verifikasi driver: KTP, SIM, STNK, SKCK)

@@ -776,13 +776,47 @@ class _AccountPageState extends State<AccountPage> {
           ),
           const SizedBox(height: 10),
 
-          // Kendaraan
+          // Kendaraan Saya (multi-kendaraan)
+          InkWell(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KendaraanPage())),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.car_rental, color: Colors.teal),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Kendaraan Saya', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        SizedBox(height: 2),
+                        Text('Kelola semua kendaraan Anda (maks. 1 aktif per jenis)', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.black45),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Kendaraan lama (compat, dari tabel users)
           if (vehicle != null)
             Card(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: ListTile(
-                leading: const Icon(Icons.car_rental, color: Colors.teal),
-                title: Text('Kendaraan: ${(vehicle['vehicle_type'] ?? '').toString().toUpperCase()}'),
+                leading: const Icon(Icons.car_rental, color: Colors.black38),
+                title: Text('Kendaraan lama: ${(vehicle['vehicle_type'] ?? '').toString().toUpperCase()}'),
                 subtitle: Text('Plat: ${vehicle['plate_number'] ?? '-'}'),
               ),
             ),
@@ -991,3 +1025,528 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
     );
   }
 }
+
+// ============ Halaman Kendaraan Saya — multi-kendaraan per driver ============
+
+class KendaraanPage extends StatefulWidget {
+  const KendaraanPage({super.key});
+
+  @override
+  State<KendaraanPage> createState() => _KendaraanPageState();
+}
+
+class _KendaraanPageState extends State<KendaraanPage> {
+  static const List<String> kJenis = ['MOTOR', 'MOBIL', 'BAJAJ', 'TRUK', 'PICKUP_TERBUKA', 'PICKUP_BOX'];
+
+  static const Map<String, IconData> kJenisIcons = {
+    'MOTOR': Icons.two_wheeler,
+    'MOBIL': Icons.directions_car,
+    'BAJAJ': Icons.airline_seat_recline_normal,
+    'TRUK': Icons.local_shipping,
+    'PICKUP_TERBUKA': Icons.local_shipping_outlined,
+    'PICKUP_BOX': Icons.inventory_2,
+  };
+
+  static const Map<String, String> kJenisLabel = {
+    'MOTOR': 'Motor',
+    'MOBIL': 'Mobil',
+    'BAJAJ': 'Bajaj',
+    'TRUK': 'Truk',
+    'PICKUP_TERBUKA': 'Pickup Terbuka',
+    'PICKUP_BOX': 'Pickup Box',
+  };
+
+  List<Map<String, dynamic>> _vehicles = [];
+  bool _loading = true;
+  String? _error;
+  int? _userId;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final user = await Session.load();
+    _userId = user != null ? user['id'] : null;
+    if (_userId == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Silakan login terlebih dahulu.';
+      });
+      return;
+    }
+    try {
+      final res = await http
+          .get(Uri.parse('$kApiBase/driver/kendaraan?user_id=$_userId'))
+          .timeout(const Duration(seconds: 10));
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        final list = data['data'];
+        setState(() {
+          _vehicles = list is List ? list.map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[];
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+          _error = data['message'] ?? 'Gagal memuat kendaraan.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _error = 'Koneksi gagal: $e';
+      });
+    }
+  }
+
+  Future<void> _toggleAktif(Map<String, dynamic> v, bool aktif) async {
+    final id = v['id'];
+    final res = await http
+        .patch(Uri.parse('$kApiBase/driver/kendaraan/$id/toggle-aktif?user_id=$_userId'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'is_aktif': aktif}))
+        .timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      await _load();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Gagal mengubah status kendaraan.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _setDefaults(Map<String, dynamic> v) async {
+    final id = v['id'];
+    final res = await http
+        .patch(Uri.parse('$kApiBase/driver/kendaraan/$id/set-default?user_id=$_userId'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({}))
+        .timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      await _load();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Gagal mengatur kendaraan utama.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _hapus(Map<String, dynamic> v) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus kendaraan?'),
+        content: Text('Kendaraan ${v['jenis_kendaraan']} ${v['plat_nomor']} akan dihapus (soft delete). '
+            'Kendaraan yang sedang ada order berjalan tidak dapat dihapus.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final res = await http
+        .delete(Uri.parse('$kApiBase/driver/kendaraan/${v['id']}?user_id=$_userId'))
+        .timeout(const Duration(seconds: 10));
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      await _load();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Gagal menghapus kendaraan.')),
+        );
+      }
+    }
+  }
+
+  void _bukaForm(Map<String, dynamic>? existing) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => KendaraanFormPage(kendaraan: existing)),
+    ).then((_) => _load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Kendaraan Saya'),
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+      ),
+      floatingActionButton: _userId != null && !_loading
+          ? FloatingActionButton(
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+              onPressed: () => _bukaForm(null),
+              child: const Icon(Icons.add),
+            )
+          : null,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!, textAlign: TextAlign.center))
+              : _vehicles.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.car_rental, size: 64, color: Colors.black26),
+                            const SizedBox(height: 16),
+                            const Text('Belum ada kendaraan.', style: TextStyle(fontSize: 16, color: Colors.black54)),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                              onPressed: () => _bukaForm(null),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Tambah Kendaraan'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : RefreshIndicator(onRefresh: _load, child: _buildList()),
+    );
+  }
+
+  Widget _buildList() {
+    final byJenis = <String, List<Map<String, dynamic>>>{};
+    for (final v in _vehicles) {
+      final j = v['jenis_kendaraan'].toString();
+      byJenis.putIfAbsent(j, () => []).add(v);
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.teal.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+          child: const Text(
+            'Status AKTIF menentukan kendaraan mana yang muncul saat Anda mengajukan bid. '
+            'Maksimal 1 kendaraan aktif untuk setiap jenis kendaraan.',
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...kJenis.where(byJenis.containsKey).expand((j) => [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(kJenisLabel[j] ?? j, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black54)),
+              ),
+              ...byJenis[j]!.map((v) => _vehicleCard(v)),
+            ]),
+      ],
+    );
+  }
+
+  Widget _vehicleCard(Map<String, dynamic> v) {
+    final jenis = v['jenis_kendaraan'].toString();
+    final aktif = v['is_aktif'] == true;
+    final isDefault = v['is_default'] == true;
+    final status = v['status_verifikasi']?.toString() ?? 'approved';
+    final verified = status == 'approved';
+    final pending = status == 'pending';
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (verified ? Colors.green : pending ? Colors.orange : Colors.red).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(kJenisIcons[jenis] ?? Icons.car_rental,
+                      color: verified ? Colors.green : pending ? Colors.orange : Colors.red),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        v['plat_nomor']?.toString().toUpperCase() ?? '-',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(_infoLine(v), style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: verified ? Colors.green.withOpacity(0.12) : pending ? Colors.orange.withOpacity(0.12) : Colors.red.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    verified ? 'Terverifikasi' : pending ? 'Menunggu' : 'Ditolak',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: verified ? Colors.green.shade700 : pending ? Colors.orange.shade700 : Colors.red.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text('Aktif untuk order', style: TextStyle(fontSize: 12, color: aktif ? Colors.green.shade700 : Colors.black54)),
+                const Spacer(),
+                Switch(
+                  value: aktif,
+                  activeColor: Colors.teal,
+                  onChanged: (val) => _toggleAktif(v, val),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(isDefault ? Icons.star : Icons.star_border,
+                      color: isDefault ? Colors.amber : Colors.black38, size: 22),
+                  onPressed: isDefault ? null : () => _setDefaults(v),
+                  tooltip: isDefault ? 'Kendaraan utama' : 'Jadikan kendaraan utama',
+                ),
+                Text(isDefault ? 'Kendaraan utama' : '', style: const TextStyle(fontSize: 12, color: Colors.amber)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                  tooltip: 'Hapus kendaraan',
+                  onPressed: () => _hapus(v),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _infoLine(Map<String, dynamic> v) {
+    final parts = <String>[];
+    if (v['merk'] != null && v['merk'].toString().isNotEmpty) parts.add(v['merk'].toString());
+    if (v['model'] != null && v['model'].toString().isNotEmpty) parts.add(v['model'].toString());
+    if (v['tahun'] != null && v['tahun'].toString().isNotEmpty) parts.add(v['tahun'].toString());
+    if (v['warna'] != null && v['warna'].toString().isNotEmpty) parts.add(v['warna'].toString());
+    return parts.isEmpty ? 'Tidak ada detail tambahan' : parts.join(' • ');
+  }
+}
+
+// ============ Form Tambah / Edit Kendaraan ============
+
+class KendaraanFormPage extends StatefulWidget {
+  final Map<String, dynamic>? kendaraan;
+  const KendaraanFormPage({super.key, this.kendaraan});
+
+  @override
+  State<KendaraanFormPage> createState() => _KendaraanFormPageState();
+}
+
+class _KendaraanFormPageState extends State<KendaraanFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  String _jenis = 'MOTOR';
+  final _platCtrl = TextEditingController();
+  final _merkCtrl = TextEditingController();
+  final _modelCtrl = TextEditingController();
+  final _tahunCtrl = TextEditingController();
+  final _warnaCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final k = widget.kendaraan;
+    if (k != null) {
+      _jenis = k['jenis_kendaraan']?.toString() ?? 'MOTOR';
+      _platCtrl.text = k['plat_nomor']?.toString() ?? '';
+      _merkCtrl.text = k['merk']?.toString() ?? '';
+      _modelCtrl.text = k['model']?.toString() ?? '';
+      _tahunCtrl.text = k['tahun']?.toString() ?? '';
+      _warnaCtrl.text = k['warna']?.toString() ?? '';
+    }
+  }
+
+  Future<void> _simpan() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final user = await Session.load();
+    final uid = user?['id'];
+    if (uid == null) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Silakan login terlebih dahulu.')));
+      return;
+    }
+    final body = {
+      'user_id': uid,
+      'jenis_kendaraan': _jenis,
+      'plat_nomor': _platCtrl.text.trim(),
+      'merk': _merkCtrl.text.trim(),
+      'model': _modelCtrl.text.trim(),
+      'tahun': _tahunCtrl.text.trim(),
+      'warna': _warnaCtrl.text.trim(),
+    };
+    final isEdit = widget.kendaraan != null;
+    final url = isEdit ? '$kApiBase/driver/kendaraan/${widget.kendaraan!['id']}' : '$kApiBase/driver/kendaraan';
+    try {
+      final res = await (isEdit
+              ? http.put(Uri.parse(url), headers: const {'Content-Type': 'application/json'}, body: jsonEncode(body))
+              : http.post(Uri.parse(url), headers: const {'Content-Type': 'application/json'}, body: jsonEncode(body)))
+          .timeout(const Duration(seconds: 15));
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200) {
+        if (mounted) Navigator.pop(context, true);
+      } else {
+        if (mounted) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'] ?? 'Gagal menyimpan kendaraan.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _platCtrl.dispose();
+    _merkCtrl.dispose();
+    _modelCtrl.dispose();
+    _tahunCtrl.dispose();
+    _warnaCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.kendaraan != null;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEdit ? 'Edit Kendaraan' : 'Tambah Kendaraan'),
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+      ),
+      body: _saving
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const Text('Jenis Kendaraan', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _kendaraanFormJenis.entries.map((entry) {
+                      final sel = _jenis == entry.key;
+                      return ChoiceChip(
+                        selected: sel,
+                        label: Text(entry.value),
+                        selectedColor: Colors.teal,
+                        backgroundColor: Colors.grey.shade100,
+                        labelStyle: TextStyle(color: sel ? Colors.white : Colors.black87, fontWeight: sel ? FontWeight.bold : FontWeight.normal),
+                        onSelected: (s) {
+                          if (s) setState(() => _jenis = entry.key);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  _field('Nomor Plat', _platCtrl, 'Contoh: AG 1234 ZZ', mandatory: true),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _field('Merk', _merkCtrl, 'Contoh: Honda')),
+                      const SizedBox(width: 12),
+                      Expanded(child: _field('Model', _modelCtrl, 'Contoh: Beat')),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _field('Tahun', _tahunCtrl, 'Contoh: 2022')),
+                      const SizedBox(width: 12),
+                      Expanded(child: _field('Warna', _warnaCtrl, 'Contoh: Hitam')),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Upload foto kendaraan & STNK belum tersedia di aplikasi, hubungi admin bila diperlukan.',
+                      style: TextStyle(fontSize: 11, color: Colors.black45)),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    onPressed: _simpan,
+                    child: Text(isEdit ? 'Simpan Perubahan' : 'Tambah Kendaraan'),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _field(String label, TextEditingController ctrl, String hint, {bool mandatory = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: ctrl,
+          decoration: InputDecoration(
+            hintText: hint,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+          validator: mandatory ? (v) => (v == null || v.trim().isEmpty) ? '$label wajib diisi' : null : null,
+        ),
+      ],
+    );
+  }
+}
+
+// Konstanta jenis kendaraan untuk form
+const Map<String, String> _kendaraanFormJenis = {
+  'MOTOR': 'Motor',
+  'MOBIL': 'Mobil',
+  'BAJAJ': 'Bajaj',
+  'TRUK': 'Truk',
+  'PICKUP_TERBUKA': 'Pickup Terbuka',
+  'PICKUP_BOX': 'Pickup Box',
+};
