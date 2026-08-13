@@ -61,7 +61,7 @@
         @forelse($merchants as $merchant)
             <a href="{{ route('merchant.detail', $merchant->slug) }}" class="bg-white rounded-2xl shadow-md hover:shadow-xl transition overflow-hidden border border-gray-100 flex flex-col group">
                 <div class="relative h-48 bg-gray-200 overflow-hidden">
-                    <img src="{{ $merchant->banner_url }}" alt="{{ $merchant->name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                    <img src="{{ filled($merchant->banner_url) ? $merchant->banner_url : asset('images/merchant-placeholder.svg') }}" alt="{{ $merchant->name }}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.onerror=null;this.src='{{ asset('images/merchant-placeholder.svg') }}';">
                     <span class="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
                         {{ $merchant->type }}
                     </span>
