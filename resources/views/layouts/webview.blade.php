@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { padding-bottom: 96px; }
-        .brand-gradient { background: linear-gradient(135deg, #6b21a8 0%, #7c3aed 55%, #f59e0b 100%); }
+        .brand-gradient { background: linear-gradient(135deg, #2e1065 0%, #4c1d95 55%, #b45309 100%); }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900 font-sans antialiased">
@@ -25,7 +25,7 @@
 
     <main class="max-w-3xl mx-auto px-4 py-4">
         @if(session('success'))
-            <div class="bg-emerald-100 border-l-4 border-emerald-500 text-emerald-700 p-3 rounded shadow mb-4 text-sm" role="alert">
+            <div class="bg-purple-100 border-l-4 border-purple-600 text-purple-800 p-3 rounded shadow mb-4 text-sm" role="alert">
                 <p>{{ session('success') }}</p>
             </div>
         @endif

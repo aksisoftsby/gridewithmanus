@@ -8,10 +8,10 @@
             <p class="text-sm text-gray-500">Kelola testimoni pelanggan yang tampil di halaman depan.</p>
         </div>
         <div class="flex space-x-3">
-            <a href="{{ route('admin.testimonials.create') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <a href="{{ route('admin.testimonials.create') }}" class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-plus mr-1"></i> Tambah Testimoni
             </a>
-            <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
         </div>
     </div>
 
@@ -39,13 +39,13 @@
                         <td class="px-6 py-4 text-gray-600">{{ $t->role_title ?: '-' }}</td>
                         <td class="px-6 py-4 text-xs text-gray-500">{{ $t->testimonial_date ? \Carbon\Carbon::parse($t->testimonial_date)->format('d M Y') : '-' }}</td>
                         <td class="px-6 py-4">
-                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $t->is_published ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600' }}">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $t->is_published ? 'bg-purple-100 text-purple-900' : 'bg-gray-200 text-gray-600' }}">
                                 {{ $t->is_published ? 'Published' : 'Hidden' }}
                             </span>
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <a href="{{ route('admin.testimonials.edit', $t->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                <a href="{{ route('admin.testimonials.edit', $t->id) }}" class="text-purple-700 hover:text-purple-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
                                 <form action="{{ route('admin.testimonials.destroy', $t->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus testimoni ini?');">
                                     @csrf
                                     @method('DELETE')

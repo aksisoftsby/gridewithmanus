@@ -8,7 +8,7 @@
             <p class="text-sm text-gray-500">Manage food menus and mart/shop products across merchants.</p>
         </div>
         <div class="flex space-x-3">
-            <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
             <a href="{{ route('admin.products.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-plus mr-1"></i> Add Product
             </a>
@@ -33,15 +33,15 @@
                     <tr>
                         <td class="px-6 py-4 font-semibold text-gray-900">{{ $product->name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $product->merchant_name }}</td>
-                        <td class="px-6 py-4 font-semibold text-emerald-600">Rp {{ number_format($product->price, 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-semibold text-purple-700">Rp {{ number_format($product->price, 0, ',', '.') }}</td>
                         <td class="px-6 py-4">
-                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-900">
                                 {{ $product->is_available ? 'Available' : 'Unavailable' }}
                             </span>
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <a href="{{ route('admin.products.edit', $product->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                <a href="{{ route('admin.products.edit', $product->id) }}" class="text-purple-700 hover:text-purple-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
                                 <form action="{{ route('admin.products.destroy', $product->id) }}" method="POST" onsubmit="return confirm('Delete this product?');">
                                     @csrf
                                     @method('DELETE')

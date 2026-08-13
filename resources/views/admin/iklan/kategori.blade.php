@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-bold text-gray-900">Kategori Iklan Gratis</h1>
             <p class="text-sm text-gray-500">Kelola kategori yang digunakan pada menu Iklan Gratis.</p>
         </div>
-        <a href="{{ route('admin.iklan.index') }}" class="text-emerald-600 hover:underline text-sm font-semibold">&larr; Iklan</a>
+        <a href="{{ route('admin.iklan.index') }}" class="text-purple-700 hover:underline text-sm font-semibold">&larr; Iklan</a>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -29,7 +29,7 @@
                             <td class="px-6 py-4 font-mono text-xs text-gray-500">{{ $cat->slug }}</td>
                             <td class="px-6 py-4">
                                 @if($cat->is_active)
-                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Aktif</span>
+                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-900">Aktif</span>
                                 @else
                                     <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600">Nonaktif</span>
                                 @endif
@@ -51,11 +51,11 @@
                                             @method('PUT')
                                             <input type="text" name="name" value="{{ $cat->name }}" required class="w-full px-3 py-2 border rounded-lg mb-3">
                                             <label class="flex items-center space-x-2 mb-4">
-                                                <input type="checkbox" name="is_active" value="1" {{ $cat->is_active ? 'checked' : '' }} class="rounded border-gray-300 text-emerald-600">
+                                                <input type="checkbox" name="is_active" value="1" {{ $cat->is_active ? 'checked' : '' }} class="rounded border-gray-300 text-purple-700">
                                                 <span class="text-sm">Aktif</span>
                                             </label>
                                             <div class="flex space-x-2">
-                                                <button type="submit" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm">Simpan</button>
+                                                <button type="submit" class="bg-purple-700 text-white px-4 py-2 rounded-lg text-sm">Simpan</button>
                                                 <button type="button" onclick="document.getElementById('edit-{{ $cat->id }}').classList.add('hidden')" class="text-gray-600 px-4 py-2">Batal</button>
                                             </div>
                                         </form>
@@ -78,9 +78,9 @@
                 @csrf
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Nama Kategori</label>
-                    <input type="text" name="name" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="Misal: Elektronik">
+                    <input type="text" name="name" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600" placeholder="Misal: Elektronik">
                 </div>
-                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg shadow transition">
+                <button type="submit" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-semibold py-2.5 rounded-lg shadow transition">
                     Simpan Kategori
                 </button>
             </form>

@@ -56,12 +56,12 @@
                 <tbody class="divide-y divide-gray-100">
                     <tr>
                         <td class="px-6 py-4 font-semibold text-gray-800"><span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">ADMIN</span></td>
-                        <td class="px-6 py-4 text-emerald-700 font-semibold">Boleh</td>
+                        <td class="px-6 py-4 text-purple-800 font-semibold">Boleh</td>
                         <td class="px-6 py-4 text-gray-600">Akses penuh panel kota (super admin)</td>
                     </tr>
                     <tr>
                         <td class="px-6 py-4 font-semibold text-gray-800"><span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">MANAGER</span></td>
-                        <td class="px-6 py-4 text-emerald-700 font-semibold">Boleh</td>
+                        <td class="px-6 py-4 text-purple-800 font-semibold">Boleh</td>
                         <td class="px-6 py-4 text-gray-600">Akses penuh panel kota (pengelola)</td>
                     </tr>
                     <tr>

@@ -8,7 +8,7 @@
             <p class="text-sm text-gray-500">Create and manage discounts and promo codes.</p>
         </div>
         <div class="flex space-x-3">
-            <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
             <a href="{{ route('admin.promos.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-plus mr-1"></i> Add Promo
             </a>
@@ -35,7 +35,7 @@
                 <tbody class="divide-y divide-gray-100 text-sm">
                     @forelse($promos as $promo)
                         <tr>
-                            <td class="px-6 py-4 font-mono font-bold text-emerald-600">{{ $promo->code }}</td>
+                            <td class="px-6 py-4 font-mono font-bold text-purple-700">{{ $promo->code }}</td>
                             <td class="px-6 py-4 text-gray-800">{{ $promo->title }}</td>
                             <td class="px-6 py-4 font-semibold">
                                 @if($promo->discount_type == 'PERCENTAGE')
@@ -51,7 +51,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 @if($promo->is_active)
-                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Active</span>
+                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-900">Active</span>
                                 @else
                                     <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600">Inactive</span>
                                 @endif
@@ -81,42 +81,42 @@
                 @csrf
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Promo Code</label>
-                    <input type="text" name="code" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 uppercase" placeholder="e.g. DISKONBARU">
+                    <input type="text" name="code" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 uppercase" placeholder="e.g. DISKONBARU">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Title</label>
-                    <input type="text" name="title" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="e.g. Diskon Spesial Pengguna Baru">
+                    <input type="text" name="title" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600" placeholder="e.g. Diskon Spesial Pengguna Baru">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Discount Type</label>
-                    <select name="discount_type" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <select name="discount_type" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600">
                         <option value="PERCENTAGE">PERCENTAGE (%)</option>
                         <option value="FIXED">FIXED (Rp)</option>
                     </select>
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Discount Value</label>
-                    <input type="number" step="0.01" name="discount_value" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500" placeholder="25">
+                    <input type="number" step="0.01" name="discount_value" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600" placeholder="25">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Minimum Purchase (IDR)</label>
-                    <input type="number" step="100" name="min_purchase" required value="0" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <input type="number" step="100" name="min_purchase" required value="0" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Start Date & Time</label>
-                    <input type="datetime-local" name="starts_at" required value="{{ now()->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <input type="datetime-local" name="starts_at" required value="{{ now()->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-semibold text-gray-700 mb-1">End Date & Time</label>
-                    <input type="datetime-local" name="ends_at" required value="{{ now()->addDays(30)->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    <input type="datetime-local" name="ends_at" required value="{{ now()->addDays(30)->format('Y-m-d\TH:i') }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600">
                 </div>
                 <div class="mb-6">
                     <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-purple-700 focus:ring-purple-600">
                         <span class="text-sm font-semibold text-gray-700">Promo aktif</span>
                     </label>
                 </div>
-                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg shadow transition">
+                <button type="submit" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-semibold py-2.5 rounded-lg shadow transition">
                     Save Promo
                 </button>
             </form>

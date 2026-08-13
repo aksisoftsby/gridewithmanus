@@ -13,7 +13,7 @@
     </div>
 
     @if(session('success'))
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg mb-6 text-sm">{{ session('success') }}</div>
+        <div class="bg-purple-50 border border-purple-200 text-purple-900 px-4 py-3 rounded-lg mb-6 text-sm">{{ session('success') }}</div>
     @endif
 
     <!-- Search -->

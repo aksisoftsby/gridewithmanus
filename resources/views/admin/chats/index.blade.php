@@ -15,7 +15,7 @@
                     <i class="fa-solid fa-broom mr-1"></i> Flush All Sessions
                 </button>
             </form>
-            <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold">Dashboard &rarr;</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold">Dashboard &rarr;</a>
         </div>
     </div>
 
@@ -46,7 +46,7 @@
                                     @if($session->role == 'ADMIN') bg-purple-100 text-purple-800
                                     @elseif($session->role == 'MERCHANT') bg-blue-100 text-blue-800
                                     @elseif($session->role == 'DRIVER') bg-orange-100 text-orange-800
-                                    @else bg-emerald-100 text-emerald-800 @endif">
+                                    @else bg-purple-100 text-purple-900 @endif">
                                     {{ $session->role }}
                                 </span>
                             </td>

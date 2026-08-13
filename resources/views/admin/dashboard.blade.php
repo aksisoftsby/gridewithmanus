@@ -8,7 +8,7 @@
             <p class="text-sm text-gray-500">Manage users, merchants, menu items, orders, drivers, and promotions based on schema.sql</p>
         </div>
         <div class="flex space-x-3">
-            <a href="{{ route('admin.merchants.index') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <a href="{{ route('admin.merchants.index') }}" class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-store mr-1"></i> Manage Merchants
             </a>
             <a href="{{ route('admin.products.index') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
@@ -25,21 +25,21 @@
         <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
             <div class="text-gray-500 text-xs font-semibold uppercase">Total Users</div>
             <div class="text-2xl font-bold text-gray-900 mt-2">{{ $stats['users'] }}</div>
-            <a href="{{ route('admin.users.index') }}" class="text-xs text-emerald-600 hover:underline mt-2 inline-block">View details &rarr;</a>
+            <a href="{{ route('admin.users.index') }}" class="text-xs text-purple-700 hover:underline mt-2 inline-block">View details &rarr;</a>
         </div>
         <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
             <div class="text-gray-500 text-xs font-semibold uppercase">Merchants</div>
             <div class="text-2xl font-bold text-gray-900 mt-2">{{ $stats['merchants'] }}</div>
-            <a href="{{ route('admin.merchants.index') }}" class="text-xs text-emerald-600 hover:underline mt-2 inline-block">View details &rarr;</a>
+            <a href="{{ route('admin.merchants.index') }}" class="text-xs text-purple-700 hover:underline mt-2 inline-block">View details &rarr;</a>
         </div>
         <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
             <div class="text-gray-500 text-xs font-semibold uppercase">Total Orders</div>
             <div class="text-2xl font-bold text-gray-900 mt-2">{{ $stats['orders'] }}</div>
-            <a href="{{ route('admin.orders.index') }}" class="text-xs text-emerald-600 hover:underline mt-2 inline-block">View details &rarr;</a>
+            <a href="{{ route('admin.orders.index') }}" class="text-xs text-purple-700 hover:underline mt-2 inline-block">View details &rarr;</a>
         </div>
         <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
             <div class="text-gray-500 text-xs font-semibold uppercase">Completed Revenue</div>
-            <div class="text-xl font-bold text-emerald-600 mt-2">Rp {{ number_format($stats['revenue'], 0, ',', '.') }}</div>
+            <div class="text-xl font-bold text-purple-700 mt-2">Rp {{ number_format($stats['revenue'], 0, ',', '.') }}</div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
             <div class="text-gray-500 text-xs font-semibold uppercase">Active Drivers</div>
@@ -48,7 +48,7 @@
         <div class="bg-white p-6 rounded-xl shadow border border-gray-100">
             <div class="text-gray-500 text-xs font-semibold uppercase">Promos Active</div>
             <div class="text-2xl font-bold text-gray-900 mt-2">{{ $stats['promos'] }}</div>
-            <a href="{{ route('admin.promos.index') }}" class="text-xs text-emerald-600 hover:underline mt-2 inline-block">View details &rarr;</a>
+            <a href="{{ route('admin.promos.index') }}" class="text-xs text-purple-700 hover:underline mt-2 inline-block">View details &rarr;</a>
         </div>
     </div>
 
@@ -68,7 +68,7 @@
     <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 class="font-bold text-gray-800 text-lg">Recent Orders</h3>
-            <a href="{{ route('admin.orders.index') }}" class="text-sm text-emerald-600 hover:underline">View All &rarr;</a>
+            <a href="{{ route('admin.orders.index') }}" class="text-sm text-purple-700 hover:underline">View All &rarr;</a>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -88,10 +88,10 @@
                             <td class="px-6 py-4 font-semibold text-gray-800">{{ $order->order_number }}</td>
                             <td class="px-6 py-4">{{ $order->customer_name }}</td>
                             <td class="px-6 py-4">{{ $order->merchant_name }}</td>
-                            <td class="px-6 py-4 font-semibold text-emerald-600">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                            <td class="px-6 py-4 font-semibold text-purple-700">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
                             <td class="px-6 py-4">
                                 <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
-                                    @if($order->status == 'COMPLETED') bg-emerald-100 text-emerald-800 
+                                    @if($order->status == 'COMPLETED') bg-purple-100 text-purple-900 
                                     @elseif($order->status == 'PROCESSING') bg-blue-100 text-blue-800 
                                     @elseif($order->status == 'CANCELLED') bg-red-100 text-red-800 
                                     @else bg-yellow-100 text-yellow-800 @endif">
@@ -99,7 +99,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4">
-                                <a href="{{ route('admin.orders.show', $order->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium">Detail</a>
+                                <a href="{{ route('admin.orders.show', $order->id) }}" class="text-purple-700 hover:text-purple-900 font-medium">Detail</a>
                             </td>
                         </tr>
                     @empty

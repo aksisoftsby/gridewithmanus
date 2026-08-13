@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-bold text-gray-900">Order Management</h1>
             <p class="text-sm text-gray-500">Track and update delivery and order statuses.</p>
         </div>
-        <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold">&larr; Dashboard</a>
+        <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold">&larr; Dashboard</a>
     </div>
 
     @include('admin.partials.search', [
@@ -18,7 +18,7 @@
     <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap gap-2">
             @foreach([''=>'Semua','PENDING'=>'Pending','PROCESSING'=>'Processing','COMPLETED'=>'Completed','CANCELLED'=>'Cancelled'] as $val => $label)
-                <a href="{{ route('admin.orders.index', array_merge(request()->except('page'), ['status' => $val ? $val : null])) }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition {{ (request()->query('status') ?? '') === $val ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">{{ $label }}</a>
+                <a href="{{ route('admin.orders.index', array_merge(request()->except('page'), ['status' => $val ? $val : null])) }}" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition {{ (request()->query('status') ?? '') === $val ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">{{ $label }}</a>
             @endforeach
         </div>
         <table class="w-full text-left border-collapse">
@@ -44,10 +44,10 @@
                         </td>
                         <td class="px-6 py-4 text-gray-600">{{ $order->customer_name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $order->merchant_name }}</td>
-                        <td class="px-6 py-4 font-semibold text-emerald-600">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-semibold text-purple-700">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
                         <td class="px-6 py-4">
                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
-                                @if($order->status == 'COMPLETED') bg-emerald-100 text-emerald-800 
+                                @if($order->status == 'COMPLETED') bg-purple-100 text-purple-900 
                                 @elseif($order->status == 'PROCESSING') bg-blue-100 text-blue-800 
                                 @elseif($order->status == 'CANCELLED') bg-red-100 text-red-800 
                                 @else bg-yellow-100 text-yellow-800 @endif">
@@ -55,7 +55,7 @@
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            <a href="{{ route('admin.orders.show', $order->id) }}" class="text-emerald-600 hover:underline font-medium">View Detail</a>
+                            <a href="{{ route('admin.orders.show', $order->id) }}" class="text-purple-700 hover:underline font-medium">View Detail</a>
                         </td>
                     </tr>
                 @empty

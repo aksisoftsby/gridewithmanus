@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-bold text-gray-900">User Management</h1>
             <p class="text-sm text-gray-500">Manage all registered customers, drivers, merchants, and admins.</p>
         </div>
-        <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold">&larr; Back to Dashboard</a>
+        <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold">&larr; Back to Dashboard</a>
     </div>
 
     @include('admin.partials.search', ['route' => 'admin.users.index', 'placeholder' => 'Cari nama, email, atau role...'])
@@ -42,14 +42,14 @@
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-900">
                                 {{ $user->status }}
                             </span>
                         </td>
                         <td class="px-6 py-4">
                             @if($user->id !== auth()->id())
                                 <div class="flex items-center gap-3">
-                                    <a href="{{ route('admin.users.edit', $user->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                    <a href="{{ route('admin.users.edit', $user->id) }}" class="text-purple-700 hover:text-purple-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
                                     <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
                                         @csrf
                                         @method('DELETE')
@@ -58,7 +58,7 @@
                                 </div>
                             @else
                                 <div class="flex items-center gap-3">
-                                    <a href="{{ route('admin.users.edit', $user->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                    <a href="{{ route('admin.users.edit', $user->id) }}" class="text-purple-700 hover:text-purple-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
                                     <span class="text-gray-400 text-xs">Current User</span>
                                 </div>
                             @endif

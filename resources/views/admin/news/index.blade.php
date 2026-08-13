@@ -8,10 +8,10 @@
             <p class="text-sm text-gray-500">Kelola berita & pengumuman yang tampil di halaman depan.</p>
         </div>
         <div class="flex space-x-3">
-            <a href="{{ route('admin.news.create') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <a href="{{ route('admin.news.create') }}" class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-plus mr-1"></i> Tambah Berita
             </a>
-            <a href="{{ route('admin.dashboard') }}" class="text-emerald-600 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold self-center">&larr; Dashboard</a>
         </div>
     </div>
 
@@ -37,14 +37,14 @@
                         </td>
                         <td class="px-6 py-4 text-gray-600">{{ $item->category_name ?? '-' }}</td>
                         <td class="px-6 py-4">
-                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $item->status == 'PUBLISHED' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800' }}">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $item->status == 'PUBLISHED' ? 'bg-purple-100 text-purple-900' : 'bg-yellow-100 text-yellow-800' }}">
                                 {{ $item->status }}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-xs text-gray-500">{{ $item->published_at ? \Carbon\Carbon::parse($item->published_at)->format('d M Y H:i') : '-' }}</td>
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <a href="{{ route('admin.news.edit', $item->id) }}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                <a href="{{ route('admin.news.edit', $item->id) }}" class="text-purple-700 hover:text-purple-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
                                 <form action="{{ route('admin.news.destroy', $item->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus berita ini?');">
                                     @csrf
                                     @method('DELETE')

@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .brand-gradient { background: linear-gradient(135deg, #374151 0%, #4c1d95 55%, #b45309 100%); }
+        .brand-gradient { background: linear-gradient(135deg, #2e1065 0%, #4c1d95 55%, #b45309 100%); }
         .float-anim { animation: floaty 4s ease-in-out infinite; }
         @keyframes floaty {
             0%, 100% { transform: translateY(0); }
@@ -29,7 +29,7 @@
                     <a href="{{ url('/') }}" class="hover:text-yellow-200 font-medium text-sm">Beranda</a>
                     <a href="{{ route('iklan.index') }}" class="hover:text-yellow-200 font-medium text-sm">Iklan Gratis</a>
                     <a href="{{ url('/proposal') }}" class="hover:text-yellow-200 font-medium text-sm">Proposal</a>
-                    <a href="{{ route('admin.login') }}" class="bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+                    <a href="{{ route('admin.login') }}" class="bg-white text-purple-800 hover:bg-purple-50 px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                         <i class="fa-solid fa-lock mr-1"></i> Admin Login
                     </a>
                 </div>
@@ -70,7 +70,7 @@
                     <span class="font-semibold text-gray-700">Merchant</span>
                 </a>
                 <a href="{{ url('/proposal') }}" class="bg-white rounded-2xl shadow p-4 hover:shadow-lg transition">
-                    <i class="fa-solid fa-file-lines text-emerald-600 text-2xl mb-2 block"></i>
+                    <i class="fa-solid fa-file-lines text-purple-700 text-2xl mb-2 block"></i>
                     <span class="font-semibold text-gray-700">Proposal</span>
                 </a>
             </div>

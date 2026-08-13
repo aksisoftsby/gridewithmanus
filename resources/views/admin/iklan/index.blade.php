@@ -22,11 +22,11 @@
         <form method="GET" class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[180px]">
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Pencarian</label>
-                <input type="text" name="search" value="{{ $search }}" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500" placeholder="Judul / deskripsi...">
+                <input type="text" name="search" value="{{ $search }}" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-600" placeholder="Judul / deskripsi...">
             </div>
             <div class="w-44">
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Kategori</label>
-                <select name="category_id" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+                <select name="category_id" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-600">
                     <option value="">Semua Kategori</option>
                     @foreach($categories as $c)
                         <option value="{{ $c->id }}" {{ $cat == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
@@ -35,7 +35,7 @@
             </div>
             <div class="w-40">
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
-                <select name="status" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+                <select name="status" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-600">
                     <option value="">Semua</option>
                     <option value="ACTIVE" {{ $status === 'ACTIVE' ? 'selected' : '' }}>Active</option>
                     <option value="INACTIVE" {{ $status === 'INACTIVE' ? 'selected' : '' }}>Inactive</option>
@@ -43,7 +43,7 @@
                     <option value="EXPIRED" {{ $status === 'EXPIRED' ? 'selected' : '' }}>Expired</option>
                 </select>
             </div>
-            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">Filter</button>
+            <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">Filter</button>
             <a href="{{ route('admin.iklan.index') }}" class="text-gray-500 hover:text-gray-700 text-sm font-medium self-center">Reset</a>
         </form>
     </div>
@@ -73,7 +73,7 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-gray-600">{{ $item->category_name ?? '-' }}</td>
-                        <td class="px-6 py-4 font-semibold text-emerald-600">Rp {{ number_format((float)$item->price, 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-semibold text-purple-700">Rp {{ number_format((float)$item->price, 0, ',', '.') }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $item->city ?: '-' }}</td>
                         <td class="px-6 py-4 text-gray-600 text-xs">user #{{ $item->user_id }}</td>
                         <td class="px-6 py-4 text-xs text-gray-600">{{ $item->expired_at ? \Carbon\Carbon::parse($item->expired_at)->format('d M Y') : '-' }}</td>
@@ -81,7 +81,7 @@
                             @if($item->expired_at && \Carbon\Carbon::parse($item->expired_at)->isPast())
                                 <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Expired</span>
                             @elseif($item->status === 'ACTIVE')
-                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Active</span>
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-900">Active</span>
                             @elseif($item->status === 'BLOCKED')
                                 <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Blocked</span>
                             @else

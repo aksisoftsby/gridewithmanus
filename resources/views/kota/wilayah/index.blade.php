@@ -55,7 +55,7 @@
                             <td class="px-6 py-3">{{ $k->provinsi_nama }}</td>
                             <td class="px-6 py-3 font-semibold text-gray-800">{{ $k->nama }}</td>
                             <td class="px-6 py-3">
-                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $k->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800' }}">{{ $k->tipe }}</span>
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $k->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-900' }}">{{ $k->tipe }}</span>
                             </td>
                         </tr>
                     @empty
