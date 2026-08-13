@@ -21,6 +21,18 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name(
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
+// Iklan Baris WebView (tanpa header/footer, untuk webview aplikasi)
+Route::get('/iklan-webview', [\App\Http\Controllers\IklanWebviewController::class, 'index'])->name('iklanwebview.index');
+Route::get('/iklan-webview/{id}', [\App\Http\Controllers\IklanWebviewController::class, 'detail'])->name('iklanwebview.detail')->where('id', '[0-9]+');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/iklan-webview/posting', [\App\Http\Controllers\IklanWebviewController::class, 'create'])->name('iklanwebview.create');
+    Route::post('/iklan-webview/posting', [\App\Http\Controllers\IklanWebviewController::class, 'store'])->name('iklanwebview.store');
+    Route::get('/iklan-webview/saya', [\App\Http\Controllers\IklanWebviewController::class, 'myIklan'])->name('iklanwebview.my');
+    Route::post('/iklan-webview/logout', [\App\Http\Controllers\WebviewAuthController::class, 'logout'])->name('webview.logout');
+});
+Route::get('/iklan-webview/login', [\App\Http\Controllers\WebviewAuthController::class, 'showLoginForm'])->name('webview.login');
+Route::post('/iklan-webview/login', [\App\Http\Controllers\WebviewAuthController::class, 'login']);
+
 // Kota Panel Auth (terpisah dari /admin/login)
 Route::get('/admin/kota-login', [KotaAuthController::class, 'showLoginForm'])->name('kota.login');
 Route::post('/admin/kota', [KotaAuthController::class, 'login']);
@@ -35,8 +47,8 @@ Route::middleware(['auth', 'role.kota'])->prefix('admin/kota')->name('kota.')->g
     Route::patch('/users/{id}/role', [KotaController::class, 'usersRoleUpdate'])->name('users.role.update');
 });
 
-// Admin Panel (Protected)
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+// Admin Panel (Protected: role_kota ADMIN / MANAGER; Settings khusus ADMIN)
+Route::middleware(['auth', 'role.panel'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 
     // Users
@@ -110,10 +122,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/drivers/{id}/edit', [AdminController::class, 'driversEdit'])->name('drivers.edit');
     Route::put('/drivers/{id}', [AdminController::class, 'driversUpdate'])->name('drivers.update');
 
-    // Settings (GitHub APK artifact download links)
-    Route::get('/settings', [AdminController::class, 'settingsIndex'])->name('settings.index');
-    Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
-    Route::post('/settings/refresh-links', [AdminController::class, 'settingsRefreshLinks'])->name('settings.refresh-links');
+    // Settings (GitHub APK artifact download links) — khusus ADMIN (bukan MANAGER)
+    Route::middleware(['role.settings'])->group(function () {
+        Route::get('/settings', [AdminController::class, 'settingsIndex'])->name('settings.index');
+        Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
+        Route::post('/settings/refresh-links', [AdminController::class, 'settingsRefreshLinks'])->name('settings.refresh-links');
+    });
 
     // Iklan Gratis
     Route::get('/iklan', [AdminController::class, 'iklanGratisIndex'])->name('iklan.index');

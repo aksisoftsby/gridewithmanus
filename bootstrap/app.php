@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => route('admin.login'));
         $middleware->alias([
             'role.kota' => \App\Http\Middleware\RoleKota::class,
+            'role.panel' => \App\Http\Middleware\RolePanel::class,
+            'role.settings' => \App\Http\Middleware\RoleSettings::class,
         ]);
         $middleware->redirectUsersTo(fn (Request $request) => route('kota.login'));
     })

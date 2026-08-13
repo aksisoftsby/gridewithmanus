@@ -25,7 +25,7 @@
                         @php
                             $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
                         @endphp
-                        @if(Auth::user()->role === 'ADMIN')
+                        @if(\App\Http\Access::canAdmin())
                             <a href="{{ route('admin.dashboard') }}" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold transition">
                                 <i class="fa-solid fa-gauge mr-1"></i> Admin Panel
                             </a>
@@ -55,13 +55,13 @@
             </div>
         </div>
         @auth
-            @if(Auth::user()->role === 'ADMIN')
+            @if(\App\Http\Access::canAdmin())
             <!-- Admin Top Menu (persistent on all admin pages) -->
             <div class="bg-emerald-800">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <nav class="flex flex-wrap gap-1 py-2 text-sm">
                         @php
-                            $adminNav = \App\Http\Controllers\AdminController::adminNav();
+                            $adminNav = \App\Http\Access::adminNav();
                             $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
                         @endphp
                         @foreach($adminNav as $item)
@@ -128,7 +128,7 @@
     </main>
 
     @auth
-        @if(Auth::user()->role === 'ADMIN')
+        @if(\App\Http\Access::canAdmin())
             @php
                 $apkCustomer = \Illuminate\Support\Facades\DB::table('app_settings')->where('setting_key', 'apk_download_url_customer')->value('setting_value');
                 $apkDriver = \Illuminate\Support\Facades\DB::table('app_settings')->where('setting_key', 'apk_download_url_driver')->value('setting_value');

@@ -21,9 +21,10 @@ class AdminAuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $user = Auth::user();
-            if ($user->role !== 'ADMIN') {
+            $roleKota = strtoupper((string) ($user->role_kota ?? 'MEMBER'));
+            if (!in_array($roleKota, ['ADMIN', 'MANAGER'], true)) {
                 Auth::logout();
-                return back()->withErrors(['email' => 'Access denied. Administrator privileges required.']);
+                return back()->withErrors(['email' => 'Akses ditolak. Hanya role ADMIN / MANAGER yang dapat masuk ke panel admin.']);
             }
             $request->session()->regenerate();
             return redirect()->intended(route('admin.dashboard'));
