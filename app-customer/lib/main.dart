@@ -1525,7 +1525,8 @@ class _KirimPageState extends State<KirimPage> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                // Payment | Price
+                // Payment | Price — hanya tampil setelah rute dihitung
+                if (_distanceKm != null && _estimatedFee != null) ...[
                 Row(
                   children: [
                     const Text('Payment', style: TextStyle(fontSize: 14, color: Color(0xFF4B5563))),
@@ -1619,6 +1620,7 @@ class _KirimPageState extends State<KirimPage> {
                     ),
                   ],
                 ),
+                ],
                 const SizedBox(height: 14),
                 if (_error != null)
                   Container(
@@ -2959,8 +2961,22 @@ class _IklanGratisPageState extends State<IklanGratisPage> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final data = body['data'];
-        final list = (data['data'] as List).cast<Map<String, dynamic>>();
-        final lastPage = data['last_page'] is int ? data['last_page'] as int : int.tryParse(data['last_page'].toString()) ?? 1;
+        // Handle paginator shapes: {data:{items:[...]}} atau {data:{data:[...]}}
+        List<dynamic> rawItems = [];
+        if (data is Map && data['items'] is List) {
+          rawItems = data['items'] as List;
+        } else if (data is Map && data['data'] is List) {
+          rawItems = data['data'] as List;
+        } else if (data is List) {
+          rawItems = data;
+        }
+        final list = rawItems.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        int lastPage = 1;
+        if (data is Map) {
+          final lp = data['last_page'];
+          lastPage = lp is int ? lp : (int.tryParse(lp.toString()) ?? 1);
+          if (lastPage <= 0) lastPage = 1;
+        }
         setState(() {
           if (append) {
             _iklan.addAll(list);
@@ -3136,7 +3152,7 @@ class _IklanGratisPageState extends State<IklanGratisPage> {
                                     );
                                   }
                                   final item = _iklan[index];
-                                  final photos = (item['photos'] as List?) ?? [];
+                                  final photos = (item['photos'] is List ? item['photos'] as List : []);
                                   final String? firstPhoto =
                                       photos.isNotEmpty ? photos.first.toString() : (item['photo_url']?.toString());
                                   final harga = _formatHarga(item['price']);
@@ -3280,7 +3296,7 @@ class _IklanDetailPageState extends State<IklanDetailPage> {
   @override
   Widget build(BuildContext context) {
     final i = widget.iklan;
-    final photos = ((i['photos'] as List?) ?? []).map((p) => p.toString()).toList();
+    final photos = (i['photos'] is List ? (i['photos'] as List) : []).map((p) => p.toString()).toList();
     final String? firstPhoto =
         photos.isNotEmpty ? photos.first : (i['photo_url']?.toString());
     final String? harga = (() {
@@ -3431,7 +3447,7 @@ class _IklanFormPageState extends State<IklanFormPage> {
               (c) => c['id'].toString() == i['category_id']?.toString(),
               orElse: () => <String, dynamic>{})['id']);
       _categoryId = cat?.toString();
-      _photoUrls.addAll(((i['photos'] as List?) ?? []).map((p) => p.toString()));
+      _photoUrls.addAll((i['photos'] is List ? (i['photos'] as List) : []).map((p) => p.toString()));
     } else if (widget.categories.isNotEmpty) {
       _categoryId = widget.categories.first['id'].toString();
     }
