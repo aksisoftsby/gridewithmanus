@@ -776,6 +776,10 @@ class _KirimPageState extends State<KirimPage> {
 
   bool _geocoding = false;
   bool _submitting = false;
+  // Rute jalan raya untuk preview peta (garis rute + ETA)
+  List<ll.LatLng> _routePoints = [];
+  int? _routeDurationSec;
+  bool _routeLoading = false;
   String? _error;
   String? _successOrder;
 
@@ -820,22 +824,52 @@ class _KirimPageState extends State<KirimPage> {
     setState(() {
       _distanceKm = d;
       _estimatedFee = fee.toInt().clamp(10000, 10000000);
+      _geocoding = false;
     });
   }
 
   /// Jarak mengikuti jalan raya via OSRM (meter -> km), fallback haversine.
+  /// overview=full supaya geometry rute lengkap bisa digambar di peta.
   Future<double> _osrmRoadKm(double lat1, double lon1, double lat2, double lon2) async {
     try {
       final res = await http.get(Uri.https('router.project-osrm.org',
-          '/route/v1/driving/$lon1,$lat1;$lon2,$lat2', {'overview': 'false'}));
+          '/route/v1/driving/$lon1,$lat1;$lon2,$lat2', {'overview': 'full', 'geometries': 'geojson'}));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['code'] == 'Ok' && (data['routes'] as List).isNotEmpty) {
-          final meters = (data['routes'][0]['legs'][0]['distance'] as num).toDouble();
+          final route = data['routes'][0];
+          final meters = (route['legs'][0]['distance'] as num).toDouble();
+          // Ambil geometry rute untuk digambar di peta (OSRM: [lon, lat] -> [lat, lon])
+          final geom = route['geometry'];
+          List<ll.LatLng> pts = [];
+          if (geom != null && geom['coordinates'] != null) {
+            pts = (geom['coordinates'] as List)
+                .map((c) => ll.LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+                .toList();
+          }
+          final durationSec = (route['legs'][0]['duration'] as num).toInt();
+          if (mounted) {
+            setState(() {
+              _routePoints = pts;
+              _routeDurationSec = durationSec;
+              _routeLoading = false;
+            });
+            // Geser peta supaya seluruh rute terlihat
+            if (pts.length >= 2) {
+              _mapCtrl.fitCamera(CameraFit.coordinates(coordinates: pts));
+            }
+          }
           return meters / 1000.0;
         }
       }
     } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _routePoints = [];
+        _routeDurationSec = null;
+        _routeLoading = false;
+      });
+    }
     return haversineKm(lat1, lon1, lat2, lon2);
   }
 
@@ -998,10 +1032,12 @@ class _KirimPageState extends State<KirimPage> {
         _geocoding = false;
       });
 
+      setState(() => _routeLoading = true);
       _recalcEstimate();
     } catch (e) {
       setState(() {
         _geocoding = false;
+        _routeLoading = false;
         _error = 'Gagal mencari lokasi: $e';
       });
     }
@@ -1214,8 +1250,32 @@ class _KirimPageState extends State<KirimPage> {
                                 height: 44,
                                 child: const Icon(Icons.location_pin, color: Colors.red, size: 44),
                               ),
+                              if (_pickupLat != null && _dropoffLat != null) ...[
+                                Marker(
+                                  point: ll.LatLng(_pickupLat!, _pickupLng!),
+                                  width: 44,
+                                  height: 44,
+                                  child: const Icon(Icons.location_on, color: Colors.green, size: 40),
+                                ),
+                                Marker(
+                                  point: ll.LatLng(_dropoffLat!, _dropoffLng!),
+                                  width: 44,
+                                  height: 44,
+                                  child: const Icon(Icons.flag, color: Colors.deepPurple, size: 40),
+                                ),
+                              ],
                             ],
                           ),
+                          if (_routePoints.length >= 2)
+                            PolylineLayer(
+                              polylines: [
+                                Polyline(
+                                  points: _routePoints,
+                                  strokeWidth: 4.5,
+                                  color: Colors.redAccent.shade700,
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -1334,6 +1394,17 @@ class _KirimPageState extends State<KirimPage> {
                               style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
+                      if (_routeDurationSec != null) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Estimasi waktu tempuh'),
+                            Text('${(_routeDurationSec! / 60).round()} menit',
+                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2396,7 +2467,7 @@ class _IklanGratisPageState extends State<IklanGratisPage> {
 
   Future<void> _loadCategories() async {
     try {
-      final res = await http.get(Uri.parse('$kApiBase/iklan-gratis/kategori'));
+      final res = await http.get(Uri.parse('$kApiBase/iklan-gratis/categories'));
       if (res.statusCode == 200) {
         final list = (jsonDecode(res.body)['data'] as List).cast<Map<String, dynamic>>();
         setState(() => _categories = list);
