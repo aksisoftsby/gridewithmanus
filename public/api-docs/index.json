@@ -65,6 +65,42 @@
       "doc_file": "/api-docs/drivers.json"
     },
     {
+      "endpoint": "GET /api/iklan-gratis/categories",
+      "group": "Iklan Gratis",
+      "summary": "Daftar kategori iklan gratis (15 kategori default Indonesia).",
+      "doc_file": "/api-docs/iklan.json"
+    },
+    {
+      "endpoint": "GET /api/iklan-gratis",
+      "group": "Iklan Gratis",
+      "summary": "Daftar iklan gratis aktif dengan pagination, search, dan filter kategori.",
+      "doc_file": "/api-docs/iklan.json"
+    },
+    {
+      "endpoint": "GET /api/iklan-gratis/{id}",
+      "group": "Iklan Gratis",
+      "summary": "Detail satu iklan gratis beserta kategori dan foto.",
+      "doc_file": "/api-docs/iklan.json"
+    },
+    {
+      "endpoint": "POST /api/iklan-gratis",
+      "group": "Iklan Gratis",
+      "summary": "Pasang iklan baru (wajib login user). Maksimal 10 foto, durasi 1-12 bulan (maks 1 tahun).",
+      "doc_file": "/api-docs/iklan.json"
+    },
+    {
+      "endpoint": "PUT /api/iklan-gratis/{id}",
+      "group": "Iklan Gratis",
+      "summary": "Edit iklan milik sendiri (hanya pemilik yang dapat mengedit).",
+      "doc_file": "/api-docs/iklan.json"
+    },
+    {
+      "endpoint": "DELETE /api/iklan-gratis/{id}",
+      "group": "Iklan Gratis",
+      "summary": "Hapus iklan milik sendiri (hanya pemilik yang dapat menghapus).",
+      "doc_file": "/api-docs/iklan.json"
+    },
+    {
       "endpoint": "GET /api/news",
       "group": "Content",
       "summary": "Daftar berita yang dipublikasikan untuk halaman depan.",

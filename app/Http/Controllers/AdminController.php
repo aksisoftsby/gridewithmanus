@@ -24,6 +24,7 @@ class AdminController extends Controller
             ['route' => 'admin.promos.index', 'label' => 'Promos', 'icon' => 'fa-tags'],
             ['route' => 'admin.news.index', 'label' => 'News', 'icon' => 'fa-newspaper'],
             ['route' => 'admin.testimonials.index', 'label' => 'Testimonials', 'icon' => 'fa-quote-left'],
+            ['route' => 'admin.iklan.index', 'label' => 'Iklan Gratis', 'icon' => 'fa-bullhorn'],
             ['route' => 'admin.chats.index', 'label' => 'Chat Sessions', 'icon' => 'fa-comments'],
             ['route' => 'admin.settings.index', 'label' => 'Settings', 'icon' => 'fa-gear'],
         ]);
@@ -923,4 +924,164 @@ class AdminController extends Controller
     {
         return view('api.docs');
     }
+
+    // =====================================================================
+    // IKLAN GRATIS — Manajemen penuh di admin: list, tambah, edit, hapus,
+    // serta tambah kategori iklan gratis.
+    // =====================================================================
+
+    public function iklanGratisIndex(Request $request)
+    {
+        $search = $request->query('search');
+        $cat = $request->query('category_id');
+        $status = $request->query('status');
+        $query = DB::table('iklan_gratis')
+            ->leftJoin('iklan_gratis_categories', 'iklan_gratis.category_id', '=', 'iklan_gratis_categories.id')
+            ->select('iklan_gratis.*', 'iklan_gratis_categories.name as category_name');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('iklan_gratis.title', 'like', '%' . $search . '%')
+                  ->orWhere('iklan_gratis.description', 'like', '%' . $search . '%');
+            });
+        }
+        if ($cat) {
+            $query->where('iklan_gratis.category_id', $cat);
+        }
+        if ($status) {
+            $query->where('iklan_gratis.status', $status);
+        }
+        $iklan = $query->orderBy('iklan_gratis.created_at', 'desc')->paginate(10)->withQueryString();
+        $categories = DB::table('iklan_gratis_categories')->orderBy('sort_order')->orderBy('name')->get();
+        return view('admin.iklan.index', compact('iklan', 'categories', 'search', 'cat', 'status'));
+    }
+
+    public function iklanGratisCreate()
+    {
+        $categories = DB::table('iklan_gratis_categories')->orderBy('sort_order')->orderBy('name')->get();
+        return view('admin.iklan.create', compact('categories'));
+    }
+
+    public function iklanGratisStore(Request $request)
+    {
+        $photos = array_values(array_filter(array_slice((array) ($request->input('photos', []) ?? []), 0, 10)));
+        $expiredAt = $request->input('expired_months')
+            ? now()->addMonths(max(1, min(12, (int) $request->input('expired_months'))))->format('Y-m-d H:i:s')
+            : now()->addMonths(1)->format('Y-m-d H:i:s');
+
+        DB::table('iklan_gratis')->insert([
+            'user_id' => $request->input('user_id') ?? 0,
+            'category_id' => $request->filled('category_id') ? (int) $request->input('category_id') : null,
+            'title' => $request->input('title'),
+            'description' => $request->input('description'),
+            'price' => (float) ($request->input('price', 0) ?? 0),
+            'photos' => json_encode($photos),
+            'contact_name' => $request->input('contact_name'),
+            'contact_phone' => $request->input('contact_phone'),
+            'city' => $request->input('city'),
+            'status' => $request->input('status', 'ACTIVE'),
+            'expired_at' => $expiredAt,
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('admin.iklan.index')->with('success', 'Iklan berhasil ditambahkan.');
+    }
+
+    public function iklanGratisEdit($id)
+    {
+        $iklan = DB::table('iklan_gratis')->where('id', $id)->first();
+        abort_if(!$iklan, 404, 'Iklan tidak ditemukan');
+        $categories = DB::table('iklan_gratis_categories')->orderBy('sort_order')->orderBy('name')->get();
+        return view('admin.iklan.edit', compact('iklan', 'categories'));
+    }
+
+    public function iklanGratisUpdate(Request $request, $id)
+    {
+        $iklan = DB::table('iklan_gratis')->where('id', $id)->first();
+        abort_if(!$iklan, 404, 'Iklan tidak ditemukan');
+
+        $photos = $request->input('photos');
+        if ($photos === null) {
+            $photos = json_decode($iklan->photos ?? '[]', true) ?? [];
+        } else {
+            $photos = array_values(array_filter(array_slice((array) $photos, 0, 10)));
+        }
+        $expiredAt = $request->input('expired_months')
+            ? now()->addMonths(max(1, min(12, (int) $request->input('expired_months'))))->format('Y-m-d H:i:s')
+            : $iklan->expired_at;
+
+        DB::table('iklan_gratis')->where('id', $id)->update([
+            'user_id' => $request->input('user_id', $iklan->user_id),
+            'category_id' => $request->filled('category_id') ? (int) $request->input('category_id') : $iklan->category_id,
+            'title' => $request->input('title'),
+            'description' => $request->input('description'),
+            'price' => (float) ($request->input('price', 0) ?? 0),
+            'photos' => json_encode($photos),
+            'contact_name' => $request->input('contact_name'),
+            'contact_phone' => $request->input('contact_phone'),
+            'city' => $request->input('city'),
+            'status' => $request->input('status', $iklan->status),
+            'expired_at' => $expiredAt,
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('admin.iklan.index')->with('success', 'Iklan berhasil diperbarui.');
+    }
+
+    public function iklanGratisDestroy($id)
+    {
+        DB::table('iklan_gratis')->where('id', $id)->delete();
+        return redirect()->route('admin.iklan.index')->with('success', 'Iklan berhasil dihapus.');
+    }
+
+    // ---- Kategori Iklan Gratis ----
+    public function iklanKategoriIndex()
+    {
+        $categories = DB::table('iklan_gratis_categories')->orderBy('sort_order')->orderBy('name')->paginate(20);
+        return view('admin.iklan.kategori', compact('categories'));
+    }
+
+    public function iklanKategoriStore(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+        ]);
+        $slug = \Str::slug($validated['name']);
+        $exists = DB::table('iklan_gratis_categories')->where('slug', $slug)->exists();
+        if ($exists) {
+            $slug .= '-' . substr(md5(time()), 0, 4);
+        }
+        DB::table('iklan_gratis_categories')->insert([
+            'name' => $validated['name'],
+            'slug' => $slug,
+            'is_active' => true,
+            'sort_order' => (int) DB::table('iklan_gratis_categories')->max('sort_order') + 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('admin.iklan.kategori')->with('success', 'Kategori berhasil ditambahkan.');
+    }
+
+    public function iklanKategoriUpdate(Request $request, $id)
+    {
+        $cat = DB::table('iklan_gratis_categories')->where('id', $id)->first();
+        abort_if(!$cat, 404, 'Kategori tidak ditemukan');
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'is_active' => 'nullable',
+        ]);
+        DB::table('iklan_gratis_categories')->where('id', $id)->update([
+            'name' => $validated['name'],
+            'slug' => \Str::slug($validated['name']) ?: $cat->slug,
+            'is_active' => $request->has('is_active'),
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('admin.iklan.kategori')->with('success', 'Kategori berhasil diperbarui.');
+    }
+
+    public function iklanKategoriDestroy($id)
+    {
+        DB::table('iklan_gratis_categories')->where('id', $id)->delete();
+        return redirect()->route('admin.iklan.kategori')->with('success', 'Kategori berhasil dihapus.');
+    }
+
 }

@@ -10,6 +10,8 @@ Route::get('/', [PublicController::class, 'index'])->name('home');
 Route::get('/proposal', [PublicController::class, 'proposal'])->name('proposal');
 Route::get('/merchant/{slug}', [PublicController::class, 'merchantDetail'])->name('merchant.detail');
 Route::get('/news/{slug}', [PublicController::class, 'newsDetail'])->name('news.detail');
+Route::get('/iklan', [PublicController::class, 'iklanIndex'])->name('iklan.index');
+Route::get('/iklan/{id}', [PublicController::class, 'iklanDetail'])->name('iklan.detail');
 
 
 // Admin Auth
@@ -96,6 +98,18 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/settings', [AdminController::class, 'settingsIndex'])->name('settings.index');
     Route::post('/settings', [AdminController::class, 'settingsUpdate'])->name('settings.update');
     Route::post('/settings/refresh-links', [AdminController::class, 'settingsRefreshLinks'])->name('settings.refresh-links');
+
+    // Iklan Gratis
+    Route::get('/iklan', [AdminController::class, 'iklanGratisIndex'])->name('iklan.index');
+    Route::get('/iklan/create', [AdminController::class, 'iklanGratisCreate'])->name('iklan.create');
+    Route::post('/iklan', [AdminController::class, 'iklanGratisStore'])->name('iklan.store');
+    Route::get('/iklan/{id}/edit', [AdminController::class, 'iklanGratisEdit'])->name('iklan.edit');
+    Route::put('/iklan/{id}', [AdminController::class, 'iklanGratisUpdate'])->name('iklan.update');
+    Route::delete('/iklan/{id}', [AdminController::class, 'iklanGratisDestroy'])->name('iklan.destroy');
+    Route::get('/iklan/kategori', [AdminController::class, 'iklanKategoriIndex'])->name('iklan.kategori');
+    Route::post('/iklan/kategori', [AdminController::class, 'iklanKategoriStore'])->name('iklan.kategori.store');
+    Route::put('/iklan/kategori/{id}', [AdminController::class, 'iklanKategoriUpdate'])->name('iklan.kategori.update');
+    Route::delete('/iklan/kategori/{id}', [AdminController::class, 'iklanKategoriDestroy'])->name('iklan.kategori.destroy');
 
     // API documentation (admin-only, removed from public)
     Route::get('/api/docs', [AdminController::class, 'apiDocs'])->name('api.docs');

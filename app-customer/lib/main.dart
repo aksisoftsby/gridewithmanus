@@ -14,6 +14,12 @@ void main() {
 
 const String kApiBase = 'https://gride.web.id/api';
 
+// Purple-gold branding shared by home, form, and Iklan Gratis screens.
+const Color kPurpleMain = Color(0xFF4B1D7E);
+const Color kPurpleCard = Color(0xFF5C2A96);
+const Color kGold = Color(0xFFE8B84B);
+const Color kGoldBright = Color(0xFFF7D27E);
+
 /// Global key exposing MainShell state so home tiles can switch bottom tabs.
 final GlobalKey<_MainShellState> _shellStateKey = GlobalKey<_MainShellState>();
 
@@ -155,10 +161,7 @@ class _CustomerHomeState extends State<CustomerHome> {
   int _newsIndex = 0;
 
   static const Color kDeepPurple = Color(0xFF2A0E4E);
-  static const Color kPurple = Color(0xFF4B1D7E);
-  static const Color kPurpleCard = Color(0xFF5C2A96);
-  static const Color kGold = Color(0xFFE8B84B);
-  static const Color kGoldBright = Color(0xFFF7D27E);
+  static const Color kPurple = kPurpleMain;
 
   @override
   void initState() {
@@ -651,12 +654,12 @@ class _CustomerHomeState extends State<CustomerHome> {
     );
   }
 
-  /// Grid layanan favorit: each tile routes to the matching app section.
+  /// Grid layanan favorit: Motor/Mobil menuju menu Kirim (point picker GPS).
+  /// Back dari Kirim tidak exit aplikasi, melainkan kembali ke home awal.
   Widget _buildServicesGrid() {
     const services = <_ServiceItem>[
       _ServiceItem('Motor', Icons.motorcycle),
       _ServiceItem('Mobil', Icons.directions_car),
-      _ServiceItem('Bajaj', Icons.tram),
       _ServiceItem('Food', Icons.fastfood),
       _ServiceItem('Mart', Icons.storefront),
       _ServiceItem('Ambulance', Icons.local_hospital),
@@ -666,6 +669,7 @@ class _CustomerHomeState extends State<CustomerHome> {
       _ServiceItem('PPOB', Icons.public),
       _ServiceItem('Aneka Jasa', Icons.handyman),
       _ServiceItem('Agro', Icons.grass),
+      _ServiceItem('Iklan Gratis', Icons.campaign),
     ];
     return GridView.builder(
       shrinkWrap: true,
@@ -703,9 +707,12 @@ class _CustomerHomeState extends State<CustomerHome> {
     switch (s.label) {
       case 'Motor':
       case 'Mobil':
-      case 'Bajaj':
       case 'Send':
+        // Kirim (antar orang/paket) dengan point picker.
         _shellStateKey.currentState?.jumpTo(1);
+        break;
+      case 'Iklan Gratis':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const IklanGratisPage()));
         break;
       case 'Food':
       case 'Mart':
@@ -1102,11 +1109,26 @@ class _KirimPageState extends State<KirimPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          // Back dari Kirim tidak exit aplikasi, kembali ke home awal.
+          _shellStateKey.currentState?.jumpTo(0);
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Gride Kirim'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () {
+            _shellStateKey.currentState?.jumpTo(0);
+            Navigator.of(context).pop();
+          },
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -1362,7 +1384,7 @@ class _KirimPageState extends State<KirimPage> {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -1429,11 +1451,26 @@ class _AntarPageState extends State<AntarPage> {
   @override
   Widget build(BuildContext context) {
     final loggedIn = _sessionUser != null;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          // Back dari Antar tidak exit aplikasi, kembali ke home awal.
+          _shellStateKey.currentState?.jumpTo(0);
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Antar - Pesan Makanan & Belanja'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () {
+            _shellStateKey.currentState?.jumpTo(0);
+            Navigator.of(context).pop();
+          },
+        ),
       ),
       body: !loggedIn
           ? const Center(child: Padding(
@@ -1541,7 +1578,7 @@ class _AntarPageState extends State<AntarPage> {
                 ],
               ),
             ),
-    );
+    ));
   }
 
   Widget _buildTypeChip(String label, String type) {
@@ -2316,6 +2353,787 @@ class NewsDetailPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Iklan Gratis: list iklan aktif, filter kategori, tambah & edit iklan sendiri.
+/// Posting via POST /api/iklan-gratis, edit PUT /api/iklan-gratis/{id}.
+/// Wajib login; expired 1-12 bulan (max 1 tahun); max 10 foto per iklan.
+class IklanGratisPage extends StatefulWidget {
+  const IklanGratisPage({super.key});
+
+  @override
+  State<IklanGratisPage> createState() => _IklanGratisPageState();
+}
+
+class _IklanGratisPageState extends State<IklanGratisPage> {
+  final String baseUrl = '$kApiBase/iklan-gratis';
+  List<Map<String, dynamic>> _iklan = [];
+  List<Map<String, dynamic>> _categories = [];
+  bool _loading = true;
+  String? _error;
+  String? _selectedCategory;
+  String _search = '';
+  int _page = 1;
+  bool _hasMore = true;
+  bool _moreLoading = false;
+  Map<String, dynamic>? _sessionUser;
+  int? _userId() {
+    final u = _sessionUser;
+    return u == null ? null : (u['id'] is int ? u['id'] as int : int.tryParse(u['id'].toString()));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    Session.load().then((u) {
+      setState(() => _sessionUser = u);
+      _loadCategories();
+      _loadIklan(append: false);
+    });
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/iklan-gratis/kategori'));
+      if (res.statusCode == 200) {
+        final list = (jsonDecode(res.body)['data'] as List).cast<Map<String, dynamic>>();
+        setState(() => _categories = list);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadIklan({bool append = true}) async {
+    if (_moreLoading) return;
+    if (!append) {
+      _page = 1;
+      _hasMore = true;
+      setState(() {
+        _loading = true;
+        _error = null;
+        _iklan = [];
+      });
+    } else {
+      setState(() => _moreLoading = true);
+    }
+    try {
+      var url = '$baseUrl?page=$_page';
+      if (_selectedCategory != null && _selectedCategory!.isNotEmpty) {
+        url += '&category=$_selectedCategory';
+      }
+      if (_search.trim().isNotEmpty) {
+        url += '&search=${Uri.encodeComponent(_search.trim())}';
+      }
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final data = body['data'];
+        final list = (data['data'] as List).cast<Map<String, dynamic>>();
+        final lastPage = data['last_page'] is int ? data['last_page'] as int : int.tryParse(data['last_page'].toString()) ?? 1;
+        setState(() {
+          if (append) {
+            _iklan.addAll(list);
+          } else {
+            _iklan = list;
+          }
+          _hasMore = _page < lastPage;
+          _loading = false;
+          _moreLoading = false;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+          _moreLoading = false;
+          _error = 'Gagal memuat iklan (HTTP ${res.statusCode}).';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _moreLoading = false;
+        _error = 'Koneksi gagal: $e';
+      });
+    }
+  }
+
+  String? _formatHarga(dynamic harga) {
+    if (harga == null) return null;
+    final v = double.tryParse(harga.toString());
+    if (v == null || v <= 0) return null;
+    return formatRp(v.round());
+  }
+
+  String _formatExpired(String? expired) {
+    if (expired == null || expired.isEmpty) return '';
+    String date = expired;
+    if (date.contains(' ')) date = date.split(' ').first;
+    return 's/d $date';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          // Back dari Iklan Gratis kembali ke home awal, tidak exit aplikasi.
+          _shellStateKey.currentState?.jumpTo(0);
+        }
+      },
+      child: Scaffold(
+      appBar: AppBar(
+        title: const Text('Iklan Gratis'),
+        backgroundColor: kPurpleMain,
+        foregroundColor: kGoldBright,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () {
+            _shellStateKey.currentState?.jumpTo(0);
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
+      body: _loading && _iklan.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null && _iklan.isEmpty
+              ? Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(_error!, style: TextStyle(color: Colors.red.shade800), textAlign: TextAlign.center),
+                    const SizedBox(height: 10),
+                    FilledButton(onPressed: () => _loadIklan(append: false), child: const Text('Coba lagi')),
+                  ]),
+                )
+              : Column(
+                  children: [
+                    // Search + kategori
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: 'Cari iklan...',
+                                prefixIcon: const Icon(Icons.search, color: kGold),
+                                isDense: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              onSubmitted: (v) {
+                                setState(() => _search = v);
+                                _loadIklan(append: false);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(color: kPurpleCard, borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                dropdownColor: kPurpleMain,
+                                value: _selectedCategory?.isEmpty == true ? null : _selectedCategory,
+                                hint: const Text('Kategori', style: TextStyle(color: kGoldBright)),
+                                icon: const Icon(Icons.filter_list, color: kGoldBright),
+                                onChanged: (v) {
+                                  setState(() => _selectedCategory = v);
+                                  _loadIklan(append: false);
+                                },
+                                items: [
+                                  const DropdownMenuItem<String>(value: null, child: Text('Semua', style: TextStyle(color: kGoldBright))),
+                                  ..._categories.map((c) => DropdownMenuItem<String>(
+                                        value: c['name']?.toString(),
+                                        child: Text(c['name']?.toString() ?? '',
+                                            style: const TextStyle(color: kGoldBright), overflow: TextOverflow.ellipsis),
+                                      )),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Tombol tambah iklan (wajib login)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _sessionUser == null
+                              ? () {
+                                  _shellStateKey.currentState?.jumpTo(2);
+                                }
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => IklanFormPage(
+                                            iklan: null,
+                                            categories: _categories,
+                                            onSaved: () => _loadIklan(append: false),
+                                          )),
+                                ),
+                          icon: const Icon(Icons.add),
+                          style: FilledButton.styleFrom(backgroundColor: kPurpleMain, foregroundColor: kGoldBright),
+                          label: Text(_sessionUser == null ? 'Login untuk Pasang Iklan' : 'Pasang Iklan Gratis'),
+                        ),
+                      ),
+                    ),
+                    // List iklan
+                    Expanded(
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notif) {
+                          if (notif is ScrollEndNotification &&
+                              notif.metrics.pixels >= notif.metrics.maxScrollExtent - 120 &&
+                              !_moreLoading &&
+                              _hasMore) {
+                            _page += 1;
+                            _loadIklan(append: true);
+                          }
+                          return false;
+                        },
+                        child: _iklan.isEmpty
+                            ? const Center(child: Text('Belum ada iklan. Jadilah yang pertama pasang iklan!'))
+                            : ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                                itemCount: _iklan.length + (_hasMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >= _iklan.length) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      child: Center(child: CircularProgressIndicator()),
+                                    );
+                                  }
+                                  final item = _iklan[index];
+                                  final photos = (item['photos'] as List?) ?? [];
+                                  final String? firstPhoto =
+                                      photos.isNotEmpty ? photos.first.toString() : (item['photo_url']?.toString());
+                                  final harga = _formatHarga(item['price']);
+                                  final myIklan = _userId() != null &&
+                                      (item['user_id'].toString() == _userId().toString());
+                                  return GestureDetector(
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => IklanDetailPage(
+                                                iklan: item,
+                                                categories: _categories,
+                                                onEditOwn: () => Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                      builder: (_) => IklanFormPage(
+                                                            iklan: item,
+                                                            categories: _categories,
+                                                            onSaved: () {
+                                                              Navigator.of(context).pop();
+                                                              _loadIklan(append: false);
+                                                            },
+                                                          )),
+                                                ),
+                                              )),
+                                    ),
+                                    child: Card(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      elevation: 2,
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: const BorderRadius.only(
+                                                topLeft: Radius.circular(14), bottomLeft: Radius.circular(14)),
+                                            child: firstPhoto != null && firstPhoto.isNotEmpty
+                                                ? Image.network(firstPhoto,
+                                                    width: 110, height: 110, fit: BoxFit.cover,
+                                                    errorBuilder: (_, __, ___) => Container(
+                                                        width: 110, height: 110, color: kPurpleCard,
+                                                        child: const Icon(Icons.broken_image, color: kGoldBright)))
+                                                : Container(
+                                                    width: 110, height: 110, color: kPurpleCard,
+                                                    child: const Icon(Icons.campaign, color: kGoldBright)),
+                                          ),
+                                          Expanded(
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(12),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(item['title']?.toString() ?? '',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: kPurpleCard,
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Text(item['category_name']?.toString() ?? '',
+                                                        style: TextStyle(color: kGoldBright, fontSize: 11)),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text((item['description'] ?? '').toString(),
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                                                  const SizedBox(height: 6),
+                                                  Row(
+                                                    children: [
+                                                      if (harga != null)
+                                                        Text(harga,
+                                                            style: TextStyle(
+                                                                color: kPurpleMain, fontWeight: FontWeight.bold)),
+                                                      const Spacer(),
+                                                      Text(_formatExpired(item['expired_date']?.toString()),
+                                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                                    ],
+                                                  ),
+                                                  if (myIklan) const SizedBox(height: 6),
+                                                  if (myIklan)
+                                                    TextButton.icon(
+                                                      onPressed: () => Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                            builder: (_) => IklanFormPage(
+                                                                  iklan: item,
+                                                                  categories: _categories,
+                                                                  onSaved: () => _loadIklan(append: false),
+                                                                )),
+                                                      ),
+                                                      icon: const Icon(Icons.edit, size: 16),
+                                                      label: const Text('Edit iklan saya', style: TextStyle(fontSize: 12)),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+    ));
+  }
+}
+
+/// Detail satu iklan: foto gallery, deskripsi, kontak penjual.
+class IklanDetailPage extends StatefulWidget {
+  final Map<String, dynamic> iklan;
+  final List<Map<String, dynamic>> categories;
+  final VoidCallback onEditOwn;
+  const IklanDetailPage({super.key, required this.iklan, required this.categories, required this.onEditOwn});
+
+  @override
+  State<IklanDetailPage> createState() => _IklanDetailPageState();
+}
+
+class _IklanDetailPageState extends State<IklanDetailPage> {
+  Map<String, dynamic>? _sessionUser;
+
+  @override
+  void initState() {
+    super.initState();
+    Session.load().then((u) => setState(() => _sessionUser = u));
+  }
+
+  int? _userId() {
+    final u = _sessionUser;
+    return u == null ? null : (u['id'] is int ? u['id'] as int : int.tryParse(u['id'].toString()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final i = widget.iklan;
+    final photos = ((i['photos'] as List?) ?? []).map((p) => p.toString()).toList();
+    final String? firstPhoto =
+        photos.isNotEmpty ? photos.first : (i['photo_url']?.toString());
+    final String? harga = (() {
+      final v = double.tryParse(i['price']?.toString() ?? '');
+      return v == null || v <= 0 ? null : formatRp(v.round());
+    })();
+    String? expired = i['expired_date']?.toString();
+    if (expired != null && expired.contains(' ')) expired = expired.split(' ').first;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: firstPhoto != null && firstPhoto.isNotEmpty ? 260 : 140,
+            pinned: true,
+            backgroundColor: kPurpleMain,
+            foregroundColor: kGoldBright,
+            flexibleSpace: FlexibleSpaceBar(
+              background: firstPhoto != null && firstPhoto.isNotEmpty
+                  ? Image.network(firstPhoto, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: kPurpleCard,
+                          child: const Icon(Icons.broken_image, color: kGoldBright, size: 48)))
+                  : Container(color: kPurpleCard,
+                      child: const Icon(Icons.campaign, color: kGoldBright, size: 48)),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: kPurpleCard, borderRadius: BorderRadius.circular(8)),
+                        child: Text(i['category_name']?.toString() ?? '',
+                            style: TextStyle(color: kGoldBright, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const Spacer(),
+                      if (expired != null) Text('Berlaku s/d $expired',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(i['title']?.toString() ?? '',
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.3)),
+                  const SizedBox(height: 12),
+                  if (harga != null)
+                    Text(harga, style: TextStyle(color: kPurpleMain, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Text((i['description'] ?? '').toString(), style: const TextStyle(fontSize: 15, height: 1.6)),
+                  const SizedBox(height: 18),
+                  if (photos.length > 1) ...[
+                    const Text('Foto lain', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 100,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: photos.length - 1,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, idx) => ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(photos[idx + 1], fit: BoxFit.cover, width: 100, height: 100,
+                              errorBuilder: (_, __, ___) => Container(width: 100, height: 100, color: kPurpleCard,
+                                  child: const Icon(Icons.broken_image, color: kGoldBright))),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  Row(
+                    children: [
+                      const Icon(Icons.phone, color: kGold, size: 18),
+                      const SizedBox(width: 8),
+                      Text('Kontak: ${i['phone'] ?? '-'}', style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (_userId() != null && i['user_id'].toString() == _userId().toString())
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: widget.onEditOwn,
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Edit iklan saya'),
+                        style: FilledButton.styleFrom(backgroundColor: kPurpleMain, foregroundColor: kGoldBright),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Form tambah / edit iklan (wajib login).
+/// Foto max 10; expired 1-12 bulan (maksimal 1 tahun posting).
+class IklanFormPage extends StatefulWidget {
+  final Map<String, dynamic>? iklan; // null = tambah baru
+  final List<Map<String, dynamic>> categories;
+  final VoidCallback onSaved;
+  const IklanFormPage({super.key, this.iklan, required this.categories, required this.onSaved});
+
+  @override
+  State<IklanFormPage> createState() => _IklanFormPageState();
+}
+
+class _IklanFormPageState extends State<IklanFormPage> {
+  final String baseUrl = '$kApiBase/iklan-gratis';
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+
+  String? _categoryId;
+  int _expiredMonths = 3;
+  bool _submitting = false;
+  String? _msg;
+  final List<String> _photoUrls = [];
+  Map<String, dynamic>? _sessionUser;
+
+  bool get _isEdit => widget.iklan != null;
+
+  int? _userId() {
+    final u = _sessionUser;
+    return u == null ? null : (u['id'] is int ? u['id'] as int : int.tryParse(u['id'].toString()));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    Session.load().then((u) => setState(() => _sessionUser = u));
+    if (_isEdit) {
+      final i = widget.iklan!;
+      _titleCtrl.text = i['title']?.toString() ?? '';
+      _descCtrl.text = i['description']?.toString() ?? '';
+      _priceCtrl.text = i['price']?.toString() ?? '';
+      _phoneCtrl.text = i['phone']?.toString() ?? '';
+      final cat = (widget.categories.firstWhere(
+              (c) => c['id'].toString() == i['category_id']?.toString(),
+              orElse: () => <String, dynamic>{})['id']);
+      _categoryId = cat?.toString();
+      _photoUrls.addAll(((i['photos'] as List?) ?? []).map((p) => p.toString()));
+    } else if (widget.categories.isNotEmpty) {
+      _categoryId = widget.categories.first['id'].toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _priceCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      setState(() => _msg = 'Judul iklan wajib diisi.');
+      return;
+    }
+    if (_descCtrl.text.trim().isEmpty) {
+      setState(() => _msg = 'Deskripsi iklan wajib diisi.');
+      return;
+    }
+    if (_categoryId == null) {
+      setState(() => _msg = 'Pilih kategori iklan.');
+      return;
+    }
+    final Map<String, dynamic> payload = {
+      'title': _titleCtrl.text.trim(),
+      'category_id': int.tryParse(_categoryId!) ?? 1,
+      'description': _descCtrl.text.trim(),
+      'price': _priceCtrl.text.trim().isEmpty ? null : _priceCtrl.text.trim(),
+      'phone': _phoneCtrl.text.trim(),
+      'expired_months': _expiredMonths,
+      if (_photoUrls.isNotEmpty) 'photos': _photoUrls,
+    };
+    if (_isEdit) {
+      payload['photos'] = _photoUrls;
+    }
+    setState(() {
+      _submitting = true;
+      _msg = null;
+    });
+    try {
+      final uri = _isEdit ? Uri.parse('$baseUrl/${widget.iklan!['id']}') : Uri.parse(baseUrl);
+      final res = await http
+          .put(uri,
+              headers: const {'Content-Type': 'application/json'},
+              body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 30));
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 && data['status'] == 'success') {
+        widget.onSaved();
+      } else {
+        setState(() {
+          _submitting = false;
+          _msg = data['message'] ?? 'Gagal menyimpan iklan.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _submitting = false;
+        _msg = 'Koneksi gagal: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final editing = _isEdit;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(editing ? 'Edit Iklan Saya' : 'Pasang Iklan Gratis'),
+        backgroundColor: kPurpleMain,
+        foregroundColor: kGoldBright,
+      ),
+      body: _sessionUser == null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.lock, size: 48, color: kGold),
+                    const SizedBox(height: 16),
+                    const Text('Wajib login untuk memasang atau mengedit iklan.\nSilakan daftar/login di tab Akun.',
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                        onPressed: () {
+                          _shellStateKey.currentState?.jumpTo(2);
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Login / Daftar')),
+                  ],
+                ),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                TextField(
+                  controller: _titleCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Judul iklan',
+                    hintText: 'Misal: Jual Motor Honda Vario 2019',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.title),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  value: _categoryId,
+                  decoration: const InputDecoration(
+                    labelText: 'Kategori',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: widget.categories.map((c) {
+                    return DropdownMenuItem(value: c['id'].toString(), child: Text(c['name']?.toString() ?? ''));
+                  }).toList(),
+                  onChanged: (v) => setState(() => _categoryId = v),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _descCtrl,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Deskripsi',
+                    hintText: 'Jelaskan kondisi, lokasi, dan hal penting lainnya...',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _priceCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Harga (Rp, kosongkan jika nego)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.attach_money),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Nomor WhatsApp / HP',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                if (!editing) ...[
+                  DropdownButtonFormField<int>(
+                    value: _expiredMonths,
+                    decoration: const InputDecoration(
+                      labelText: 'Masa tayang iklan (1 - 12 bulan)',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: List.generate(12, (i) => i + 1)
+                        .map((m) => DropdownMenuItem(value: m, child: Text('$m bulan')))
+                        .toList(),
+                    onChanged: (v) => setState(() => _expiredMonths = v ?? 3),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (editing)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Foto (masukkan URL gambar, maks 10)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      ..._photoUrls.asMap().entries.map((e) => Row(
+                            children: [
+                              Expanded(child: Text(e.value, overflow: TextOverflow.ellipsis)),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => setState(() => _photoUrls.removeAt(e.key)),
+                              ),
+                            ],
+                          )),
+                      if (_photoUrls.length < 10)
+                        TextButton.icon(
+                          onPressed: () async {
+                            final ctrl = TextEditingController();
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Tambah URL foto'),
+                                content: TextField(
+                                  controller: ctrl,
+                                  keyboardType: TextInputType.url,
+                                  decoration: const InputDecoration(hintText: 'https://...', border: OutlineInputBorder()),
+                                ),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                                  FilledButton(
+                                      onPressed: () => Navigator.pop(ctx, true), child: const Text('Tambah')),
+                                ],
+                              ),
+                            );
+                            if (ok == true && ctrl.text.trim().isNotEmpty && _photoUrls.length < 10) {
+                              setState(() => _photoUrls.add(ctrl.text.trim()));
+                            }
+                          },
+                          icon: const Icon(Icons.add_photo_alternate),
+                          label: Text('Tambah foto (${_photoUrls.length}/10)'),
+                        ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                if (_msg != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(_msg!, style: TextStyle(color: Colors.red.shade800)),
+                  ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    icon: _submitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.send),
+                    label: Text(_submitting ? 'Menyimpan...' : (editing ? 'Perbarui Iklan' : 'Pasang Iklan (Gratis)')),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

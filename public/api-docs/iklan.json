@@ -1,0 +1,48 @@
+{
+  "endpoint": "GET /api/iklan-gratis",
+  "title": "Daftar Iklan Gratis",
+  "description": "Mengambil daftar iklan gratis yang aktif (belum expired dan status ACTIVE). Mendukung pagination, pencarian, dan filter kategori. Tampilan di website publik dapat diakses tanpa autentikasi.",
+  "authentication": "Tidak diperlukan (publik)",
+  "query_parameters": [
+    { "name": "page", "required": false, "type": "integer", "description": "Nomor halaman (default 1)." },
+    { "name": "search", "required": false, "type": "string", "description": "Pencarian berdasarkan judul atau deskripsi." },
+    { "name": "category_id", "required": false, "type": "integer", "description": "Filter berdasarkan kategori iklan." },
+    { "name": "limit", "required": false, "type": "integer", "description": "Jumlah item per halaman (default 20)." }
+  ],
+  "response_fields": [
+    { "field": "status", "type": "string", "description": "Status respons (success)." },
+    { "field": "data", "type": "array", "description": "Daftar iklan aktif." },
+    { "field": "data[].id", "type": "integer", "description": "ID iklan." },
+    { "field": "data[].title", "type": "string", "description": "Judul iklan." },
+    { "field": "data[].category_name", "type": "string", "description": "Nama kategori (null jika tanpa kategori)." },
+    { "field": "data[].description", "type": "string", "description": "Deskripsi iklan." },
+    { "field": "data[].price", "type": "decimal", "description": "Harga yang ditawarkan." },
+    { "field": "data[].photos", "type": "json array", "description": "Daftar URL foto (maksimal 10)." },
+    { "field": "data[].contact_name", "type": "string", "description": "Nama kontak pemasang." },
+    { "field": "data[].contact_phone", "type": "string", "description": "Nomor HP kontak." },
+    { "field": "data[].city", "type": "string", "description": "Kota lokasi iklan." },
+    { "field": "data[].expired_at", "type": "datetime", "description": "Tanggal kedaluwarsa iklan." }
+  ],
+  "example_response": {
+    "status": "success",
+    "data": [
+      {
+        "id": 1,
+        "user_id": 5,
+        "category_id": 2,
+        "category_name": "Properti",
+        "title": "Rumah dijual cepat di Kediri",
+        "description": "Rumah 2 lantai dekat pusat kota, air lancar.",
+        "price": "250000000",
+        "photos": ["https://example.com/rumah1.jpg"],
+        "contact_name": "Budi",
+        "contact_phone": "081234567890",
+        "city": "Kediri",
+        "status": "ACTIVE",
+        "posted_at": "2026-08-01 10:00:00",
+        "expired_at": "2027-08-01 10:00:00"
+      }
+    ]
+  },
+  "example_curl": "curl https://gride.web.id/api/iklan-gratis?limit=20"
+}

@@ -83,4 +83,74 @@ class PublicController extends Controller
 
         return view('public.news-detail', compact('item'));
     }
+
+    public function iklanIndex(Request $request)
+    {
+        $search = $request->query('search');
+        $cat = $request->query('category_id');
+
+        if (!DB::getSchemaBuilder()->hasTable('iklan_gratis')) {
+            return view('public.iklan', ['iklan' => collect(), 'categories' => collect(), 'search' => $search, 'cat' => $cat]);
+        }
+
+        $query = DB::table('iklan_gratis')
+            ->leftJoin('iklan_gratis_categories', 'iklan_gratis.category_id', '=', 'iklan_gratis_categories.id')
+            ->select('iklan_gratis.*', 'iklan_gratis_categories.name as category_name');
+
+        $query->where('iklan_gratis.status', 'ACTIVE');
+        $query->where(function ($q) {
+            $q->where('iklan_gratis.expired_at', '>=', now())->orWhereNull('iklan_gratis.expired_at');
+        });
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('iklan_gratis.title', 'like', '%' . $search . '%')
+                  ->orWhere('iklan_gratis.description', 'like', '%' . $search . '%')
+                  ->orWhere('iklan_gratis.city', 'like', '%' . $search . '%');
+            });
+        }
+
+        if ($cat) {
+            $query->where('iklan_gratis.category_id', $cat);
+        }
+
+        $iklan = $query->orderBy('iklan_gratis.created_at', 'desc')->paginate(12)->withQueryString();
+        $categories = DB::table('iklan_gratis_categories')->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+
+        return view('public.iklan', compact('iklan', 'categories', 'search', 'cat'));
+    }
+
+    public function iklanDetail($id)
+    {
+        if (!DB::getSchemaBuilder()->hasTable('iklan_gratis')) {
+            abort(404);
+        }
+
+        $item = DB::table('iklan_gratis')
+            ->leftJoin('iklan_gratis_categories', 'iklan_gratis.category_id', '=', 'iklan_gratis_categories.id')
+            ->select('iklan_gratis.*', 'iklan_gratis_categories.name as category_name')
+            ->where('iklan_gratis.id', $id)
+            ->where('iklan_gratis.status', 'ACTIVE')
+            ->where(function ($q) {
+                $q->where('iklan_gratis.expired_at', '>=', now())->orWhereNull('iklan_gratis.expired_at');
+            })
+            ->first();
+
+        if (!$item) {
+            abort(404);
+        }
+
+        $related = DB::table('iklan_gratis')
+            ->where('iklan_gratis.status', 'ACTIVE')
+            ->where('iklan_gratis.id', '!=', $item->id)
+            ->where(function ($q) {
+                $q->where('iklan_gratis.expired_at', '>=', now())->orWhereNull('iklan_gratis.expired_at');
+            })
+            ->when($item->category_id, fn ($q) => $q->where('category_id', $item->category_id))
+            ->orderBy('created_at', 'desc')
+            ->limit(4)
+            ->get();
+
+        return view('public.iklan-detail', compact('item', 'related'));
+    }
 }

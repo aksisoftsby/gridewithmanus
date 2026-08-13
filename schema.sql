@@ -1092,3 +1092,61 @@ COMMENT ON TABLE news IS 'Menyimpan postingan berita, pengumuman, dan artikel in
 --                      drivers  -> last_location_at (timestamp terakhir update lokasi)
 --  2026_08_12_020002 : tabel app_settings (setting_key, setting_value) untuk konfigurasi global
 -- ============================================================================
+
+-- ============================================================================
+-- IKLAN GRATIS (Iklan baris gratis yang dipasang pengguna via aplikasi)
+-- Kolom production PostgreSQL (BIGINT / BIGSERIAL). Foto iklan disimpan
+-- sebagai JSON array URL (maksimal 10 foto).
+-- API: GET/POST/PUT/DELETE /api/iklan-gratis, GET /api/iklan-gratis/categories
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS iklan_gratis_categories (
+    id         BIGSERIAL PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL,
+    slug       VARCHAR(100) UNIQUE NOT NULL,
+    is_active  BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS iklan_gratis (
+    id             BIGSERIAL PRIMARY KEY,
+    user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category_id    BIGINT REFERENCES iklan_gratis_categories(id) ON DELETE SET NULL,
+    title          VARCHAR(255) NOT NULL,
+    description    TEXT,
+    price          NUMERIC(15,2) DEFAULT 0,
+    photos         TEXT, -- JSON array URL foto, maksimal 10 foto
+    contact_name   VARCHAR(255),
+    contact_phone  VARCHAR(20),
+    city           VARCHAR(100),
+    status         VARCHAR(20) DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE, EXPIRED, BLOCKED
+    expired_at     TIMESTAMPTZ,
+    posted_at      TIMESTAMPTZ DEFAULT NOW(),
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_iklan_gratis_user ON iklan_gratis(user_id);
+CREATE INDEX idx_iklan_gratis_category ON iklan_gratis(category_id);
+CREATE INDEX idx_iklan_gratis_status ON iklan_gratis(status);
+CREATE INDEX idx_iklan_gratis_expired ON iklan_gratis(expired_at);
+
+-- 15 kategori default iklan gratis Indonesia
+INSERT INTO iklan_gratis_categories (name, slug, sort_order) VALUES
+    ('Properti',            'properti',             1),
+    ('Kendaraan',           'kendaraan',            2),
+    ('Elektronik',          'elektronik',           3),
+    ('Fashion',             'fashion',              4),
+    ('Kesehatan & Kecantikan','kesehatan-kecantikan',5),
+    ('Hobi & Olahraga',     'hobi-olahraga',        6),
+    ('Lowongan Kerja',      'lowongan-kerja',       7),
+    ('Jasa',                'jasa',                 8),
+    ('Makanan & Minuman',   'makanan-minuman',      9),
+    ('Peralatan Rumah Tangga','peralatan-rumah-tangga', 10),
+    ('Hewan Peliharaan',    'hewan-peliharaan',     11),
+    ('Pertanian & Perkebunan','pertanian-perkebunan', 12),
+    ('Bisnis & Industri',   'bisnis-industri',      13),
+    ('Komunitas & Event',   'komunitas-event',      14),
+    ('Lain-lain',           'lain-lain',            15)
+ON CONFLICT (slug) DO NOTHING;

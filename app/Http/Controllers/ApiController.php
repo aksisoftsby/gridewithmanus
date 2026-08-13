@@ -1159,4 +1159,249 @@ class ApiController extends Controller
         $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
         return $earth * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
+
+    // =========================================================================
+    // IKLAN GRATIS — public listing & CRUD via app_customer (identitas user
+    // dikirim sebagai user_id, konsisten dengan pola endpoints lain).
+    // =========================================================================
+
+    /**
+     * GET /api/iklan-gratis/categories — daftar kategori iklan gratis.
+     * Autocreate tabel bila belum ada (production BIGINT).
+     */
+    public function iklanGratisCategories()
+    {
+        $this->ensureIklanGratisTables();
+        $rows = DB::table('iklan_gratis_categories')
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+        return response()->json(['status' => 'success', 'data' => $rows]);
+    }
+
+    /**
+     * GET /api/iklan-gratis — daftar iklan aktif + belum expired.
+     * Query: category_id, city, q (pencarian judul/deskripsi), page, per_page,
+     * user_id (iklan milik sendiri tetap tampil meski expired).
+     */
+    public function iklanGratisIndex(Request $request)
+    {
+        $this->ensureIklanGratisTables();
+        $query = DB::table('iklan_gratis')->where('status', 'ACTIVE');
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->query('category_id'));
+        }
+        if ($request->filled('city')) {
+            $query->where('city', 'ILIKE', '%' . $request->query('city') . '%');
+        }
+        if ($request->filled('q')) {
+            $q = '%' . $request->query('q') . '%';
+            $query->where(function ($qq) use ($q) {
+                $qq->where('title', 'ILIKE', $q)->orWhere('description', 'ILIKE', $q);
+            });
+        }
+        if ($request->filled('user_id')) {
+            $query->where(function ($qq) use ($request) {
+                $qq->where('expired_at', '>=', now())
+                    ->orWhere('user_id', $request->query('user_id'));
+            });
+        } else {
+            $query->where('expired_at', '>=', now());
+        }
+        $query->orderBy('created_at', 'desc');
+        $perPage = min(max((int) $request->query('per_page', 10), 5), 50);
+        $page = max((int) $request->query('page', 1), 1);
+        $total = $query->count();
+        $rows = $query->offset(($page - 1) * $perPage)->limit($perPage)->get();
+        $rows = $rows->map(function ($r) {
+            $r->photos = json_decode($r->photos ?? '[]', true) ?? [];
+            return $r;
+        });
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => $perPage > 0 ? (int) ceil($total / $perPage) : 0,
+                'items' => $rows,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/iklan-gratis/{id} — detail iklan.
+     */
+    public function iklanGratisShow($id)
+    {
+        $this->ensureIklanGratisTables();
+        $ad = DB::table('iklan_gratis')->where('id', $id)->first();
+        if (!$ad) {
+            return response()->json(['status' => 'error', 'message' => 'Iklan tidak ditemukan'], 404);
+        }
+        $ad->photos = json_decode($ad->photos ?? '[]', true) ?? [];
+        return response()->json(['status' => 'success', 'data' => $ad]);
+    }
+
+    /**
+     * POST /api/iklan-gratis — tambah iklan baru (wajib user_id; maks 1 tahun).
+     */
+    public function iklanGratisStore(Request $request)
+    {
+        $this->ensureIklanGratisTables();
+        $userId = $request->input('user_id');
+        if (!$userId) {
+            return response()->json(['status' => 'error', 'message' => 'Silakan login terlebih dahulu'], 401);
+        }
+        $user = is_numeric($userId)
+            ? DB::table('users')->where('id', (int) $userId)->first()
+            : null;
+        if (!$user) {
+            $user = DB::table('users')->where('id', $userId)->first();
+        }
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan'], 404);
+        }
+        $title = trim((string) ($request->input('title') ?? ''));
+        if ($title === '') {
+            return response()->json(['status' => 'error', 'message' => 'Judul iklan wajib diisi'], 422);
+        }
+        $photos = $request->input('photos');
+        if (is_string($photos)) {
+            $photos = json_decode($photos, true) ?? [];
+        }
+        $photos = array_values(array_filter(array_slice((array) $photos, 0, 10), fn($p) => is_string($p) && trim($p) !== ''));
+        $months = max(1, min(12, (int) ($request->input('expired_months', 12))));
+        $expiredAt = now()->addMonths($months);
+        $id = DB::table('iklan_gratis')->insertGetId([
+            'user_id' => $user->id,
+            'category_id' => $request->filled('category_id') ? (int) $request->input('category_id') : null,
+            'title' => $title,
+            'description' => trim((string) ($request->input('description') ?? '')),
+            'price' => (float) ($request->input('price', 0) ?? 0),
+            'photos' => json_encode($photos),
+            'contact_name' => trim((string) ($request->input('contact_name') ?? '')),
+            'contact_phone' => trim((string) ($request->input('contact_phone') ?? '')),
+            'city' => trim((string) ($request->input('city') ?? '')),
+            'status' => 'ACTIVE',
+            'expired_at' => $expiredAt,
+            'posted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $ad = DB::table('iklan_gratis')->where('id', $id)->first();
+        $ad->photos = $photos;
+        return response()->json(['status' => 'success', 'message' => 'Iklan berhasil ditambahkan', 'data' => $ad], 201);
+    }
+
+    /**
+     * PUT /api/iklan-gratis/{id} — edit iklan (hanya pemilik).
+     */
+    public function iklanGratisUpdate(Request $request, $id)
+    {
+        $this->ensureIklanGratisTables();
+        $ad = DB::table('iklan_gratis')->where('id', $id)->first();
+        if (!$ad) {
+            return response()->json(['status' => 'error', 'message' => 'Iklan tidak ditemukan'], 404);
+        }
+        if ((string) $ad->user_id !== (string) $request->input('user_id')) {
+            return response()->json(['status' => 'error', 'message' => 'Hanya pemilik iklan yang dapat mengedit'], 403);
+        }
+        $title = trim((string) ($request->input('title', $ad->title)));
+        if ($title === '') {
+            return response()->json(['status' => 'error', 'message' => 'Judul iklan wajib diisi'], 422);
+        }
+        $photos = $request->input('photos');
+        if ($photos !== null) {
+            if (is_string($photos)) {
+                $photos = json_decode($photos, true) ?? [];
+            }
+            $photos = array_values(array_filter(array_slice((array) $photos, 0, 10), fn($p) => is_string($p) && trim($p) !== ''));
+        } else {
+            $photos = json_decode($ad->photos ?? '[]', true) ?? [];
+        }
+        $months = $request->input('expired_months');
+        $expiredAt = $months !== null ? now()->addMonths(max(1, min(12, (int) $months))) : $ad->expired_at;
+        DB::table('iklan_gratis')->where('id', $id)->update([
+            'category_id' => $request->filled('category_id') ? (int) $request->input('category_id') : $ad->category_id,
+            'title' => $title,
+            'description' => trim((string) ($request->input('description', $ad->description))),
+            'price' => (float) ($request->input('price', $ad->price) ?? 0),
+            'photos' => json_encode($photos),
+            'contact_name' => trim((string) ($request->input('contact_name', $ad->contact_name))),
+            'contact_phone' => trim((string) ($request->input('contact_phone', $ad->contact_phone))),
+            'city' => trim((string) ($request->input('city', $ad->city))),
+            'expired_at' => $expiredAt,
+            'updated_at' => now(),
+        ]);
+        $ad = DB::table('iklan_gratis')->where('id', $id)->first();
+        $ad->photos = $photos;
+        return response()->json(['status' => 'success', 'message' => 'Iklan berhasil diperbarui', 'data' => $ad]);
+    }
+
+    /**
+     * DELETE /api/iklan-gratis/{id} — hapus iklan (hanya pemilik).
+     */
+    public function iklanGratisDelete(Request $request, $id)
+    {
+        $this->ensureIklanGratisTables();
+        $ad = DB::table('iklan_gratis')->where('id', $id)->first();
+        if (!$ad) {
+            return response()->json(['status' => 'error', 'message' => 'Iklan tidak ditemukan'], 404);
+        }
+        if ((string) $ad->user_id !== (string) $request->input('user_id')) {
+            return response()->json(['status' => 'error', 'message' => 'Hanya pemilik iklan yang dapat menghapus'], 403);
+        }
+        DB::table('iklan_gratis')->where('id', $id)->delete();
+        return response()->json(['status' => 'success', 'message' => 'Iklan berhasil dihapus']);
+    }
+
+    /**
+     * Pastikan tabel iklan_gratis & iklan_gratis_categories ada (autocreate production).
+     */
+    private function ensureIklanGratisTables()
+    {
+        if (!DB::getSchemaBuilder()->hasTable('iklan_gratis_categories')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS iklan_gratis_categories (
+                id BIGSERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL,
+                slug VARCHAR(100) UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE,
+                sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+            DB::table('iklan_gratis_categories')->insert([
+                ['name' => 'Properti', 'slug' => 'properti', 'sort_order' => 1],
+                ['name' => 'Kendaraan', 'slug' => 'kendaraan', 'sort_order' => 2],
+                ['name' => 'Elektronik', 'slug' => 'elektronik', 'sort_order' => 3],
+                ['name' => 'Fashion', 'slug' => 'fashion', 'sort_order' => 4],
+                ['name' => 'Kesehatan & Kecantikan', 'slug' => 'kesehatan-kecantikan', 'sort_order' => 5],
+                ['name' => 'Hobi & Olahraga', 'slug' => 'hobi-olahraga', 'sort_order' => 6],
+                ['name' => 'Lowongan Kerja', 'slug' => 'lowongan-kerja', 'sort_order' => 7],
+                ['name' => 'Jasa', 'slug' => 'jasa', 'sort_order' => 8],
+                ['name' => 'Makanan & Minuman', 'slug' => 'makanan-minuman', 'sort_order' => 9],
+                ['name' => 'Peralatan Rumah Tangga', 'slug' => 'peralatan-rumah-tangga', 'sort_order' => 10],
+                ['name' => 'Hewan Peliharaan', 'slug' => 'hewan-peliharaan', 'sort_order' => 11],
+                ['name' => 'Pertanian & Perkebunan', 'slug' => 'pertanian-perkebunan', 'sort_order' => 12],
+                ['name' => 'Bisnis & Industri', 'slug' => 'bisnis-industri', 'sort_order' => 13],
+                ['name' => 'Komunitas & Event', 'slug' => 'komunitas-event', 'sort_order' => 14],
+                ['name' => 'Lain-lain', 'slug' => 'lain-lain', 'sort_order' => 15],
+            ]);
+        }
+        if (!DB::getSchemaBuilder()->hasTable('iklan_gratis')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS iklan_gratis (
+                id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL,
+                category_id BIGINT, title VARCHAR(255) NOT NULL,
+                description TEXT, price NUMERIC(15,2) DEFAULT 0,
+                photos TEXT, contact_name VARCHAR(255), contact_phone VARCHAR(20),
+                city VARCHAR(100), status VARCHAR(20) DEFAULT \'ACTIVE\',
+                expired_at TIMESTAMPTZ, posted_at TIMESTAMPTZ DEFAULT NOW(),
+                created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_user ON iklan_gratis(user_id)');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_category ON iklan_gratis(category_id)');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_status ON iklan_gratis(status)');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_iklan_gratis_expired ON iklan_gratis(expired_at)');
+        }
+    }
+
 }

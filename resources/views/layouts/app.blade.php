@@ -20,6 +20,7 @@
                 </div>
                 <div class="flex items-center space-x-6">
                     <a href="{{ route('home') }}" class="hover:text-yellow-200 font-medium">Beranda</a>
+                    <a href="{{ route('iklan.index') }}" class="hover:text-yellow-200 font-medium">Iklan Gratis</a>
                     @auth
                         @php
                             $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
