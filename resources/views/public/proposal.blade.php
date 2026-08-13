@@ -152,6 +152,54 @@
         </div>
     </section>
 
+    <!-- App Distribution -->
+    <section class="py-24 bg-white border-y border-slate-100">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-14">
+                <h2 class="text-sm font-bold text-emerald-600 uppercase tracking-[0.2em] mb-3">Ready for Distribution</h2>
+                <h3 class="text-4xl md:text-5xl font-bold text-slate-900">Hadir di Perangkat Pelanggan Anda.</h3>
+                <p class="text-slate-500 max-w-2xl mx-auto mt-5 leading-relaxed">Gride disiapkan sebagai ekosistem multi-platform. Customer dapat menjangkau pengguna Android dan iOS, sementara aplikasi operasional Merchant dan Driver fokus pada distribusi Android yang efisien.</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                <div class="rounded-3xl bg-slate-900 p-7 text-white shadow-xl shadow-slate-200/50">
+                    <div class="flex items-center justify-between mb-7">
+                        <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-2xl"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                        <span class="text-[10px] uppercase tracking-widest font-bold text-emerald-300 bg-emerald-500/10 px-3 py-1.5 rounded-full">End User</span>
+                    </div>
+                    <h4 class="text-2xl font-bold mb-2">Gride Customer</h4>
+                    <p class="text-slate-400 text-sm mb-7">Satu aplikasi untuk pesan makanan, belanja, kirim barang, dan layanan antar.</p>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 px-4 py-3"><i class="fa-brands fa-google-play text-xl text-emerald-400"></i><div><div class="text-[10px] text-slate-400 uppercase tracking-wider">Build</div><div class="font-semibold text-sm">Android APK / Google Play</div></div></div>
+                        <div class="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/10 px-4 py-3"><i class="fa-brands fa-apple text-2xl text-white"></i><div><div class="text-[10px] text-slate-400 uppercase tracking-wider">Build</div><div class="font-semibold text-sm">iOS / App Store Ready</div></div></div>
+                    </div>
+                </div>
+                <div class="rounded-3xl bg-blue-600 p-7 text-white shadow-xl shadow-blue-200/50">
+                    <div class="flex items-center justify-between mb-7">
+                        <div class="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center text-white text-2xl"><i class="fa-solid fa-motorcycle"></i></div>
+                        <span class="text-[10px] uppercase tracking-widest font-bold text-blue-100 bg-white/10 px-3 py-1.5 rounded-full">Operations</span>
+                    </div>
+                    <h4 class="text-2xl font-bold mb-2">Gride Driver</h4>
+                    <p class="text-blue-100 text-sm mb-7">Aplikasi mitra untuk menerima order, memperbarui lokasi, dan memantau pendapatan.</p>
+                    <div class="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4 py-3"><i class="fa-brands fa-google-play text-xl text-white"></i><div><div class="text-[10px] text-blue-100 uppercase tracking-wider">Distribution</div><div class="font-semibold text-sm">Android APK / Google Play</div></div></div>
+                </div>
+                <div class="rounded-3xl bg-orange-500 p-7 text-white shadow-xl shadow-orange-200/50">
+                    <div class="flex items-center justify-between mb-7">
+                        <div class="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center text-white text-2xl"><i class="fa-solid fa-store"></i></div>
+                        <span class="text-[10px] uppercase tracking-widest font-bold text-orange-100 bg-white/10 px-3 py-1.5 rounded-full">Business</span>
+                    </div>
+                    <h4 class="text-2xl font-bold mb-2">Gride Merchant</h4>
+                    <p class="text-orange-100 text-sm mb-7">Pusat kendali merchant untuk mengelola toko, produk, order, saldo, dan transaksi.</p>
+                    <div class="flex items-center gap-3 rounded-2xl bg-white/10 border border-white/15 px-4 py-3"><i class="fa-brands fa-google-play text-xl text-white"></i><div><div class="text-[10px] text-orange-100 uppercase tracking-wider">Distribution</div><div class="font-semibold text-sm">Android APK / Google Play</div></div></div>
+                </div>
+            </div>
+            <div class="mt-10 flex flex-wrap justify-center gap-3 text-xs font-semibold text-slate-500">
+                <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200"><i class="fa-solid fa-code-branch text-emerald-600"></i> One shared backend API</span>
+                <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200"><i class="fa-solid fa-arrows-rotate text-emerald-600"></i> Cross-platform release workflow</span>
+                <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200"><i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i> Production deployment support</span>
+            </div>
+        </div>
+    </section>
+
     <!-- Technical Prowess -->
     <section class="py-24 bg-slate-900 text-white overflow-hidden relative">
         <div class="container mx-auto px-6 relative z-10">

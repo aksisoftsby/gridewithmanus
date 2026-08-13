@@ -406,12 +406,10 @@ class _CustomerHomeState extends State<CustomerHome> {
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          image: (n['featured_image'] ?? '').toString().isNotEmpty
-                              ? DecorationImage(
-                                  image: NetworkImage(n['featured_image'] as String),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
+                          image: DecorationImage(
+                            image: NetworkImage((n['featured_image'] ?? '').toString().isNotEmpty ? n['featured_image'] : 'https://placehold.co/600x400/0d9488/ffffff?text=Gride+News'),
+                            fit: BoxFit.cover,
+                          ),
                           gradient: (n['featured_image'] ?? '').toString().isEmpty
                               ? const LinearGradient(colors: [Colors.teal, Colors.green])
                               : LinearGradient(colors: [Colors.black.withOpacity(0.65), Colors.black.withOpacity(0.15)], begin: Alignment.bottomCenter, end: Alignment.topCenter),
@@ -1265,7 +1263,7 @@ class _AntarPageState extends State<AntarPage> {
                                           leading: ClipRRect(
                                             borderRadius: BorderRadius.circular(8),
                                             child: Image.network(
-                                              m['logo_url'] ?? '',
+                                              (m['logo_url'] ?? '').toString().isNotEmpty ? m['logo_url'] : 'https://placehold.co/200x200/0d9488/ffffff?text=Gride',
                                               width: 60,
                                               height: 60,
                                               fit: BoxFit.cover,
@@ -1946,7 +1944,7 @@ class _MerchantMenuPageState extends State<MerchantMenuPage> {
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               leading: Image.network(
-                                item['image_url'] ?? '',
+                                (item['image_url'] ?? '').toString().isNotEmpty ? item['image_url'] : 'https://placehold.co/200x200/0d9488/ffffff?text=Produk',
                                 width: 56,
                                 height: 56,
                                 fit: BoxFit.cover,
@@ -2017,15 +2015,13 @@ class NewsDetailPage extends StatelessWidget {
             pinned: true,
             backgroundColor: Colors.teal,
             foregroundColor: Colors.white,
-            flexibleSpace: imageUrl.isNotEmpty
-                ? FlexibleSpaceBar(
-                    background: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: Colors.teal.shade300),
-                    ),
-                  )
-                : const FlexibleSpaceBar(background: SizedBox.shrink()),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Image.network(
+                imageUrl.isNotEmpty ? imageUrl : 'https://placehold.co/600x400/0d9488/ffffff?text=Gride+News',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(color: Colors.teal.shade300),
+              ),
+            ),
           ),
           SliverToBoxAdapter(
             child: Padding(
