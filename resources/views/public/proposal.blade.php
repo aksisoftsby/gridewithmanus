@@ -372,6 +372,31 @@
                     </div>
                 </div>
 
+                <!-- Server Cost Explanation -->
+                <div class="mb-12 bg-gradient-to-br from-emerald-50 to-blue-50 border border-emerald-100 rounded-2xl p-8">
+                    <h6 class="font-bold text-slate-900 mb-4 flex items-center">
+                        <i class="fa-solid fa-server text-emerald-600 mr-3 text-lg"></i>
+                        Transparansi Biaya Server & Skalabilitas
+                    </h6>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white rounded-xl p-6 shadow-sm">
+                            <div class="text-3xl font-black text-emerald-600 mb-2">± Rp 500rb <span class="text-sm font-normal text-slate-400">/ bulan</span></div>
+                            <p class="text-sm text-slate-500">Biaya operasional server saat ini. Sudah mencakup hosting aplikasi, database PostgreSQL, dan Cloudflare CDN.</p>
+                        </div>
+                        <div class="bg-white rounded-xl p-6 shadow-sm">
+                            <div class="text-3xl font-black text-emerald-600 mb-2">10rb - 50rb</div>
+                            <p class="text-sm text-slate-500">Kapasitas pengguna aktif yang mampu dilayani server dengan konfigurasi saat ini. Siap menerima lonjakan trafik besar.</p>
+                        </div>
+                        <div class="bg-white rounded-xl p-6 shadow-sm">
+                            <div class="text-3xl font-black text-emerald-600 mb-2">Auto Scale</div>
+                            <p class="text-sm text-slate-500">Apabila traffic semakin tinggi, akan dilakukan penyesuaian biaya upgrade server sesuai kebutuhan agar aplikasi tetap cepat dan stabil.</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-6">
+                        *Fee maintenance Rp 10 juta/tahun digunakan untuk kebutuhan server sekarang dan operasional teknis. <strong class="text-slate-700">Jika traffic meningkat melampaui kapasitas 50rb pengguna</strong>, maka perlu penyesuaian biaya upgrade server. Kami akan konsultasikan terlebih dahulu sebelum melakukan upgrade agar Anda selalu tahu ke mana biaya diinvestasikan.
+                    </p>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                     <div class="flex space-x-4">
                         <div class="flex-shrink-0 w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
