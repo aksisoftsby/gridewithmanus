@@ -856,7 +856,9 @@ class _KirimPageState extends State<KirimPage> {
             });
             // Geser peta supaya seluruh rute terlihat
             if (pts.length >= 2) {
-              _mapCtrl.fitCamera(CameraFit.coordinates(coordinates: pts));
+              try {
+                _mapCtrl.fitCamera(CameraFit.coordinates(coordinates: pts));
+              } catch (_) {}
             }
           }
           return meters / 1000.0;
@@ -1409,7 +1411,7 @@ class _KirimPageState extends State<KirimPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${_distanceKm!.ceil()} km \u00d7 Rp ${formatRp(_costPerKm.round())}/km'),
+                          Text('${_distanceKm!.ceil()} km \u00d7 ${formatRp(_costPerKm.round())}/km'),
                           Text('Rp ${formatRp(_estimatedFee!)}',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -1418,6 +1420,69 @@ class _KirimPageState extends State<KirimPage> {
                       ),
                     ],
                   ),
+                ),
+              ),
+            if (_routePoints.length >= 2 && _pickMode == null)
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.route, color: Colors.teal.shade800, size: 18),
+                          const SizedBox(width: 6),
+                          Text('Rute Perjalanan (OpenStreetMap)',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade800, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      height: 280,
+                      color: Colors.grey.shade200,
+                      child: FlutterMap(
+                        mapController: _mapCtrl,
+                        options: const MapOptions(
+                          initialZoom: 13,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.gride.app',
+                            maxNativeZoom: 19,
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: ll.LatLng(_pickupLat!, _pickupLng!),
+                                width: 44,
+                                height: 44,
+                                child: const Icon(Icons.location_on, color: Colors.green, size: 40),
+                              ),
+                              Marker(
+                                point: ll.LatLng(_dropoffLat!, _dropoffLng!),
+                                width: 44,
+                                height: 44,
+                                child: const Icon(Icons.flag, color: Colors.deepPurple, size: 40),
+                              ),
+                            ],
+                          ),
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: _routePoints,
+                                strokeWidth: 4.5,
+                                color: Colors.redAccent.shade700,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             if (_error != null)
