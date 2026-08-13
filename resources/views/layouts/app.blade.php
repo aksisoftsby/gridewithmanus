@@ -29,6 +29,15 @@
                             <a href="{{ route('admin.dashboard') }}" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold transition">
                                 <i class="fa-solid fa-gauge mr-1"></i> Admin Panel
                             </a>
+                            @if(in_array(strtoupper((string)(Auth::user()->role_kota ?? '')), ['ADMIN', 'MANAGER'], true))
+                                <a href="{{ route('kota.dashboard') }}" class="bg-amber-600 hover:bg-amber-700 px-3 py-2 rounded-lg text-sm font-semibold transition">
+                                    <i class="fa-solid fa-map-location-dot mr-1"></i> Panel Kota
+                                </a>
+                            @else
+                                <a href="{{ route('kota.login') }}" class="bg-amber-700/60 hover:bg-amber-700 px-3 py-2 rounded-lg text-sm font-semibold transition" title="Hanya ADMIN/MANAGER panel kota">
+                                    <i class="fa-solid fa-map-location-dot mr-1"></i> Kota
+                                </a>
+                            @endif
                             <a href="{{ route('admin.api.docs') }}" class="hover:text-yellow-200 text-sm font-medium {{ str_starts_with($currentRoute ?? '', 'admin.api') ? 'text-yellow-300' : '' }}">
                                 <i class="fa-solid fa-book mr-1"></i> API Docs
                             </a>
@@ -64,6 +73,32 @@
                 </div>
             </div>
             @endif
+            @auth
+                @if(in_array(strtoupper((string)(Auth::user()->role_kota ?? '')), ['ADMIN', 'MANAGER'], true))
+                <!-- Kota Panel Top Menu (persistent) -->
+                <div class="bg-amber-800">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <nav class="flex flex-wrap gap-1 py-2 text-sm">
+                            @php
+                                $kotaNav = \App\Http\Controllers\KotaController::kotaNav();
+                                $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
+                            @endphp
+                            @foreach($kotaNav as $item)
+                                @if(isset($item['external']))
+                                    <a href="{{ route($item['route']) }}" target="_blank" class="px-3 py-1.5 rounded-lg font-medium transition text-amber-100 hover:bg-amber-700">
+                                        <i class="fa-solid {{ $item['icon'] }} mr-1"></i> {{ $item['label'] }}
+                                    </a>
+                                @else
+                                    <a href="{{ route($item['route']) }}" class="px-3 py-1.5 rounded-lg font-medium transition {{ $currentRoute === $item['route'] || str_starts_with($currentRoute, rtrim(str_replace('.index','',$item['route']), '.') . '.') ? 'bg-yellow-400 text-amber-900' : 'text-amber-100 hover:bg-amber-700' }}">
+                                        <i class="fa-solid {{ $item['icon'] }} mr-1"></i> {{ $item['label'] }}
+                                    </a>
+                                @endif
+                            @endforeach
+                        </nav>
+                    </div>
+                </div>
+                @endif
+            @endauth
         @endauth
     </nav>
 

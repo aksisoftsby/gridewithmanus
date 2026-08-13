@@ -14,7 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn (Request $request) => route('admin.login'));
-        //
+        $middleware->alias([
+            'role.kota' => \App\Http\Middleware\RoleKota::class,
+        ]);
+        $middleware->redirectUsersTo(fn (Request $request) => route('kota.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -1167,3 +1167,37 @@ INSERT INTO iklan_gratis_categories (name, slug, sort_order) VALUES
     ('Komunitas & Event',   'komunitas-event',      14),
     ('Lain-lain',           'lain-lain',            15)
 ON CONFLICT (slug) DO NOTHING;
+
+-- ============================================================================
+-- MIGRASI TAMBAHAN (2026-08-14)
+-- 1. Dropdown Wilayah Indonesia: Provinsi -> Kota/Kabupaten
+--    Sumber: skema_dan_insert_dropdown_wilayah_mysql.sql (konversi MySQL -> PostgreSQL)
+--    Struktur only (tanpa INSERT). Data wilayah di-insert terpisah via wilayah_insert.sql
+-- 2. Kolom role_kota pada tabel users: ROLE untuk panel /admin/kota
+--    Nilai: 'ADMIN', 'MANAGER', 'MEMBER' — default 'MEMBER'
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS provinsis (
+  id SMALLINT PRIMARY KEY,
+  nama VARCHAR(100) NOT NULL,
+  pulau VARCHAR(50) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provinsis_nama ON provinsis (nama);
+CREATE INDEX IF NOT EXISTS idx_provinsis_pulau ON provinsis (pulau);
+
+CREATE TABLE IF NOT EXISTS kota_kabupatens (
+  id SMALLINT PRIMARY KEY,
+  nama VARCHAR(100) NOT NULL,
+  tipe VARCHAR(10) NOT NULL CHECK (tipe IN ('Kabupaten', 'Kota')),
+  provinsi_id SMALLINT NOT NULL REFERENCES provinsis (id) ON UPDATE CASCADE ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_kota_kabupatens_provinsi ON kota_kabupatens (provinsi_id, nama, tipe);
+CREATE INDEX IF NOT EXISTS idx_kota_kabupatens_dropdown ON kota_kabupatens (provinsi_id, nama);
+
+-- Role panel /admin/kota: ADMIN (super admin panel), MANAGER (kelola wilayah & user), MEMBER (user biasa)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role_kota VARCHAR(20) NOT NULL DEFAULT 'MEMBER' CHECK (role_kota IN ('ADMIN', 'MANAGER', 'MEMBER'));
+CREATE INDEX IF NOT EXISTS idx_users_role_kota ON users (role_kota);
+COMMENT ON COLUMN users.role_kota IS 'Peran pada panel /admin/kota: ADMIN, MANAGER, MEMBER (default MEMBER)';

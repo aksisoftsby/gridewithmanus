@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PublicController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\KotaAuthController;
+use App\Http\Controllers\KotaController;
 
 // Public Pages
 Route::get('/', [PublicController::class, 'index'])->name('home');
@@ -18,6 +20,20 @@ Route::get('/iklan/{id}', [PublicController::class, 'iklanDetail'])->name('iklan
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+// Kota Panel Auth (terpisah dari /admin/login)
+Route::get('/admin/kota-login', [KotaAuthController::class, 'showLoginForm'])->name('kota.login');
+Route::post('/admin/kota', [KotaAuthController::class, 'login']);
+Route::post('/admin/kota/logout', [KotaAuthController::class, 'logout'])->name('kota.logout');
+
+// Kota Panel (Protected: hanya ADMIN / MANAGER panel kota)
+Route::middleware(['auth', 'role.kota'])->prefix('admin/kota')->name('kota.')->group(function () {
+    Route::get('/', [KotaController::class, 'dashboard'])->name('dashboard');
+    Route::get('/wilayah', [KotaController::class, 'wilayahIndex'])->name('wilayah.index');
+    Route::get('/wilayah/{id}', [KotaController::class, 'wilayahDetail'])->name('wilayah.detail');
+    Route::get('/users', [KotaController::class, 'usersIndex'])->name('users.index');
+    Route::patch('/users/{id}/role', [KotaController::class, 'usersRoleUpdate'])->name('users.role.update');
+});
 
 // Admin Panel (Protected)
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
