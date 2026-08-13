@@ -14,10 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-apks:
-    name: Build APKs for Customer, Driver, and Merchant
+  build-apk:
+    name: Build ${{ matrix.app }} APK
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        app: [app-customer, app-driver, app-merchant]
 
     steps:
       - name: Checkout Repository
@@ -41,61 +45,24 @@ jobs:
           (./gradlew --stop || true)
           pkill -f "GradleDaemon" || true
 
-      - name: Ensure Gradle daemon is disabled in CI (per app)
+      - name: Disable Gradle daemon and VFS file watching in CI
         run: |
-          for dir in app-customer app-driver app-merchant; do
-            echo "org.gradle.daemon=false" >> $dir/android/gradle.properties
-            echo "org.gradle.caching=false" >> $dir/android/gradle.properties
-            echo "org.gradle.vfs.watch=false" >> $dir/android/gradle.properties
-          done
+          echo "org.gradle.daemon=false" >> ${{ matrix.app }}/android/gradle.properties
+          echo "org.gradle.caching=false" >> ${{ matrix.app }}/android/gradle.properties
+          echo "org.gradle.vfs.watch=false" >> ${{ matrix.app }}/android/gradle.properties
 
-      - name: Flutter Clean + Pub Get (Customer)
+      - name: Flutter Clean + Pub Get
         run: |
           flutter clean
           flutter pub get
-        working-directory: ./app-customer
+        working-directory: ${{ matrix.app }}
 
-      - name: Build Customer App APK
-        timeout-minutes: 25
+      - name: Build APK (release)
         run: flutter build apk --release
-        working-directory: ./app-customer
+        working-directory: ${{ matrix.app }}
 
-      - name: Flutter Clean + Pub Get (Driver)
-        run: |
-          flutter clean
-          flutter pub get
-        working-directory: ./app-driver
-
-      - name: Build Driver App APK
-        timeout-minutes: 25
-        run: flutter build apk --release
-        working-directory: ./app-driver
-
-      - name: Flutter Clean + Pub Get (Merchant)
-        run: |
-          flutter clean
-          flutter pub get
-        working-directory: ./app-merchant
-
-      - name: Build Merchant App APK
-        timeout-minutes: 25
-        run: flutter build apk --release
-        working-directory: ./app-merchant
-
-      - name: Upload Customer APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: customer-app-apk
-          path: app-customer/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload Driver APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: driver-app-apk
-          path: app-driver/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload Merchant APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: merchant-app-apk
-          path: app-merchant/build/app/outputs/flutter-apk/app-release.apk
+          name: ${{ matrix.app }}-apk
+          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
