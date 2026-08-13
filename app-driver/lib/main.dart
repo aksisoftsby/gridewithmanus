@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import "package:http/http.dart" as http;
+import "package:flutter_inappwebview/flutter_inappwebview.dart";
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -240,6 +241,16 @@ class _OrdersPageState extends State<OrdersPage> {
                         const Text(
                           'Daftar pesanan masuk dari customer & merchant. Login dulu di menu Akun untuk melihat pesanan milik Anda.',
                           style: TextStyle(fontSize: 13, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.bolt, size: 18),
+                            label: const Text('PPOB — Pulsa, PLN, Voucher Game & Lainnya'),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage())),
+                          ),
                         ),
                       ],
                     ),
@@ -865,6 +876,117 @@ class _AccountPageState extends State<AccountPage> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ============ Halaman PPOB — WebView ke https://gride.web.id/ppob/ ============
+
+class PpobWebViewPage extends StatefulWidget {
+  const PpobWebViewPage({super.key});
+
+  @override
+  State<PpobWebViewPage> createState() => _PpobWebViewPageState();
+}
+
+class _PpobWebViewPageState extends State<PpobWebViewPage> {
+  String? _url;
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    final user = await Session.load();
+    if (!mounted) return;
+    if (user == null || user['id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login terlebih dahulu untuk membuka PPOB.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+    final uid = user['id'].toString();
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/ppob/webview-token?user_id=$uid')).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(res.body);
+      final token = data['data']?['token'];
+      if (res.statusCode != 200 || token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyiapkan sesi PPOB: ${data['message'] ?? 'server error'}')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      final name = (data['data']['full_name'] ?? '').toString();
+      final phone = (data['data']['phone'] ?? '').toString();
+      if (mounted) {
+        setState(() => _url = 'https://gride.web.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_url == null) {
+      return Scaffold(
+        backgroundColor: Colors.teal,
+        body: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+    return Scaffold(
+      backgroundColor: Colors.teal,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: Colors.teal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text('PPOB & Pulsa', textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(url: WebUri(_url!)),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  domStorageEnabled: true,
+                  useHybridComposition: true,
+                  supportMultipleWindows: false,
+                  userAgent: 'GrideDriverApp/1.0',
+                  javaScriptCanOpenWindowsAutomatically: false,
+                ),
+                onLoadStop: (controller, url) {
+                  controller.addJavaScriptHandler(handlerName: 'onTransactionSuccess', callback: (args) async {
+                    if (mounted) Navigator.pop(context);
+                  });
+                },
+                onReceivedError: (controller, request, error) {},
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

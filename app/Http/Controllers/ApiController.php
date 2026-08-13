@@ -1837,4 +1837,34 @@ class ApiController extends Controller
         }
         return response()->json(['status' => 'error', 'message' => 'PIN salah.'], 401);
     }
+
+    /**
+     * Token sesi singkat untuk webview PPOB.
+     * GET /api/ppob/webview-token?user_id=N
+     * Mengembalikan token deterministik yang valid 1 jam (berbasis jam unix),
+     * dihitung dari APP_KEY sehingga tidak perlu tabel baru di database.
+     */
+    public function ppobWebviewToken(Request $request)
+    {
+        $userId = (int) $request->input('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id tidak valid.'], 422);
+        }
+        $user = DB::table('users')->where('id', $userId)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan.'], 404);
+        }
+        $hour = (int) (time() / 3600);
+        $token = hash('sha256', 'ppob-' . $user->id . '-' . config('app.key') . '-' . $hour);
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'token' => $token,
+                'user_id' => $user->id,
+                'full_name' => $user->full_name,
+                'phone' => $user->phone ?? null,
+                'hour' => $hour,
+            ],
+        ]);
+    }
 }

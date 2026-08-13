@@ -46,3 +46,4 @@ Route::get('/iklan-gratis/{id}', [ApiController::class, 'iklanGratisShow']);
 Route::post('/iklan-gratis', [ApiController::class, 'iklanGratisStore']);
 Route::put('/iklan-gratis/{id}', [ApiController::class, 'iklanGratisUpdate']);
 Route::delete('/iklan-gratis/{id}', [ApiController::class, 'iklanGratisDelete']);
+Route::get('/ppob/webview-token', [ApiController::class, 'ppobWebviewToken']);

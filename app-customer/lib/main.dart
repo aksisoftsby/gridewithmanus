@@ -8,6 +8,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 void main() {
   runApp(const CustomerApp());
@@ -717,6 +718,9 @@ class _CustomerHomeState extends State<CustomerHome> {
         break;
       case 'Iklan Gratis':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const IklanGratisPage()));
+        break;
+      case 'PPOB':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage()));
         break;
       case 'Food':
       case 'Mart':
@@ -5105,6 +5109,134 @@ class _WalletPinPageState extends State<WalletPinPage> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+// ==========================================================================
+// Halaman PPOB — WebView ke https://gride.web.id/ppob/ dengan sesi singkat
+// dari API (GET /api/ppob/webview-token). Setelah transaksi sukses, saldo
+// GrSaldo di-refresh secara otomatis.
+// ==========================================================================
+
+class PpobWebViewPage extends StatefulWidget {
+  const PpobWebViewPage({super.key});
+
+  @override
+  State<PpobWebViewPage> createState() => _PpobWebViewPageState();
+}
+
+class _PpobWebViewPageState extends State<PpobWebViewPage> {
+  InAppWebViewController? _controller;
+  String? _url;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    final user = await Session.load();
+    if (!mounted) return;
+    if (user == null || Session.userIdOf(user) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login terlebih dahulu untuk membuka PPOB.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+    final uid = Session.userIdOf(user)!;
+    try {
+      final res = await httpGetWithRetry('$kApiBase/ppob/webview-token?user_id=$uid');
+      final data = jsonDecode(res.body);
+      final token = data['data']?['token'];
+      if (res.statusCode != 200 || token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyiapkan sesi PPOB: ${data['message'] ?? 'server error'}')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      final name = (data['data']['full_name'] ?? '').toString();
+      final phone = (data['data']['phone'] ?? '').toString();
+      if (mounted) {
+        setState(() => _url = 'https://gride.web.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  Future<void> _onTransactionSuccess(String message) async {
+    // Tutup halaman dan biarkan halaman Akun/GrSaldo merefresh saldo saat terbuka.
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_url == null) {
+      return Scaffold(
+        backgroundColor: kPurpleMain,
+        body: const Center(child: CircularProgressIndicator(color: kGoldBright)),
+      );
+    }
+    return Scaffold(
+      backgroundColor: kPurpleMain,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: kPurpleMain,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: kGoldBright, size: 26),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text('PPOB & Pulsa', textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(url: WebUri(_url!)),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  domStorageEnabled: true,
+                  useHybridComposition: true,
+                  supportMultipleWindows: false,
+                  userAgent: 'GrideApp/1.0',
+                  javaScriptCanOpenWindowsAutomatically: false,
+                ),
+                onWebViewCreated: (controller) => _controller = controller,
+                onLoadStop: (controller, url) {
+                  if (mounted && _loading) setState(() => _loading = false);
+                  // Daftarkan handler agar halaman PPOB bisa memberi tahu app saat transaksi sukses.
+                  controller.addJavaScriptHandler(handlerName: 'onTransactionSuccess', callback: (args) async {
+                    final msg = args.isNotEmpty ? args.first.toString() : '';
+                    await _onTransactionSuccess(msg);
+                  });
+                },
+                onReceivedError: (controller, request, error) {
+                  // Abaikan error favicon/resource kecil; halaman utama tetap tampil.
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

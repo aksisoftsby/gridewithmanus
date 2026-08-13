@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String kApiBase = 'https://gride.web.id/api';
@@ -846,6 +847,30 @@ class _MerchantAkunPageState extends State<MerchantAkunPage> {
                         ),
                       ),
                       const SizedBox(height: 12),
+                      // ---- PPOB ----
+                      Card(
+                        color: Colors.green.shade50,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('PPOB & Pulsa', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
+                            const Divider(height: 14),
+                            const Text('Beli pulsa, paket data, token PLN, voucher game, dan bayar tagihan langsung dari aplikasi.', style: TextStyle(fontSize: 13)),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.bolt, size: 18),
+                                label: const Text('Buka PPOB'),
+                                style: FilledButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage())),
+                              ),
+                            ),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       // ---- Transaksi ----
                       const Padding(padding: EdgeInsets.only(left: 4), child: Text('Riwayat Transaksi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                       const SizedBox(height: 8),
@@ -1016,6 +1041,118 @@ class _MerchantInfoFormDialogState extends State<MerchantInfoFormDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============ Halaman PPOB — WebView ke https://gride.web.id/ppob/ ============
+
+class PpobWebViewPage extends StatefulWidget {
+  const PpobWebViewPage({super.key});
+
+  @override
+  State<PpobWebViewPage> createState() => _PpobWebViewPageState();
+}
+
+class _PpobWebViewPageState extends State<PpobWebViewPage> {
+  String? _url;
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    await Session.load();
+    if (!mounted) return;
+    final user = Session.user;
+    if (user == null || user['id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login terlebih dahulu untuk membuka PPOB.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+    final uid = user['id'].toString();
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/ppob/webview-token?user_id=$uid')).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(res.body);
+      final token = data['data']?['token'];
+      if (res.statusCode != 200 || token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyiapkan sesi PPOB: ${data['message'] ?? 'server error'}')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      final name = (data['data']['full_name'] ?? '').toString();
+      final phone = (data['data']['phone'] ?? '').toString();
+      if (mounted) {
+        setState(() => _url = 'https://gride.web.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_url == null) {
+      return Scaffold(
+        backgroundColor: Colors.deepOrange,
+        body: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+    return Scaffold(
+      backgroundColor: Colors.deepOrange,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: Colors.deepOrange,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text('PPOB & Pulsa', textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(url: WebUri(_url!)),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  domStorageEnabled: true,
+                  useHybridComposition: true,
+                  supportMultipleWindows: false,
+                  userAgent: 'GrideMerchantApp/1.0',
+                  javaScriptCanOpenWindowsAutomatically: false,
+                ),
+                onLoadStop: (controller, url) {
+                  controller.addJavaScriptHandler(handlerName: 'onTransactionSuccess', callback: (args) async {
+                    if (mounted) Navigator.pop(context);
+                  });
+                },
+                onReceivedError: (controller, request, error) {},
+              ),
+            ),
+          ],
         ),
       ),
     );
