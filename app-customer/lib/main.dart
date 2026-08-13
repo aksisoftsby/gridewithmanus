@@ -334,7 +334,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               ),
               const SizedBox(height: 20),
 
-              // GridePay wallet card
+              // GrSaldo wallet card
               Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(colors: [Color(0xFF5C2A96), Color(0xFF3D1570)]),
@@ -350,7 +350,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(children: [Icon(Icons.account_balance_wallet, color: kGoldBright, size: 18), SizedBox(width: 8), Text('GridePay', style: TextStyle(color: Color(0xFFF7D27E), fontWeight: FontWeight.bold, fontSize: 14))]),
+                          const Row(children: [Icon(Icons.account_balance_wallet, color: kGoldBright, size: 18), SizedBox(width: 8), Text('GrSaldo', style: TextStyle(color: Color(0xFFF7D27E), fontWeight: FontWeight.bold, fontSize: 14))]),
                           const SizedBox(height: 8),
                           Text(formatRp(_walletLoading ? 0 : _walletBalance),
                               style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
@@ -629,7 +629,7 @@ class _CustomerHomeState extends State<CustomerHome> {
     );
   }
 
-  /// Wallet action buttons (Tarik / Top Up) inside the GridePay card.
+  /// Wallet action buttons (Tarik / Top Up) inside the GrSaldo card.
   Widget _walletActionButton(IconData icon, String label) {
     return GestureDetector(
       onTap: () {
@@ -1555,7 +1555,7 @@ class _KirimPageState extends State<KirimPage> {
                             icon: const Icon(Icons.keyboard_arrow_down),
                             items: const [
                               DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                              DropdownMenuItem(value: 'GRIDEPAY', child: Text('GridePay')),
+                              DropdownMenuItem(value: 'GRSALDO', child: Text('GrSaldo')),
                             ],
                             onChanged: (v) => setState(() => _paymentMethod = v ?? 'CASH'),
                           ),
@@ -2236,7 +2236,7 @@ class _OrderMerchantPageState extends State<OrderMerchantPage> {
                               icon: const Icon(Icons.keyboard_arrow_down),
                               items: const [
                                 DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                                DropdownMenuItem(value: 'GRIDEPAY', child: Text('GridePay')),
+                                DropdownMenuItem(value: 'GRSALDO', child: Text('GrSaldo')),
                               ],
                               onChanged: (v) => setState(() => _paymentMethod = v ?? 'CASH'),
                             ),
@@ -2373,7 +2373,7 @@ class AkunPage extends StatefulWidget {
 class _AkunPageState extends State<AkunPage> {
   Map<String, dynamic>? _user;
   List _orders = [];
-  Map<String, dynamic>? _wallet; // saldo GridePay
+  Map<String, dynamic>? _wallet; // saldo GrSaldo
   bool showRegister = true; // true = form daftar, false = form login
   bool _busy = false;
   String? _msg;
@@ -2649,7 +2649,7 @@ class _AkunPageState extends State<AkunPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // GridePay wallet card
+                  // GrSaldo wallet card
                   GestureDetector(
                     onTap: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPage()));
@@ -2670,7 +2670,7 @@ class _AkunPageState extends State<AkunPage> {
                           Row(children: const [
                             Icon(Icons.account_balance_wallet, color: Color(0xFFD9B24A), size: 22),
                             SizedBox(width: 10),
-                            Text('GridePay', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                            Text('GrSaldo', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
                             Spacer(),
                             Icon(Icons.chevron_right, color: Colors.white54),
                           ]),
@@ -2678,7 +2678,7 @@ class _AkunPageState extends State<AkunPage> {
                           Text(formatRp((int.tryParse((_wallet?['balance'] ?? '0').toString()) ?? 0)),
                               style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          const Text('Saldo GridePay • ketuk untuk Top Up, Tarik Dana & Riwayat',
+                          const Text('Saldo GrSaldo • ketuk untuk Top Up, Tarik Dana & Riwayat',
                               style: TextStyle(color: Colors.white70, fontSize: 12)),
                         ],
                       ),
@@ -3737,7 +3737,7 @@ class _IklanFormPageState extends State<IklanFormPage> {
 }
 
 /// =========================================================================
-/// MODUL WALLET (GridePay) — saldo, top up, tarik dana, riwayat, detail,
+/// MODUL WALLET (GrSaldo) — saldo, top up, tarik dana, riwayat, detail,
 /// kelola rekening bank, dan PIN wallet (6 digit, rate-limit server-side).
 /// API: /api/wallets, /api/wallet/transactions, /api/wallet/topup,
 /// /api/wallet/withdraw, /api/wallet/rekening, /api/wallet/pin/set & /verify.
@@ -3870,7 +3870,7 @@ class _WalletPageState extends State<WalletPage> {
   Widget build(BuildContext context) {
     final balance = _balanceOf();
     return Scaffold(
-      appBar: AppBar(title: const Text('GridePay'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      appBar: AppBar(title: const Text('GrSaldo'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
       body: _user == null
           ? _loginPrompt()
           : RefreshIndicator(
@@ -3892,7 +3892,7 @@ class _WalletPageState extends State<WalletPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Saldo GridePay', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                              const Text('Saldo GrSaldo', style: TextStyle(color: Colors.white70, fontSize: 14)),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
@@ -3985,7 +3985,7 @@ class _WalletPageState extends State<WalletPage> {
           children: [
             const Icon(Icons.account_balance_wallet_outlined, size: 56, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text('Login dulu untuk melihat GridePay kamu', textAlign: TextAlign.center),
+            const Text('Login dulu untuk melihat GrSaldo kamu', textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () {
@@ -4490,7 +4490,7 @@ class _WalletTopUpPageState extends State<WalletTopUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Top Up GridePay'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
+      appBar: AppBar(title: const Text('Top Up GrSaldo'), backgroundColor: kPurpleMain, foregroundColor: Colors.white),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -4504,7 +4504,7 @@ class _WalletTopUpPageState extends State<WalletTopUpPage> {
                 const SizedBox(height: 8),
                 Text('Nomor referensi: $_successRef', style: const TextStyle(fontSize: 13)),
                 const SizedBox(height: 10),
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kembali ke GridePay')),
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kembali ke GrSaldo')),
               ]),
             ),
           const Text('Nominal Top Up', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -4719,7 +4719,7 @@ class _WalletWithdrawPageState extends State<WalletWithdrawPage> {
                 const SizedBox(height: 8),
                 Text('Nomor referensi: $_successRef\nDana akan ditransfer ke rekening tujuan kamu.', style: const TextStyle(fontSize: 13)),
                 const SizedBox(height: 10),
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kembali ke GridePay')),
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kembali ke GrSaldo')),
               ]),
             ),
           const Text('Nominal Penarikan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
