@@ -62,6 +62,7 @@
                                 <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $u->role_kota === 'ADMIN' ? 'bg-red-100 text-red-800' : ($u->role_kota === 'MANAGER' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700') }}">{{ $u->role_kota }}</span>
                             </td>
                             <td class="px-6 py-3">
+                                @if(auth()->user()->role === 'ADMIN')
                                 <form action="{{ route('kota.users.role.update', $u->id) }}" method="POST" class="flex gap-2">
                                     @csrf
                                     @method('PATCH')
@@ -72,6 +73,9 @@
                                     </select>
                                     <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-semibold">Simpan</button>
                                 </form>
+                                @else
+                                <span class="text-xs text-gray-400">-</span>
+                                @endif
                             </td>
                         </tr>
                     @empty

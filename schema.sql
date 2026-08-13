@@ -1201,3 +1201,20 @@ CREATE INDEX IF NOT EXISTS idx_kota_kabupatens_dropdown ON kota_kabupatens (prov
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role_kota VARCHAR(20) NOT NULL DEFAULT 'MEMBER' CHECK (role_kota IN ('ADMIN', 'MANAGER', 'MEMBER'));
 CREATE INDEX IF NOT EXISTS idx_users_role_kota ON users (role_kota);
 COMMENT ON COLUMN users.role_kota IS 'Peran pada panel /admin/kota: ADMIN, MANAGER, MEMBER (default MEMBER)';
+
+-- ============================================================================
+-- COVERAGE KOTA MANAGER (2026-08-14)
+-- Mapping N:M antara user MANAGER panel /admin/kota dan kota/kabupaten yang
+-- menjadi tanggung jawab pengelolaannya. 1 user MANAGER dapat mengelola
+-- lebih dari satu kota.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS manager_coverage (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  id_kota BIGINT NOT NULL REFERENCES kota_kabupatens (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, id_kota)
+);
+CREATE INDEX IF NOT EXISTS idx_manager_coverage_user ON manager_coverage (user_id);
+CREATE INDEX IF NOT EXISTS idx_manager_coverage_kota ON manager_coverage (id_kota);

@@ -10,7 +10,7 @@
         <p class="text-sm text-gray-500">Gride Superapp — Pengelolaan Wilayah Provinsi &amp; Kota</p>
     </div>
 
-    <form action="{{ route('kota.login') }}" method="POST">
+    <form action="{{ route('kota.login.post') }}" method="POST">
         @csrf
         <div class="mb-4">
             <label class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
@@ -28,7 +28,8 @@
     </form>
 
     <div class="mt-6 text-center bg-gray-50 p-3 rounded-lg text-xs text-gray-600">
-        <p><strong>Panel Kota</strong> hanya dapat diakses pengguna dengan role <strong>ADMIN</strong> atau <strong>MANAGER</strong>.</p>
+        <p><strong>Panel Kota</strong> hanya dapat diakses pengguna dengan role <strong>MANAGER</strong>.</p>
+        <p class="mt-1">Admin super silakan login melalui <strong>/admin/login</strong>.</p>
         <p class="mt-1">Role default pengguna baru adalah <strong>MEMBER</strong>.</p>
         <a href="{{ route('admin.login') }}" class="inline-block mt-2 text-amber-700 hover:underline">← Kembali ke Admin Login</a>
     </div>

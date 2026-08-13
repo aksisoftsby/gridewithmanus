@@ -21,10 +21,16 @@ class AdminAuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $user = Auth::user();
+            $platformRole = strtoupper((string) ($user->role ?? ''));
             $roleKota = strtoupper((string) ($user->role_kota ?? 'MEMBER'));
-            if (!in_array($roleKota, ['ADMIN', 'MANAGER'], true)) {
+
+            if ($roleKota === 'MANAGER') {
                 Auth::logout();
-                return back()->withErrors(['email' => 'Akses ditolak. Hanya role ADMIN / MANAGER yang dapat masuk ke panel admin.']);
+                return back()->withErrors(['email' => 'MANAGER login di /admin/kota, bukan di panel admin.']);
+            }
+            if ($platformRole !== 'ADMIN') {
+                Auth::logout();
+                return back()->withErrors(['email' => 'Akses ditolak. Hanya role ADMIN super yang dapat masuk ke panel admin.']);
             }
             $request->session()->regenerate();
             return redirect()->intended(route('admin.dashboard'));

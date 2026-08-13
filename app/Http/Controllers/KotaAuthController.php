@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Controller untuk panel /admin/kota (login & logout terpisah dari /admin/login).
- * Role panel kota (kolom users.role_kota):
- *   - ADMIN   : akses penuh panel /admin/kota
- *   - MANAGER : akses penuh panel /admin/kota
+ * Controller untuk panel /admin/kota — login khusus ROLE MANAGER.
+ * (Terpisah dari /admin/login yang khusus ADMIN super.)
+ *   - MANAGER : login panel /admin/kota, kelola member (merchant/driver) sesuai coverage kota
+ *   - ADMIN   : harus login via /admin/login (ditolak di sini)
  *   - MEMBER  : tidak bisa login ke panel kota (default saat register)
  */
 class KotaAuthController extends Controller
@@ -30,10 +30,17 @@ class KotaAuthController extends Controller
             $user = Auth::user();
             $roleKota = strtoupper((string) ($user->role_kota ?? 'MEMBER'));
 
-            if (!in_array($roleKota, ['ADMIN', 'MANAGER'], true)) {
+            if ($roleKota === 'ADMIN') {
                 Auth::logout();
                 return back()->withErrors([
-                    'email' => 'Akses ditolak. Akun Anda belum memiliki role ADMIN/MANAGER untuk panel kota. Hubungi administrator.',
+                    'email' => 'Akun Anda adalah ADMIN super. Silakan login melalui halaman admin biasa: /admin/login',
+                ]);
+            }
+
+            if ($roleKota !== 'MANAGER') {
+                Auth::logout();
+                return back()->withErrors([
+                    'email' => 'Akses ditolak. Akun Anda belum memiliki role MANAGER untuk panel kota. Hubungi administrator.',
                 ]);
             }
 

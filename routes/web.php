@@ -35,19 +35,34 @@ Route::post('/iklan-webview/login', [\App\Http\Controllers\WebviewAuthController
 
 // Kota Panel Auth (terpisah dari /admin/login)
 Route::get('/admin/kota-login', [KotaAuthController::class, 'showLoginForm'])->name('kota.login');
-Route::post('/admin/kota', [KotaAuthController::class, 'login']);
+Route::post('/admin/kota', [KotaAuthController::class, 'login'])->name('kota.login.post');
 Route::post('/admin/kota/logout', [KotaAuthController::class, 'logout'])->name('kota.logout');
 
-// Kota Panel (Protected: hanya ADMIN / MANAGER panel kota)
+// Kota Panel (Protected: hanya MANAGER panel kota)
 Route::middleware(['auth', 'role.kota'])->prefix('admin/kota')->name('kota.')->group(function () {
     Route::get('/', [KotaController::class, 'dashboard'])->name('dashboard');
     Route::get('/wilayah', [KotaController::class, 'wilayahIndex'])->name('wilayah.index');
     Route::get('/wilayah/{id}', [KotaController::class, 'wilayahDetail'])->name('wilayah.detail');
+
+    // Coverage kota (manajemen area tanggung jawab)
+    Route::get('/coverage', [KotaController::class, 'coverageIndex'])->name('coverage.index');
+    Route::post('/coverage', [KotaController::class, 'coverageAdd'])->name('coverage.add');
+    Route::delete('/coverage/{id}', [KotaController::class, 'coverageRemove'])->name('coverage.remove');
+
+    // Member management sesuai coverage (merchant & driver)
+    Route::get('/members', [KotaController::class, 'membersIndex'])->name('members.index');
+    Route::get('/members/merchant/{id}/edit', [KotaController::class, 'membersMerchantEdit'])->name('members.merchant.edit');
+    Route::put('/members/merchant/{id}', [KotaController::class, 'membersMerchantUpdate'])->name('members.merchant.update');
+    Route::get('/members/driver/{id}/edit', [KotaController::class, 'membersDriverEdit'])->name('members.driver.edit');
+    Route::put('/members/driver/{id}', [KotaController::class, 'membersDriverUpdate'])->name('members.driver.update');
+    Route::patch('/members/driver/{id}/status', [KotaController::class, 'membersDriverStatus'])->name('members.driver.status');
+
+    // Pengguna panel kota (hanya ADMIN super boleh mengubah role)
     Route::get('/users', [KotaController::class, 'usersIndex'])->name('users.index');
     Route::patch('/users/{id}/role', [KotaController::class, 'usersRoleUpdate'])->name('users.role.update');
 });
 
-// Admin Panel (Protected: role_kota ADMIN / MANAGER; Settings khusus ADMIN)
+// Admin Panel (Protected: khusus ADMIN super; Settings khusus ADMIN)
 Route::middleware(['auth', 'role.panel'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 

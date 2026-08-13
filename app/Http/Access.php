@@ -5,18 +5,18 @@ namespace App\Http;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Akses panel admin (/admin) berdasarkan kolom users.role_kota:
- *   - ADMIN   : semua menu (termasuk Settings)
- *   - MANAGER : semua menu KECUALI Settings
- *   - MEMBER  : tidak ada akses panel admin
- *
- * Kolom users.role (CUSTOMER/DRIVER/MERCHANT/ADMIN) tidak lagi dipakai untuk akses panel.
+ * Akses panel admin (/admin):
+ *   - role_kota ADMIN : akses penuh (termasuk Settings)
+ *   - role_kota MANAGER : TIDAK punya akses panel admin (login di /admin/kota)
+ *   - MEMBER : tidak ada akses
  */
 class Access
 {
     public static function canAdmin(): bool
     {
-        return in_array(self::roleKota(), ['ADMIN', 'MANAGER'], true);
+        // Panel admin /admin khusus ADMIN super (platform role).
+        $user = Auth::user();
+        return strtoupper((string) ($user->role ?? '')) === 'ADMIN';
     }
 
     public static function canSettings(): bool
@@ -36,6 +36,9 @@ class Access
     public static function adminNav(): array
     {
         $all = \App\Http\Controllers\AdminController::adminNav();
+        if ($all instanceof \Illuminate\Support\Collection) {
+            $all = $all->all();
+        }
         if (self::canSettings()) {
             return $all;
         }

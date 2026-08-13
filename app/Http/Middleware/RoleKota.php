@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Middleware: hanya ADMIN / MANAGER (users.role_kota) yang boleh mengakses panel /admin/kota.
+ * Middleware: hanya MANAGER (users.role_kota) yang boleh mengakses panel /admin/kota.
+ * ADMIN super mengakses /admin, bukan panel kota.
  */
 class RoleKota
 {
@@ -17,10 +18,13 @@ class RoleKota
         $user = Auth::user();
         $roleKota = strtoupper((string) ($user->role_kota ?? 'MEMBER'));
 
-        if (!in_array($roleKota, ['ADMIN', 'MANAGER'], true)) {
+        if ($roleKota !== 'MANAGER') {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+            if ($roleKota === 'ADMIN') {
+                abort(403, 'ADMIN super login di /admin/login, bukan di panel kota.');
+            }
             abort(403, 'Anda tidak memiliki akses ke panel kota. Role Anda: ' . $roleKota);
         }
 
