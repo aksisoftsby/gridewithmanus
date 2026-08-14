@@ -63,10 +63,10 @@
     {
       "field": "data.apk_urls",
       "type": "object",
-      "description": "URL unduh publik APK: customer, driver, merchant (https://gride.web.id/apk/*.apk)."
+      "description": "URL unduh publik APK: customer, driver, merchant (https://ridesip.my.id/apk/*.apk)."
     }
   ],
-  "example_request": "curl https://gride.web.id/api/settings",
+  "example_request": "curl https://ridesip.my.id/api/settings",
   "example_response": {
     "status": "success",
     "data": {
@@ -80,9 +80,9 @@
       "admin_shop_commission_enabled": "OFF",
       "admin_shop_commission_amount": "5000",
       "apk_urls": {
-        "customer": "https://gride.web.id/apk/customer.apk",
-        "driver": "https://gride.web.id/apk/driver.apk",
-        "merchant": "https://gride.web.id/apk/merchant.apk"
+        "customer": "https://ridesip.my.id/apk/customer.apk",
+        "driver": "https://ridesip.my.id/apk/driver.apk",
+        "merchant": "https://ridesip.my.id/apk/merchant.apk"
       }
     }
   },

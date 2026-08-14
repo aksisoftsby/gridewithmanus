@@ -1,7 +1,7 @@
 {
   "endpoint": "GET /api/merchants",
   "group": "Merchants",
-  "description": "Mengambil daftar merchant yang aktif di ekosistem Gride Superapp (Restoran, Mart, Shop). Mendukung filter berdasarkan kategori layanan melalui parameter query.",
+  "description": "Mengambil daftar merchant yang aktif di ekosistem RideSip Superapp (Restoran, Mart, Shop). Mendukung filter berdasarkan kategori layanan melalui parameter query.",
   "method": "GET",
   "url": "/api/merchants",
   "authentication": "Tidak diperlukan (publik)",
@@ -38,8 +38,8 @@
     "data": [
       {
         "id": 1,
-        "name": "Warung Gride Padang",
-        "slug": "warung-gride-padang",
+        "name": "Warung RideSip Padang",
+        "slug": "warung-ridesip-padang",
         "type": "FOOD",
         "status": "ACTIVE",
         "address": "Jl. Raya Tunjungan 12, Surabaya",
@@ -52,7 +52,7 @@
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/merchants?type=FOOD\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/merchants?type=FOOD\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika tidak ada merchant yang sesuai filter." }
   ]

@@ -789,9 +789,9 @@ class AdminController extends Controller
             'admin_food_commission_amount' => $s('admin_food_commission_amount', '3000'),
             'admin_shop_commission_enabled' => $s('admin_shop_commission_enabled', 'OFF'),
             'admin_shop_commission_amount' => $s('admin_shop_commission_amount', '5000'),
-            'apk_download_url_customer' => $s('apk_download_url_customer', 'https://gride.web.id/apk/customer.apk'),
-            'apk_download_url_driver' => $s('apk_download_url_driver', 'https://gride.web.id/apk/driver.apk'),
-            'apk_download_url_merchant' => $s('apk_download_url_merchant', 'https://gride.web.id/apk/merchant.apk'),
+            'apk_download_url_customer' => $s('apk_download_url_customer', 'https://ridesip.my.id/apk/customer.apk'),
+            'apk_download_url_driver' => $s('apk_download_url_driver', 'https://ridesip.my.id/apk/driver.apk'),
+            'apk_download_url_merchant' => $s('apk_download_url_merchant', 'https://ridesip.my.id/apk/merchant.apk'),
         ];
         return view('admin.settings.index', compact('links', 'trialEnds', 'trialActive', 'settings'));
     }
@@ -843,9 +843,9 @@ class AdminController extends Controller
             'admin_food_commission_amount' => (string) $numeric($data['admin_food_commission_amount'] ?? 3000),
             'admin_shop_commission_enabled' => in_array($data['admin_shop_commission_enabled'] ?? 'OFF', ['ON', 'OFF']) ? ($data['admin_shop_commission_enabled'] ?? 'OFF') : 'OFF',
             'admin_shop_commission_amount' => (string) $numeric($data['admin_shop_commission_amount'] ?? 5000),
-            'apk_download_url_customer' => trim($data['apk_download_url_customer'] ?? 'https://gride.web.id/apk/customer.apk'),
-            'apk_download_url_driver' => trim($data['apk_download_url_driver'] ?? 'https://gride.web.id/apk/driver.apk'),
-            'apk_download_url_merchant' => trim($data['apk_download_url_merchant'] ?? 'https://gride.web.id/apk/merchant.apk'),
+            'apk_download_url_customer' => trim($data['apk_download_url_customer'] ?? 'https://ridesip.my.id/apk/customer.apk'),
+            'apk_download_url_driver' => trim($data['apk_download_url_driver'] ?? 'https://ridesip.my.id/apk/driver.apk'),
+            'apk_download_url_merchant' => trim($data['apk_download_url_merchant'] ?? 'https://ridesip.my.id/apk/merchant.apk'),
         ];
 
         foreach ($pairs as $key => $value) {
@@ -867,7 +867,7 @@ class AdminController extends Controller
                 ['setting_value' => json_encode($links), 'updated_at' => now()]
             );
         }
-        // APK download sudah di-host di gride.web.id/apk/; tautan GitHub dipakai
+        // APK download sudah di-host di ridesip.my.id/apk/; tautan GitHub dipakai
         // hanya sebagai catatan historis build.
         return back()->with('success', $links ? 'Build links dari GitHub Actions diperbarui.' : 'Belum ada build terbaru.');
     }
@@ -876,7 +876,7 @@ class AdminController extends Controller
     {
         try {
             $ch = curl_init('https://api.github.com/repos/aksisoftsby/gridewithmanus/actions/artifacts?per_page=30');
-            $headers = ['Accept: application/vnd.github+json', 'User-Agent: Gride-SuperApp'];
+            $headers = ['Accept: application/vnd.github+json', 'User-Agent: RideSip-SuperApp'];
             $token = env('GITHUB_TOKEN');
             if ($token) {
                 $headers[] = 'Authorization: Bearer ' . $token;

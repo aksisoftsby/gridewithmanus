@@ -8,10 +8,10 @@
             <p class="text-sm text-gray-500">Kelola kurir / driver yang terdaftar di sistem.</p>
         </div>
         <div class="flex space-x-3">
-            <a href="{{ route('admin.drivers.create') }}" class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <a href="{{ route('admin.drivers.create') }}" class="bg-pink-700 hover:bg-pink-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-user-plus mr-1"></i> Register Driver
             </a>
-            <a href="{{ route('admin.dashboard') }}" class="text-purple-700 hover:underline text-sm font-semibold">Dashboard &rarr;</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-pink-700 hover:underline text-sm font-semibold">Dashboard &rarr;</a>
         </div>
     </div>
 
@@ -43,8 +43,8 @@
                                 <form action="{{ route('admin.drivers.status', $driver->id) }}" method="POST" class="inline">
                                     @csrf
                                     @method('PUT')
-                                    <select name="status" onchange="this.form.submit()" class="text-xs font-semibold rounded-full px-2.5 py-1 border-0 focus:ring-2 focus:ring-purple-600 cursor-pointer
-                                        {{ $driver->status == 'ONLINE' ? 'bg-purple-100 text-purple-900' : 'bg-gray-200 text-gray-700' }}">
+                                    <select name="status" onchange="this.form.submit()" class="text-xs font-semibold rounded-full px-2.5 py-1 border-0 focus:ring-2 focus:ring-pink-600 cursor-pointer
+                                        {{ $driver->status == 'ONLINE' ? 'bg-pink-100 text-pink-900' : 'bg-gray-200 text-gray-700' }}">
                                         <option value="ONLINE" @selected($driver->status == 'ONLINE')>ONLINE</option>
                                         <option value="OFFLINE" @selected($driver->status == 'OFFLINE')>OFFLINE</option>
                                     </select>
@@ -52,16 +52,16 @@
                             </td>
                             <td class="px-6 py-4">
                                 @if($driver->is_verified)
-                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-900">Verified</span>
+                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-pink-100 text-pink-900">Verified</span>
                                 @else
-                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>
+                                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Pending</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 font-semibold">★ {{ number_format($driver->rating, 2) }}</td>
                             <td class="px-6 py-4 text-gray-600">{{ $driver->total_trips }}</td>
                             <td class="px-6 py-4 text-xs text-gray-500 font-mono">
                                 @if($driver->current_lat && $driver->current_lng)
-                                    <a href="https://www.google.com/maps?q={{ $driver->current_lat }},{{ $driver->current_lng }}" target="_blank" class="text-purple-700 hover:underline">{{ number_format((float)$driver->current_lat, 5) }}, {{ number_format((float)$driver->current_lng, 5) }}</a>
+                                    <a href="https://www.google.com/maps?q={{ $driver->current_lat }},{{ $driver->current_lng }}" target="_blank" class="text-pink-700 hover:underline">{{ number_format((float)$driver->current_lat, 5) }}, {{ number_format((float)$driver->current_lng, 5) }}</a>
                                     @if($driver->last_location_at)
                                         <div class="text-[10px] text-gray-400">{{ \Carbon\Carbon::parse($driver->last_location_at)->format('d M H:i') }}</div>
                                     @endif
@@ -72,7 +72,7 @@
                             <td class="px-6 py-4 text-xs text-gray-500">{{ $driver->created_at ? \Carbon\Carbon::parse($driver->created_at)->format('d M Y') : '-' }}</td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    <a href="{{ route('admin.drivers.edit', $driver->id) }}" class="text-purple-700 hover:text-purple-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
+                                    <a href="{{ route('admin.drivers.edit', $driver->id) }}" class="text-pink-700 hover:text-pink-900 font-medium text-xs"><i class="fa-solid fa-pen-to-square mr-1"></i>Edit</a>
                                     <form action="{{ route('admin.drivers.destroy', $driver->id) }}" method="POST" class="inline" onsubmit="return confirm('Remove this driver?');">
                                         @csrf
                                         @method('DELETE')

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Login khusus halaman webview iklan baris.
  * Tetap memakai tabel users + session web yang sama dengan aplikasi,
- * sehingga sesi login member yang didapat dari app (cookie domain gride.web.id)
+ * sehingga sesi login member yang didapat dari app (cookie domain ridesip.my.id)
  * juga berlaku di halaman ini.
  */
 class WebviewAuthController extends Controller

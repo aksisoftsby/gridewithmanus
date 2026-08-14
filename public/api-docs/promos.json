@@ -28,7 +28,7 @@
     "data": [
       {
         "id": 1,
-        "code": "GRIDEHEMAT50",
+        "code": "RIDESIPHEMAT50",
         "title": "Diskon 50% Makanan & Belanja",
         "discount_type": "PERCENTAGE",
         "discount_value": 50.00,
@@ -40,7 +40,7 @@
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/promos\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/promos\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika tidak ada promo aktif." }
   ]

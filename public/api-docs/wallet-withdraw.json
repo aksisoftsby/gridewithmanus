@@ -1,7 +1,7 @@
 {
   "endpoint": "POST /api/wallet/withdraw",
   "group": "Wallet",
-  "description": "Tarik dana (withdraw) saldo GridePay ke rekening bank tersimpan. Minimal Rp 25.000, maksimal Rp 5.000.000 per transaksi. Wajib verifikasi PIN wallet 6 digit yang benar; salah 5x berturut-turut akan mengunci wallet 5 menit. Saldo divalidasi ulang di server saat submit untuk mencegah race condition, dan idempotency_key mencegah duplikasi saat koneksi putus.",
+  "description": "Tarik dana (withdraw) saldo RideSipPay ke rekening bank tersimpan. Minimal Rp 25.000, maksimal Rp 5.000.000 per transaksi. Wajib verifikasi PIN wallet 6 digit yang benar; salah 5x berturut-turut akan mengunci wallet 5 menit. Saldo divalidasi ulang di server saat submit untuk mencegah race condition, dan idempotency_key mencegah duplikasi saat koneksi putus.",
   "method": "POST",
   "url": "/api/wallet/withdraw",
   "authentication": "Wajib login.",
@@ -32,7 +32,7 @@
       "new_balance": 50000
     }
   },
-  "example_curl": "curl -X POST \"https://gride.web.id/api/wallet/withdraw\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"amount\":50000,\"rekening_id\":1,\"pin\":\"123456\",\"idempotency_key\":\"wd-3-1723521700000\"}'",
+  "example_curl": "curl -X POST \"https://ridesip.my.id/api/wallet/withdraw\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"amount\":50000,\"rekening_id\":1,\"pin\":\"123456\",\"idempotency_key\":\"wd-3-1723521700000\"}'",
   "errors": [
     { "code": 401, "description": "PIN salah — sisa percobaan ditampilkan (maks 5x, lalu terkunci 5 menit)." },
     { "code": 422, "description": "Nominal di luar batas, rekening tidak ditemukan, atau field wajib kosong." },

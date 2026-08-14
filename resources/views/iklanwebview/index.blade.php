@@ -1,4 +1,4 @@
-@extends('layouts.webview', ['title' => 'Iklan Baris Gride'])
+@extends('layouts.webview', ['title' => 'Iklan Baris RideSip'])
 
 @section('content')
 <div class="mb-4 flex items-center justify-between">
@@ -13,7 +13,7 @@
                 </form>
             @else
                 Belum login?
-                <a href="{{ route('webview.login', ['intended' => request()->fullUrl()]) }}" class="text-purple-700 font-semibold underline">Login di sini</a>
+                <a href="{{ route('webview.login', ['intended' => request()->fullUrl()]) }}" class="text-pink-700 font-semibold underline">Login di sini</a>
             @endif
         </p>
     </div>
@@ -21,7 +21,7 @@
 
 <!-- Filter Bar -->
 <form action="{{ route('iklanwebview.index') }}" method="GET" class="bg-white p-3 rounded-2xl shadow-md flex flex-col gap-3 mb-5">
-    <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari judul, deskripsi, atau kota..." class="w-full px-4 py-3 rounded-xl text-gray-800 border focus:outline-none focus:ring-2 focus:ring-purple-500">
+    <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari judul, deskripsi, atau kota..." class="w-full px-4 py-3 rounded-xl text-gray-800 border focus:outline-none focus:ring-2 focus:ring-pink-500">
     <div class="flex gap-2">
         <select name="category_id" class="flex-grow px-4 py-3 rounded-xl text-gray-800 bg-gray-50 border focus:outline-none font-medium">
             <option value="">Semua Kategori</option>
@@ -29,7 +29,7 @@
                 <option value="{{ $c->id }}" {{ ($cat ?? '') == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
             @endforeach
         </select>
-        <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white px-6 py-3 rounded-xl font-semibold transition">
+        <button type="submit" class="bg-pink-700 hover:bg-pink-800 text-white px-6 py-3 rounded-xl font-semibold transition">
             <i class="fa-solid fa-magnifying-glass"></i>
         </button>
     </div>
@@ -47,7 +47,7 @@
                     <img src="/images/merchant-placeholder.svg" alt="Iklan" class="w-14 h-14 opacity-60">
                 @endif
                 @if($item->category_name)
-                    <span class="absolute top-2 left-2 bg-purple-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight">{{ $item->category_name }}</span>
+                    <span class="absolute top-2 left-2 bg-pink-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight">{{ $item->category_name }}</span>
                 @endif
             </div>
             <div class="p-4 flex-1">
@@ -60,7 +60,7 @@
                 </p>
                 <p class="text-xs text-gray-600 mt-1 line-clamp-2">{{ $item->description }}</p>
                 @if((float)$item->price > 0)
-                    <div class="mt-2 font-bold text-purple-700 text-sm">Rp {{ number_format((float)$item->price, 0, ',', '.') }}</div>
+                    <div class="mt-2 font-bold text-pink-700 text-sm">Rp {{ number_format((float)$item->price, 0, ',', '.') }}</div>
                 @endif
             </div>
         </a>
@@ -69,7 +69,7 @@
             <i class="fa-solid fa-rectangle-list text-4xl text-gray-300 mb-3"></i>
             <p class="text-gray-500 text-sm">Belum ada iklan baris.</p>
             @if($me)
-                <a href="{{ route('iklanwebview.create') }}" class="inline-block mt-3 bg-purple-700 text-white px-5 py-2 rounded-full text-sm font-semibold">Pasang Iklan Pertama</a>
+                <a href="{{ route('iklanwebview.create') }}" class="inline-block mt-3 bg-pink-700 text-white px-5 py-2 rounded-full text-sm font-semibold">Pasang Iklan Pertama</a>
             @endif
         </div>
     @endforelse

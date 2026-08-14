@@ -43,6 +43,20 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Disable Gradle daemon and VFS file watching in CI
+        run: |
+          for dir in app-customer app-driver app-merchant; do
+            echo "org.gradle.daemon=false" >> $dir/android/gradle.properties
+            echo "org.gradle.caching=false" >> $dir/android/gradle.properties
+            echo "org.gradle.vfs.watch=false" >> $dir/android/gradle.properties
+          done
+
+      - name: Stop any lingering Gradle daemon
+        run: |
+          ./gradlew --stop || true
+        working-directory: ${{ matrix.app }}/android
+        continue-on-error: true
+
       - name: Flutter Clean + Pub Get
         run: |
           flutter clean
@@ -54,8 +68,12 @@ jobs:
         run: flutter build apk --release
         working-directory: ${{ matrix.app }}
 
+      - name: Rename APK per app
+        if: success()
+        run: cp ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk ${{ matrix.app }}/build/app/outputs/flutter-apk/${{ matrix.app }}.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}-apk
-          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/${{ matrix.app }}.apk

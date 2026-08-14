@@ -1,7 +1,7 @@
 {
   "endpoint": "GET /api/wallets",
   "group": "Wallet",
-  "description": "Dompet digital GridePay pengguna (saldo, status). Tabel wallet dibuat otomatis (autocreate) saat pertama kali diakses. Saldo disimpan sebagai BIGINT sen (100000 = Rp 100.000) di backend, dan ditampilkan sebagai rupiah di aplikasi.",
+  "description": "Dompet digital RideSipPay pengguna (saldo, status). Tabel wallet dibuat otomatis (autocreate) saat pertama kali diakses. Saldo disimpan sebagai BIGINT sen (100000 = Rp 100.000) di backend, dan ditampilkan sebagai rupiah di aplikasi.",
   "method": "GET",
   "url": "/api/wallets?user_id={user_id}",
   "authentication": "Wajib login (user_id dari akun yang login).",
@@ -32,7 +32,7 @@
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/wallets?user_id=3\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/wallets?user_id=3\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 422, "description": "user_id tidak dikirim atau bukan integer." },
     { "code": 500, "description": "Gagal membuat tabel wallet di database." }

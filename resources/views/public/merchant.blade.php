@@ -9,12 +9,12 @@
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center gap-6">
         <img src="{{ filled($merchant->logo_url) ? $merchant->logo_url : asset('images/merchant-placeholder.svg') }}" alt="{{ $merchant->name }}" loading="lazy" class="w-28 h-28 rounded-2xl object-cover shadow-xl border-4 border-white" onerror="this.onerror=null;this.src='{{ asset('images/merchant-placeholder.svg') }}';">
         <div>
-            <span class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">{{ $merchant->type }}</span>
+            <span class="bg-pink-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">{{ $merchant->type }}</span>
             <h1 class="text-3xl font-extrabold mt-2">{{ $merchant->name }}</h1>
             <p class="text-sm text-gray-200 mt-1 max-w-xl">{{ $merchant->description }}</p>
             <div class="flex items-center space-x-4 mt-3 text-sm text-gray-300">
-                <span><i class="fa-solid fa-star text-yellow-400 mr-1"></i> {{ $merchant->rating }} ({{ $merchant->total_orders }}+ orders)</span>
-                <span><i class="fa-solid fa-location-dot mr-1 text-amber-400"></i> {{ $merchant->address_line }}, {{ $merchant->city }}</span>
+                <span><i class="fa-solid fa-star text-blue-400 mr-1"></i> {{ $merchant->rating }} ({{ $merchant->total_orders }}+ orders)</span>
+                <span><i class="fa-solid fa-location-dot mr-1 text-orange-400"></i> {{ $merchant->address_line }}, {{ $merchant->city }}</span>
             </div>
         </div>
     </div>
@@ -23,7 +23,7 @@
 <!-- Menu Items / Products List -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
     <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-        <i class="fa-solid fa-utensils text-purple-700 mr-2"></i> Menu & Produk Tersedia
+        <i class="fa-solid fa-utensils text-pink-700 mr-2"></i> Menu & Produk Tersedia
     </h2>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -34,8 +34,8 @@
                     <h3 class="font-bold text-gray-900 text-base">{{ $item->name }}</h3>
                     <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ $item->description }}</p>
                     <div class="mt-3 flex justify-between items-center">
-                        <span class="font-bold text-purple-700">Rp {{ number_format($item->price, 0, ',', '.') }}</span>
-                        <span class="text-xs bg-purple-100 text-purple-900 px-2 py-0.5 rounded font-medium">Tersedia</span>
+                        <span class="font-bold text-pink-700">Rp {{ number_format($item->price, 0, ',', '.') }}</span>
+                        <span class="text-xs bg-pink-100 text-pink-900 px-2 py-0.5 rounded font-medium">Tersedia</span>
                     </div>
                 </div>
             </div>

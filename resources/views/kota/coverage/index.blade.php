@@ -8,7 +8,7 @@
             <p class="text-sm text-gray-500">Kota-kota yang menjadi tanggung jawab pengelolaan manager</p>
         </div>
         @if ($isAdmin)
-            <span class="px-3 py-1.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+            <span class="px-3 py-1.5 text-xs font-semibold rounded-full bg-pink-100 text-pink-800">
                 <i class="fa-solid fa-shield-halved mr-1"></i> Mode ADMIN — dapat menambah/menghapus coverage
             </span>
         @endif
@@ -28,7 +28,7 @@
                 @csrf
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Manager</label>
-                    <select name="user_id" required class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <select name="user_id" required class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
                         <option value="">-- Pilih manager --</option>
                         @foreach ($managers ?? [] as $m)
                             <option value="{{ $m->id }}">{{ $m->full_name }} ({{ $m->email }})</option>
@@ -37,7 +37,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Provinsi</label>
-                    <select id="coverageProvinsi" class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <select id="coverageProvinsi" class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
                         <option value="">-- Pilih provinsi --</option>
                         @foreach ($provinsis ?? [] as $p)
                             <option value="{{ $p->id }}">{{ $p->nama }}</option>
@@ -46,11 +46,11 @@
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Kota/Kabupaten</label>
-                    <select name="id_kota" required class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" id="coverageKota">
+                    <select name="id_kota" required class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500" id="coverageKota">
                         <option value="">-- Pilih provinsi dulu --</option>
                     </select>
                 </div>
-                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow transition">
+                <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow transition">
                     <i class="fa-solid fa-plus mr-1"></i> Tambah
                 </button>
             </form>

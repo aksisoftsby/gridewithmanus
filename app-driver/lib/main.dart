@@ -8,7 +8,7 @@ void main() {
   runApp(const DriverApp());
 }
 
-const String kApiBase = 'https://gride.web.id/api';
+const String kApiBase = 'https://ridesip.my.id/api';
 
 class DriverApp extends StatelessWidget {
   const DriverApp({super.key});
@@ -16,7 +16,7 @@ class DriverApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gride Driver',
+      title: 'RideSip Driver',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
@@ -30,7 +30,7 @@ class DriverApp extends StatelessWidget {
 // ============ Session (login tersimpan di device) ============
 
 class Session {
-  static const String _key = 'gride_driver_user';
+  static const String _key = 'ridesip_driver_user';
 
   static Future<Map<String, dynamic>?> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -212,7 +212,7 @@ class _OrdersPageState extends State<OrdersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gride Driver'),
+        title: const Text('RideSip Driver'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
@@ -536,7 +536,7 @@ class _AccountPageState extends State<AccountPage> {
           const Text('Masuk / Daftar Driver', textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          const Text('Bergabung sebagai driver Gride dan mulai dapatkan penghasilan.',
+          const Text('Bergabung sebagai driver RideSip dan mulai dapatkan penghasilan.',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.black54)),
           const SizedBox(height: 16),
           SegmentedButton<int>(
@@ -915,7 +915,7 @@ class _AccountPageState extends State<AccountPage> {
   }
 }
 
-// ============ Halaman PPOB — WebView ke https://gride.web.id/ppob/ ============
+// ============ Halaman PPOB — WebView ke https://ridesip.my.id/ppob/ ============
 
 class PpobWebViewPage extends StatefulWidget {
   const PpobWebViewPage({super.key});
@@ -960,7 +960,7 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
       final name = (data['data']['full_name'] ?? '').toString();
       final phone = (data['data']['phone'] ?? '').toString();
       if (mounted) {
-        setState(() => _url = 'https://gride.web.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+        setState(() => _url = 'https://ridesip.my.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
       }
     } catch (e) {
       if (mounted) {
@@ -1008,7 +1008,7 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
                   domStorageEnabled: true,
                   useHybridComposition: true,
                   supportMultipleWindows: false,
-                  userAgent: 'GrideDriverApp/1.0',
+                  userAgent: 'RideSipDriverApp/1.0',
                   javaScriptCanOpenWindowsAutomatically: false,
                 ),
                 onLoadStop: (controller, url) {

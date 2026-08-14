@@ -16,13 +16,13 @@
       "description": "Filter berdasarkan judul"
     }
   ],
-  "example_request": "GET https://gride.web.id/api/news",
+  "example_request": "GET https://ridesip.my.id/api/news",
   "example_response": {
     "success": true,
     "data": [
       {
         "id": 1,
-        "title": "Gride Resmi Hadir di Surabaya",
+        "title": "RideSip Resmi Hadir di Surabaya",
         "excerpt": "...",
         "content": "...",
         "category_name": "Pengumuman",

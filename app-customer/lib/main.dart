@@ -14,13 +14,13 @@ void main() {
   runApp(const CustomerApp());
 }
 
-const String kApiBase = 'https://gride.web.id/api';
+const String kApiBase = 'https://ridesip.my.id/api';
 
 // Purple-gold branding shared by home, form, and Iklan Gratis screens.
-const Color kPurpleMain = Color(0xFF4B1D7E);
-const Color kPurpleCard = Color(0xFF5C2A96);
-const Color kGold = Color(0xFFE8B84B);
-const Color kGoldBright = Color(0xFFF7D27E);
+const Color kPurpleMain = Color(0xFFB00058);
+const Color kPurpleCard = Color(0xFFD8006B);
+const Color kGold = Color(0xFF2979FF);
+const Color kGoldBright = Color(0xFF64B5F6);
 
 /// Global key exposing MainShell state so home tiles can switch bottom tabs.
 final GlobalKey<_MainShellState> _shellStateKey = GlobalKey<_MainShellState>();
@@ -31,9 +31,9 @@ class CustomerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gride',
+      title: 'RideSip',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4B1D7E)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFB00058)),
         useMaterial3: true,
       ),
       home: MainShell(key: _shellStateKey),
@@ -44,7 +44,7 @@ class CustomerApp extends StatelessWidget {
 
 /// Session persistence for the logged-in customer.
 class Session {
-  static const String _key = 'gride_user';
+  static const String _key = 'ridesip_user';
 
   static Future<Map<String, dynamic>?> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -93,8 +93,8 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFF3A1566), Color(0xFF2A0E4E)]),
-          boxShadow: [BoxShadow(color: Color(0xFFE8B84B), blurRadius: 14, offset: Offset(0, -2))],
+          gradient: LinearGradient(colors: [Color(0xFF140823), Color(0xFF45062C)]),
+          boxShadow: [BoxShadow(color: Color(0xFF2979FF), blurRadius: 14, offset: Offset(0, -2))],
         ),
         child: NavigationBar(
           height: 72,
@@ -103,9 +103,9 @@ class _MainShellState extends State<MainShell> {
           selectedIndex: _page,
           onDestinationSelected: (i) => setState(() => _page = i),
           destinations: const [
-            NavigationDestination(icon: Icon(Icons.headset_mic_outlined, color: Color(0xFFE8B84B)), selectedIcon: Icon(Icons.headset_mic, color: Color(0xFFE8B84B)), label: 'Admin'),
-            NavigationDestination(icon: Icon(Icons.grid_view, color: Color(0xFFE8B84B)), selectedIcon: Icon(Icons.grid_view, color: Color(0xFFE8B84B)), label: 'Menu'),
-            NavigationDestination(icon: Icon(Icons.person_outline, color: Color(0xFFE8B84B)), selectedIcon: Icon(Icons.person, color: Color(0xFFE8B84B)), label: 'Profil'),
+            NavigationDestination(icon: Icon(Icons.headset_mic_outlined, color: Color(0xFF2979FF)), selectedIcon: Icon(Icons.headset_mic, color: Color(0xFF2979FF)), label: 'Admin'),
+            NavigationDestination(icon: Icon(Icons.grid_view, color: Color(0xFF2979FF)), selectedIcon: Icon(Icons.grid_view, color: Color(0xFF2979FF)), label: 'Menu'),
+            NavigationDestination(icon: Icon(Icons.person_outline, color: Color(0xFF2979FF)), selectedIcon: Icon(Icons.person, color: Color(0xFF2979FF)), label: 'Profil'),
           ],
         ),
       ),
@@ -165,7 +165,7 @@ class _CustomerHomeState extends State<CustomerHome> {
   Timer? _newsTimer;
   int _newsIndex = 0;
 
-  static const Color kDeepPurple = Color(0xFF2A0E4E);
+  static const Color kDeepPurple = Color(0xFF45062C);
   static const Color kPurple = kPurpleMain;
 
   @override
@@ -302,7 +302,7 @@ class _CustomerHomeState extends State<CustomerHome> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [kDeepPurple, kPurple, Color(0xFF6A35B8)],
+            colors: [kDeepPurple, kPurple, Color(0xFF1E7DFF)],
             stops: [0.0, 0.45, 1.0],
           ),
         ),
@@ -338,7 +338,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               // GrSaldo wallet card
               Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF5C2A96), Color(0xFF3D1570)]),
+                  gradient: const LinearGradient(colors: [Color(0xFFD8006B), Color(0xFF8B0A4B)]),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 8))],
                   border: Border.all(color: kGold.withOpacity(0.35), width: 1),
@@ -351,12 +351,12 @@ class _CustomerHomeState extends State<CustomerHome> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(children: [Icon(Icons.account_balance_wallet, color: kGoldBright, size: 18), SizedBox(width: 8), Text('GrSaldo', style: TextStyle(color: Color(0xFFF7D27E), fontWeight: FontWeight.bold, fontSize: 14))]),
+                          const Row(children: [Icon(Icons.account_balance_wallet, color: kGoldBright, size: 18), SizedBox(width: 8), Text('GrSaldo', style: TextStyle(color: Color(0xFF64B5F6), fontWeight: FontWeight.bold, fontSize: 14))]),
                           const SizedBox(height: 8),
                           Text(formatRp(_walletLoading ? 0 : _walletBalance),
                               style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
                           const SizedBox(height: 10),
-                          const Text('Tap for explore', style: TextStyle(color: Color(0xFFCFC3EE), fontSize: 12)),
+                          const Text('Tap for explore', style: TextStyle(color: Color(0xFFE8C6F3), fontSize: 12)),
                         ],
                       ),
                     ),
@@ -382,7 +382,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               Container(
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                 child: TextField(
-                  style: const TextStyle(color: Color(0xFF2A0E4E)),
+                  style: const TextStyle(color: Color(0xFF45062C)),
                   decoration: InputDecoration(
                     hintText: 'Cari makanan atau toko...',
                     hintStyle: TextStyle(color: Colors.deepPurple.shade200),
@@ -424,7 +424,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                 itemCount: promos.isEmpty && promoError == null ? 1 : promos.length,
                 itemBuilder: (context, index) {
                   if (promos.isEmpty) {
-                    return const Center(child: Text('Belum ada promo', style: TextStyle(color: Color(0xFFCFC3EE))));
+                    return const Center(child: Text('Belum ada promo', style: TextStyle(color: Color(0xFFE8C6F3))));
                   }
                   final promo = promos[index];
                   return Container(
@@ -432,7 +432,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                     margin: const EdgeInsets.only(right: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFE8B84B), Color(0xFFB8862C)]),
+                      gradient: const LinearGradient(colors: [Color(0xFF2979FF), Color(0xFFB8862C)]),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [BoxShadow(color: kGold.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
@@ -441,10 +441,10 @@ class _CustomerHomeState extends State<CustomerHome> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(promo['code'] ?? '',
-                            style: const TextStyle(color: Color(0xFF2A0E4E), fontWeight: FontWeight.w900)),
+                            style: const TextStyle(color: Color(0xFF45062C), fontWeight: FontWeight.w900)),
                         const SizedBox(height: 4),
                         Text(promo['title'] ?? '',
-                            style: const TextStyle(color: Color(0xFF2A0E4E), fontSize: 14, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: Color(0xFF45062C), fontSize: 14, fontWeight: FontWeight.bold),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis),
                       ],
@@ -482,7 +482,7 @@ class _CustomerHomeState extends State<CustomerHome> {
               itemBuilder: (context, index) {
                 final m = merchants[index];
                 return Card(
-                  color: const Color(0xFF3D1570),
+                  color: const Color(0xFF8B0A4B),
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
@@ -505,7 +505,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                       ),
                     ),
                     title: Text(m['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: Text('${m['type'] ?? ''} • ${m['city'] ?? ''}', style: const TextStyle(color: Color(0xFFCFC3EE))),
+                    subtitle: Text('${m['type'] ?? ''} • ${m['city'] ?? ''}', style: const TextStyle(color: Color(0xFFE8C6F3))),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -549,11 +549,11 @@ class _CustomerHomeState extends State<CustomerHome> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           image: DecorationImage(
-                            image: NetworkImage((n['featured_image'] ?? '').toString().isNotEmpty ? n['featured_image'] : 'https://placehold.co/600x400/4B1D7E/E8B84B?text=Gride+News'),
+                            image: NetworkImage((n['featured_image'] ?? '').toString().isNotEmpty ? n['featured_image'] : 'https://placehold.co/600x400/4B1D7E/E8B84B?text=RideSip+News'),
                             fit: BoxFit.cover,
                           ),
                           gradient: (n['featured_image'] ?? '').toString().isEmpty
-                              ? const LinearGradient(colors: [Color(0xFF5C2A96), Color(0xFFB8862C)])
+                              ? const LinearGradient(colors: [Color(0xFFD8006B), Color(0xFFB8862C)])
                               : LinearGradient(colors: [Colors.black.withOpacity(0.65), Colors.black.withOpacity(0.15)], begin: Alignment.bottomCenter, end: Alignment.topCenter),
                           color: (n['featured_image'] ?? '').toString().isEmpty ? null : Colors.black,
                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 3))],
@@ -571,7 +571,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(color: kGold, borderRadius: BorderRadius.circular(8)),
-                                      child: Text('${n['category_name']}', style: const TextStyle(color: Color(0xFF2A0E4E), fontSize: 11, fontWeight: FontWeight.bold)),
+                                      child: Text('${n['category_name']}', style: const TextStyle(color: Color(0xFF45062C), fontSize: 11, fontWeight: FontWeight.bold)),
                                     ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -618,7 +618,7 @@ class _CustomerHomeState extends State<CustomerHome> {
   Widget _buildCategoryChip(String label, String type) {
     final isSelected = selectedType == type;
     return ChoiceChip(
-      label: Text(label, style: TextStyle(color: isSelected ? const Color(0xFF2A0E4E) : Colors.white)),
+      label: Text(label, style: TextStyle(color: isSelected ? const Color(0xFF45062C) : Colors.white)),
       selected: isSelected,
       selectedColor: kGold,
       backgroundColor: kPurpleCard.withOpacity(0.6),
@@ -729,7 +729,7 @@ class _CustomerHomeState extends State<CustomerHome> {
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${s.label} akan segera hadir di Gride SuperApp.')),
+          SnackBar(content: Text('${s.label} akan segera hadir di RideSip SuperApp.')),
         );
     }
   }
@@ -953,7 +953,7 @@ class _KirimPageState extends State<KirimPage> {
         'lon': _pickLng.toString(),
         'zoom': '18',
         'addressdetails': '1',
-      }), headers: {'User-Agent': 'gride-customer-app/1.0'});
+      }), headers: {'User-Agent': 'ridesip-customer-app/1.0'});
       if (res.statusCode == 200) {
         final d = jsonDecode(res.body);
         if (mounted) setState(() => _pickAddress = d['display_name'] ?? 'Titik dipilih');
@@ -1004,7 +1004,7 @@ class _KirimPageState extends State<KirimPage> {
     });
 
     try {
-      final headers = {'User-Agent': 'gride-customer-app/1.0'};
+      final headers = {'User-Agent': 'ridesip-customer-app/1.0'};
       final pickupRes = await http.get(
         Uri.https('nominatim.openstreetmap.org', '/search', {
           'q': pickupText,
@@ -1200,7 +1200,7 @@ class _KirimPageState extends State<KirimPage> {
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.gride.app',
+              userAgentPackageName: 'com.ridesip.app',
               maxNativeZoom: 19,
             ),
             // Garis rute merah mengikuti jalan raya
@@ -1572,7 +1572,7 @@ class _KirimPageState extends State<KirimPage> {
                       children: [
                         Text(
                           _estimatedFee != null ? formatRp(_estimatedFee! + kAdminFee) : formatRp(_baseFare + kAdminFee),
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4B1D7E)),
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFB00058)),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -1843,7 +1843,7 @@ class _AntarPageState extends State<AntarPage> {
                                           leading: ClipRRect(
                                             borderRadius: BorderRadius.circular(8),
                                             child: Image.network(
-                                              (m['logo_url'] ?? '').toString().isNotEmpty ? m['logo_url'] : 'https://placehold.co/200x200/0d9488/ffffff?text=Gride',
+                                              (m['logo_url'] ?? '').toString().isNotEmpty ? m['logo_url'] : 'https://placehold.co/200x200/0d9488/ffffff?text=RideSip',
                                               width: 60,
                                               height: 60,
                                               fit: BoxFit.cover,
@@ -1939,7 +1939,7 @@ class _OrderMerchantPageState extends State<OrderMerchantPage> {
           'limit': '1',
           'countrycodes': 'id',
         }),
-        headers: {'User-Agent': 'gride-customer-app/1.0'},
+        headers: {'User-Agent': 'ridesip-customer-app/1.0'},
       );
       final list = jsonDecode(res.body) as List;
       if (mounted && list.isNotEmpty) {
@@ -2081,7 +2081,7 @@ class _OrderMerchantPageState extends State<OrderMerchantPage> {
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.gride.app',
+                      userAgentPackageName: 'com.ridesip.app',
                       maxNativeZoom: 19,
                     ),
                     if (_dropoffLat != null)
@@ -2253,7 +2253,7 @@ class _OrderMerchantPageState extends State<OrderMerchantPage> {
                         children: [
                           Text(
                             formatRp(_subtotal() + kAdminFee),
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF4B1D7E)),
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFB00058)),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -2661,7 +2661,7 @@ class _AkunPageState extends State<AkunPage> {
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF4B1D7E), Color(0xFF7B4DBF)],
+                          colors: [Color(0xFFB00058), Color(0xFF7B4DBF)],
                           begin: Alignment.topLeft, end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
@@ -2884,7 +2884,7 @@ class NewsDetailPage extends StatelessWidget {
             foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
-                imageUrl.isNotEmpty ? imageUrl : 'https://placehold.co/600x400/0d9488/ffffff?text=Gride+News',
+                imageUrl.isNotEmpty ? imageUrl : 'https://placehold.co/600x400/0d9488/ffffff?text=RideSip+News',
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(color: Colors.teal.shade300),
               ),
@@ -3885,7 +3885,7 @@ class _WalletPageState extends State<WalletPage> {
                   // Saldo utama + hide/show
                   Container(
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF4B1D7E), Color(0xFF7B4DBF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                      gradient: const LinearGradient(colors: [Color(0xFFB00058), Color(0xFF7B4DBF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [BoxShadow(color: kPurpleMain.withOpacity(0.35), blurRadius: 14, offset: const Offset(0, 7))],
                     ),
@@ -4395,7 +4395,7 @@ class _WalletHelpPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('Hubungi customer service Gride untuk kendala transaksi ini.', style: TextStyle(color: Colors.grey)),
+          const Text('Hubungi customer service RideSip untuk kendala transaksi ini.', style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 14),
           _row('Nomor Referensi', (transaction['reference_no'] ?? '-').toString()),
           _row('Status', (transaction['status'] ?? '-').toString()),
@@ -4403,8 +4403,8 @@ class _WalletHelpPage extends StatelessWidget {
           const Text('Cara menghubungi:', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           ListTile(leading: const Icon(Icons.chat_bubble_outline), title: const Text('Chat Customer Service'), subtitle: const Text('Menu Admin > Chat di aplikasi')),
-          ListTile(leading: const Icon(Icons.phone_outlined), title: const Text('Telepon CS Gride'), subtitle: const Text('0800-1-GRIDE (0800-1-47433)')),
-          ListTile(leading: const Icon(Icons.email_outlined), title: const Text('Email'), subtitle: const Text('cs@gride.web.id')),
+          ListTile(leading: const Icon(Icons.phone_outlined), title: const Text('Telepon CS RideSip'), subtitle: const Text('0800-1-GRIDE (0800-1-47433)')),
+          ListTile(leading: const Icon(Icons.email_outlined), title: const Text('Email'), subtitle: const Text('cs@ridesip.my.id')),
         ],
       ),
     );
@@ -5114,7 +5114,7 @@ class _WalletPinPageState extends State<WalletPinPage> {
 }
 
 // ==========================================================================
-// Halaman PPOB — WebView ke https://gride.web.id/ppob/ dengan sesi singkat
+// Halaman PPOB — WebView ke https://ridesip.my.id/ppob/ dengan sesi singkat
 // dari API (GET /api/ppob/webview-token). Setelah transaksi sukses, saldo
 // GrSaldo di-refresh secara otomatis.
 // ==========================================================================
@@ -5164,7 +5164,7 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
       final name = (data['data']['full_name'] ?? '').toString();
       final phone = (data['data']['phone'] ?? '').toString();
       if (mounted) {
-        setState(() => _url = 'https://gride.web.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+        setState(() => _url = 'https://ridesip.my.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
       }
     } catch (e) {
       if (mounted) {
@@ -5217,7 +5217,7 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
                   domStorageEnabled: true,
                   useHybridComposition: true,
                   supportMultipleWindows: false,
-                  userAgent: 'GrideApp/1.0',
+                  userAgent: 'RideSipApp/1.0',
                   javaScriptCanOpenWindowsAutomatically: false,
                 ),
                 onWebViewCreated: (controller) => _controller = controller,

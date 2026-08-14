@@ -17,18 +17,18 @@
         <form action="{{ route('kota.wilayah.index') }}" method="GET" class="flex flex-wrap gap-3 items-end">
             <div>
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Filter Provinsi</label>
-                <select name="provinsi" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none w-64">
+                <select name="provinsi" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none w-64">
                     <option value="">-- Semua Provinsi --</option>
                     @foreach($provinsis as $p)
                         <option value="{{ $p->id }}" {{ (string)($searchProvinsi ?? '') === (string)$p->id ? 'selected' : '' }}>{{ $p->nama }} ({{ $p->pulau }})</option>
                     @endforeach
                 </select>
             </div>
-            <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                 <i class="fa-solid fa-filter mr-1"></i> Terapkan
             </button>
             @if($searchProvinsi)
-                <a href="{{ route('kota.wilayah.index') }}" class="text-sm text-amber-700 hover:underline py-2">Hapus filter</a>
+                <a href="{{ route('kota.wilayah.index') }}" class="text-sm text-orange-700 hover:underline py-2">Hapus filter</a>
             @endif
         </form>
     </div>
@@ -55,7 +55,7 @@
                             <td class="px-6 py-3">{{ $k->provinsi_nama }}</td>
                             <td class="px-6 py-3 font-semibold text-gray-800">{{ $k->nama }}</td>
                             <td class="px-6 py-3">
-                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $k->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-900' }}">{{ $k->tipe }}</span>
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $k->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-900' }}">{{ $k->tipe }}</span>
                             </td>
                         </tr>
                     @empty

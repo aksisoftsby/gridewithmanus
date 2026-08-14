@@ -1,7 +1,7 @@
 {
   "endpoint": "POST /api/wallet/pin/verify dan /api/wallet/pin/set",
   "group": "Wallet",
-  "description": "Manajemen PIN wallet GridePay 6 digit. PIN disimpan ter-hash bcrypt di backend. Gagal 5x berturut-turut mengunci wallet selama 5 menit. PIN wajib untuk top up, tarik dana, dan pengiriman transaksi keuangan lainnya.",
+  "description": "Manajemen PIN wallet RideSipPay 6 digit. PIN disimpan ter-hash bcrypt di backend. Gagal 5x berturut-turut mengunci wallet selama 5 menit. PIN wajib untuk top up, tarik dana, dan pengiriman transaksi keuangan lainnya.",
   "method": "POST",
   "url": "/api/wallet/pin/verify",
   "authentication": "Wajib login.",
@@ -27,7 +27,7 @@
       "attempts_remaining": 5
     }
   },
-  "example_curl": "curl -X POST \"https://gride.web.id/api/wallet/pin/verify\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"pin\":\"123456\"}'",
+  "example_curl": "curl -X POST \"https://ridesip.my.id/api/wallet/pin/verify\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"pin\":\"123456\"}'",
   "errors": [
     { "code": 401, "description": "PIN salah — pesan berisi sisa percobaan. Setelah 5x salah, wallet terkunci 5 menit." },
     { "code": 423, "description": "Wallet sedang terkunci, coba lagi setelah masa lock habis." },

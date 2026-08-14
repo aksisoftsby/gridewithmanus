@@ -1,8 +1,8 @@
 {
-  "api_name": "Gride Superapp REST API",
-  "base_url": "https://gride.web.id/api",
+  "api_name": "RideSip Superapp REST API",
+  "base_url": "https://ridesip.my.id/api",
   "version": "1.4",
-  "description": "REST API publik ekosistem Gride Superapp untuk aplikasi Customer, Driver, dan Merchant. Format respons selalu JSON.",
+  "description": "REST API publik ekosistem RideSip Superapp untuk aplikasi Customer, Driver, dan Merchant. Format respons selalu JSON.",
   "response_format": "Semua endpoint mengembalikan objek JSON dengan field \"status\" (success/error).",
   "error_format": {
     "example": {
@@ -115,7 +115,7 @@
     {
       "endpoint": "GET /api/wallets",
       "group": "Wallet",
-      "summary": "Saldo dompet GridePay pengguna (autocreate tabel wallet jika belum ada).",
+      "summary": "Saldo dompet RideSipPay pengguna (autocreate tabel wallet jika belum ada).",
       "doc_file": "/api-docs/wallet.json"
     },
     {

@@ -1,7 +1,7 @@
 {
   "endpoint": "GET/POST/PUT/DELETE /api/wallet/rekening",
   "group": "Wallet",
-  "description": "Kelola rekening bank tujuan penarikan dana GridePay milik user: tambah rekening baru, ubah (set default), dan hapus. Rekening pertama yang ditambahkan otomatis menjadi default. Untuk produksi, verifikasi nama pemilik rekening dilakukan melalui inquiry ke bank API.",
+  "description": "Kelola rekening bank tujuan penarikan dana RideSipPay milik user: tambah rekening baru, ubah (set default), dan hapus. Rekening pertama yang ditambahkan otomatis menjadi default. Untuk produksi, verifikasi nama pemilik rekening dilakukan melalui inquiry ke bank API.",
   "method": "GET",
   "url": "/api/wallet/rekening?user_id={user_id}",
   "authentication": "Wajib login.",
@@ -33,7 +33,7 @@
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/wallet/rekening?user_id=3\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/wallet/rekening?user_id=3\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 422, "description": "user_id tidak dikirim atau bukan integer." }
   ],

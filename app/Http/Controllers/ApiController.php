@@ -306,7 +306,7 @@ class ApiController extends Controller
     }
 
     /**
-     * GET /api/wallets?user_id=X — saldo dompet pelanggan (GridePay) untuk app_customer.
+     * GET /api/wallets?user_id=X — saldo dompet pelanggan (GrSaldo) untuk app_customer.
      * Autocreate wallets table & row bila belum ada (production menggunakan BIGINT).
      */
     public function wallets(Request $request)
@@ -374,9 +374,9 @@ class ApiController extends Controller
                 'admin_shop_commission_enabled' => $this->getSetting('admin_shop_commission_enabled') ?? 'OFF',
                 'admin_shop_commission_amount' => $this->getSetting('admin_shop_commission_amount') ?? '0',
                 'apk_urls' => [
-                    'customer' => 'https://gride.web.id/apk/customer.apk',
-                    'driver' => 'https://gride.web.id/apk/driver.apk',
-                    'merchant' => 'https://gride.web.id/apk/merchant.apk',
+                    'customer' => 'https://ridesip.my.id/apk/customer.apk',
+                    'driver' => 'https://ridesip.my.id/apk/driver.apk',
+                    'merchant' => 'https://ridesip.my.id/apk/merchant.apk',
                 ],
             ]
         ]);
@@ -1415,7 +1415,7 @@ class ApiController extends Controller
     }
 
     // =========================================================================
-    // MODUL WALLET (GridePay) — top up, withdraw, riwayat, rekening, PIN
+    // MODUL WALLET (GrSaldo) — top up, withdraw, riwayat, rekening, PIN
     // =========================================================================
 
     /** Pastikan struktur wallet (table + kolom) tersedia di production BIGINT. */
@@ -1566,7 +1566,7 @@ class ApiController extends Controller
             'wallet_id' => $walletId, 'type' => 'TOPUP', 'amount' => $amount,
             'balance_before' => $before, 'balance_after' => $after, 'status' => 'SUCCESS',
             'method' => $method, 'reference_no' => $refNo, 'idempotency_key' => $idem,
-            'description' => 'Top up GridePay via ' . $method,
+            'description' => 'Top up GrSaldo via ' . $method,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('wallets')->where('id', $walletId)

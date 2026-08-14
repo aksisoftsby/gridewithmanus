@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Halaman landing iklan baris untuk WebView aplikasi (tanpa header/footer).
  * URL: /iklan-webview
- * Session login member di aplikasi (domain yang sama: gride.web.id) ikut terbaca
+ * Session login member di aplikasi (domain yang sama: ridesip.my.id) ikut terbaca
  * melalui cookie, sehingga member bisa posting dan melihat iklan miliknya.
  */
 class IklanWebviewController extends Controller

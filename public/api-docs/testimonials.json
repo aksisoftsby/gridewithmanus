@@ -10,7 +10,7 @@
       "description": "Jumlah testimoni (default 6, max 50)"
     }
   ],
-  "example_request": "GET https://gride.web.id/api/testimonials",
+  "example_request": "GET https://ridesip.my.id/api/testimonials",
   "example_response": {
     "success": true,
     "data": [

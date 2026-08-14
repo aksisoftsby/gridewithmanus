@@ -8,10 +8,10 @@
             <p class="text-sm text-gray-500">Merchant sesuai coverage kota &amp; driver</p>
         </div>
         <div class="flex gap-2">
-            <a href="{{ route('kota.members.index', ['type' => 'merchant']) }}" class="px-4 py-2 rounded-lg text-sm font-semibold shadow transition {{ ($type ?? 'merchant') === 'merchant' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+            <a href="{{ route('kota.members.index', ['type' => 'merchant']) }}" class="px-4 py-2 rounded-lg text-sm font-semibold shadow transition {{ ($type ?? 'merchant') === 'merchant' ? 'bg-pink-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
                 <i class="fa-solid fa-store mr-1"></i> Merchant
             </a>
-            <a href="{{ route('kota.members.index', ['type' => 'driver']) }}" class="px-4 py-2 rounded-lg text-sm font-semibold shadow transition {{ ($type ?? '') === 'driver' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+            <a href="{{ route('kota.members.index', ['type' => 'driver']) }}" class="px-4 py-2 rounded-lg text-sm font-semibold shadow transition {{ ($type ?? '') === 'driver' ? 'bg-pink-600 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
                 <i class="fa-solid fa-motorcycle mr-1"></i> Driver
             </a>
         </div>
@@ -28,9 +28,9 @@
 
         <!-- Search -->
         <form method="GET" class="mb-4 flex gap-2">
-            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari nama merchant, kota, pemilik..." class="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari nama merchant, kota, pemilik..." class="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
             <input type="hidden" name="type" value="merchant">
-            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Cari
             </button>
             @if (!empty($search))
@@ -78,7 +78,7 @@
                                 </span>
                             </td>
                             <td class="px-5 py-3">
-                                <a href="{{ route('kota.members.merchant.edit', $m->id) }}" class="text-purple-600 hover:underline text-xs font-semibold">
+                                <a href="{{ route('kota.members.merchant.edit', $m->id) }}" class="text-pink-600 hover:underline text-xs font-semibold">
                                     <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
                                 </a>
                             </td>
@@ -100,15 +100,15 @@
             @endif
         </div>
     @else
-        <div class="bg-amber-50 border border-amber-100 text-amber-800 text-sm rounded-lg px-4 py-3 mb-6">
+        <div class="bg-orange-50 border border-orange-100 text-orange-800 text-sm rounded-lg px-4 py-3 mb-6">
             <i class="fa-solid fa-circle-info mr-1"></i>
             Tabel driver <strong>tidak menyimpan data kota</strong>, sehingga daftar ini menampilkan semua driver yang terdaftar di platform (tidak dapat difilter per kota).
         </div>
 
         <form method="GET" class="mb-4 flex gap-2">
-            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari nama driver, email, status..." class="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari nama driver, email, status..." class="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
             <input type="hidden" name="type" value="driver">
-            <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
+            <button type="submit" class="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Cari
             </button>
             @if (!empty($search))
@@ -141,7 +141,7 @@
                             <td class="px-5 py-3 text-gray-700">{{ $d->phone ?? '-' }}</td>
                             <td class="px-5 py-3 text-gray-700">
                                 @if (!is_null($d->rating))
-                                    {{ number_format((float) $d->rating, 1) }} <i class="fa-solid fa-star text-yellow-400 text-xs"></i>
+                                    {{ number_format((float) $d->rating, 1) }} <i class="fa-solid fa-star text-blue-400 text-xs"></i>
                                 @else - @endif
                             </td>
                             <td class="px-5 py-3">
@@ -165,7 +165,7 @@
                                 @else - @endif
                             </td>
                             <td class="px-5 py-3">
-                                <a href="{{ route('kota.members.driver.edit', $d->id) }}" class="text-purple-600 hover:underline text-xs font-semibold">
+                                <a href="{{ route('kota.members.driver.edit', $d->id) }}" class="text-pink-600 hover:underline text-xs font-semibold">
                                     <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
                                 </a>
                             </td>

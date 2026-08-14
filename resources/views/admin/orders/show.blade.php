@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-bold text-gray-900">Order Detail: {{ $order->order_number }}</h1>
             <p class="text-sm text-gray-500">Placed on {{ $order->created_at }}</p>
         </div>
-        <a href="{{ route('admin.orders.index') }}" class="text-purple-700 hover:underline text-sm font-semibold">&larr; Back to Orders</a>
+        <a href="{{ route('admin.orders.index') }}" class="text-pink-700 hover:underline text-sm font-semibold">&larr; Back to Orders</a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -32,13 +32,13 @@
                 @method('PUT')
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Update Status:</label>
                 <div class="flex space-x-2">
-                    <select name="status" class="px-2 py-1 border rounded text-xs focus:ring-1 focus:ring-purple-600">
+                    <select name="status" class="px-2 py-1 border rounded text-xs focus:ring-1 focus:ring-pink-600">
                         <option value="PENDING" @selected($order->status == 'PENDING')>PENDING</option>
                         <option value="PROCESSING" @selected($order->status == 'PROCESSING')>PROCESSING</option>
                         <option value="COMPLETED" @selected($order->status == 'COMPLETED')>COMPLETED</option>
                         <option value="CANCELLED" @selected($order->status == 'CANCELLED')>CANCELLED</option>
                     </select>
-                    <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white px-3 py-1 rounded text-xs font-semibold">Save</button>
+                    <button type="submit" class="bg-pink-700 hover:bg-pink-800 text-white px-3 py-1 rounded text-xs font-semibold">Save</button>
                 </div>
             </form>
         </div>
@@ -64,7 +64,7 @@
                         <td class="px-6 py-4 font-semibold text-gray-900">{{ $item->product_name }}</td>
                         <td class="px-6 py-4">{{ $item->quantity }}</td>
                         <td class="px-6 py-4">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                        <td class="px-6 py-4 font-semibold text-purple-700">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-semibold text-pink-700">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -74,7 +74,7 @@
                 <p class="text-sm text-gray-600">Subtotal: <span class="font-semibold">Rp {{ number_format($order->subtotal, 0, ',', '.') }}</span></p>
                 <p class="text-sm text-gray-600">Delivery Fee: <span class="font-semibold">Rp {{ number_format($order->delivery_fee, 0, ',', '.') }}</span></p>
                 <p class="text-sm text-gray-600">Discount: <span class="font-semibold text-red-600">- Rp {{ number_format($order->discount_amount, 0, ',', '.') }}</span></p>
-                <p class="text-lg font-bold text-gray-900 mt-2">Total Amount: <span class="text-purple-700">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span></p>
+                <p class="text-lg font-bold text-gray-900 mt-2">Total Amount: <span class="text-pink-700">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span></p>
             </div>
         </div>
     </div>

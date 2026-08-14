@@ -25,7 +25,7 @@
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase">Tipe</div>
                 <div>
-                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $kota->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-900' }}">{{ $kota->tipe }}</span>
+                    <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $kota->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-900' }}">{{ $kota->tipe }}</span>
                 </div>
             </div>
         </div>

@@ -13,7 +13,7 @@
     </div>
 
     @if(session('success'))
-        <div class="bg-purple-50 border border-purple-200 text-purple-900 px-4 py-3 rounded-lg mb-6 text-sm">{{ session('success') }}</div>
+        <div class="bg-pink-50 border border-pink-200 text-pink-900 px-4 py-3 rounded-lg mb-6 text-sm">{{ session('success') }}</div>
     @endif
 
     <!-- Search -->
@@ -21,13 +21,13 @@
         <form action="{{ route('kota.users.index') }}" method="GET" class="flex flex-wrap gap-3 items-end">
             <div>
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Cari (email / nama / phone)</label>
-                <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="cth: admin@superapp.com" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none w-72">
+                <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="cth: admin@superapp.com" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none w-72">
             </div>
-            <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+            <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Cari
             </button>
             @if($search)
-                <a href="{{ route('kota.users.index') }}" class="text-sm text-amber-700 hover:underline py-2">Hapus pencarian</a>
+                <a href="{{ route('kota.users.index') }}" class="text-sm text-orange-700 hover:underline py-2">Hapus pencarian</a>
             @endif
         </form>
     </div>
@@ -71,7 +71,7 @@
                                         <option value="MANAGER" {{ $u->role_kota === 'MANAGER' ? 'selected' : '' }}>MANAGER</option>
                                         <option value="ADMIN" {{ $u->role_kota === 'ADMIN' ? 'selected' : '' }}>ADMIN</option>
                                     </select>
-                                    <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-xs font-semibold">Simpan</button>
+                                    <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-xs font-semibold">Simpan</button>
                                 </form>
                                 @else
                                 <span class="text-xs text-gray-400">-</span>

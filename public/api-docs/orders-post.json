@@ -125,6 +125,6 @@
       }
     }
   },
-  "example_request": "curl -X POST https://gride.web.id/api/orders -H \"Content-Type: application/json\" -d '{\"order_type\":\"RIDE\",\"customer_name\":\"Budi\",\"customer_phone\":\"08123456789\",\"pickup_address\":\"Stasiun Surabaya\",\"pickup_lat\":-7.2591,\"pickup_lng\":112.7362,\"dropoff_address\":\"Tunjungan Plaza\",\"dropoff_lat\":-7.2615,\"dropoff_lng\":112.7380}'",
+  "example_request": "curl -X POST https://ridesip.my.id/api/orders -H \"Content-Type: application/json\" -d '{\"order_type\":\"RIDE\",\"customer_name\":\"Budi\",\"customer_phone\":\"08123456789\",\"pickup_address\":\"Stasiun Surabaya\",\"pickup_lat\":-7.2591,\"pickup_lng\":112.7362,\"dropoff_address\":\"Tunjungan Plaza\",\"dropoff_lat\":-7.2615,\"dropoff_lng\":112.7380}'",
   "notes": "Semua nominal disimpan sebagai angka murni di database (bukan string \"Rp ...\"). Invoice label berbahasa Indonesia."
 }

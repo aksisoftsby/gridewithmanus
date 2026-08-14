@@ -123,7 +123,7 @@
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/orders\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/orders\" -H \"Accept: application/json\"",
   "errors": [
     {
       "code": 200,

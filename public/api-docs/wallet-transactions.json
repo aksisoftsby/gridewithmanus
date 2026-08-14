@@ -1,7 +1,7 @@
 {
   "endpoint": "GET /api/wallet/transactions",
   "group": "Wallet",
-  "description": "Riwayat mutasi saldo GridePay (Top Up, Tarik Dana, Pembayaran, Refund, Bonus). Mendukung pagination dan filter tipe transaksi serta rentang tanggal.",
+  "description": "Riwayat mutasi saldo RideSipPay (Top Up, Tarik Dana, Pembayaran, Refund, Bonus). Mendukung pagination dan filter tipe transaksi serta rentang tanggal.",
   "method": "GET",
   "url": "/api/wallet/transactions?user_id={user_id}&type={type}&from={YYYY-MM-DD}&to={YYYY-MM-DD}&page={n}",
   "authentication": "Wajib login (user_id dari akun yang login).",
@@ -57,7 +57,7 @@
       "last_page": 1
     }
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/wallet/transactions?user_id=3&type=WITHDRAW&page=1\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/wallet/transactions?user_id=3&type=WITHDRAW&page=1\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 422, "description": "user_id tidak dikirim atau bukan integer." },
     { "code": 401, "description": "Wallet tidak ditemukan untuk user tersebut." }

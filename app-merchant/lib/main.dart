@@ -4,13 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String kApiBase = 'https://gride.web.id/api';
+const String kApiBase = 'https://ridesip.my.id/api';
 
 String formatRp(int value) =>
     'Rp ${value.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
 
 class Session {
-  static const String _key = 'gride_merchant_user';
+  static const String _key = 'ridesip_merchant_user';
   static Map<String, dynamic>? _user;
   static Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -49,7 +49,7 @@ class MerchantApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gride Merchant',
+      title: 'RideSip Merchant',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
@@ -198,9 +198,9 @@ class _MerchantAuthPageState extends State<MerchantAuthPage> {
               const SizedBox(height: 40),
               Icon(Icons.storefront, size: 72, color: Colors.deepOrange.shade600),
               const SizedBox(height: 12),
-              const Text('Gride Merchant', textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+              const Text('RideSip Merchant', textAlign: TextAlign.center, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              Text(isLogin ? 'Masuk ke akun toko Anda' : 'Daftar jadi mitra toko Gride', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+              Text(isLogin ? 'Masuk ke akun toko Anda' : 'Daftar jadi mitra toko RideSip', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
               const SizedBox(height: 28),
               Row(
                 children: [
@@ -1047,7 +1047,7 @@ class _MerchantInfoFormDialogState extends State<MerchantInfoFormDialog> {
   }
 }
 
-// ============ Halaman PPOB — WebView ke https://gride.web.id/ppob/ ============
+// ============ Halaman PPOB — WebView ke https://ridesip.my.id/ppob/ ============
 
 class PpobWebViewPage extends StatefulWidget {
   const PpobWebViewPage({super.key});
@@ -1093,7 +1093,7 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
       final name = (data['data']['full_name'] ?? '').toString();
       final phone = (data['data']['phone'] ?? '').toString();
       if (mounted) {
-        setState(() => _url = 'https://gride.web.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+        setState(() => _url = 'https://ridesip.my.id/ppob/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
       }
     } catch (e) {
       if (mounted) {
@@ -1141,7 +1141,7 @@ class _PpobWebViewPageState extends State<PpobWebViewPage> {
                   domStorageEnabled: true,
                   useHybridComposition: true,
                   supportMultipleWindows: false,
-                  userAgent: 'GrideMerchantApp/1.0',
+                  userAgent: 'RideSipMerchantApp/1.0',
                   javaScriptCanOpenWindowsAutomatically: false,
                 ),
                 onLoadStop: (controller, url) {

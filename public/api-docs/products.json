@@ -1,7 +1,7 @@
 {
   "endpoint": "GET /api/products",
   "group": "Products",
-  "description": "Mengambil katalog seluruh produk / menu item dari semua merchant di ekosistem Gride Superapp, disertai nama merchant pemiliknya. Cocok untuk fitur pencarian produk global di aplikasi Customer.",
+  "description": "Mengambil katalog seluruh produk / menu item dari semua merchant di ekosistem RideSip Superapp, disertai nama merchant pemiliknya. Cocok untuk fitur pencarian produk global di aplikasi Customer.",
   "method": "GET",
   "url": "/api/products",
   "authentication": "Tidak diperlukan (publik)",
@@ -25,11 +25,11 @@
         "price": 25000.00,
         "description": "Rendang daging sapi khas Padang",
         "is_available": true,
-        "merchant_name": "Warung Gride Padang"
+        "merchant_name": "Warung RideSip Padang"
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/products\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/products\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 200, "description": "Berhasil. Mengembalikan array kosong jika belum ada produk." }
   ]

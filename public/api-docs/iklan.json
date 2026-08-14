@@ -44,5 +44,5 @@
       }
     ]
   },
-  "example_curl": "curl https://gride.web.id/api/iklan-gratis?limit=20"
+  "example_curl": "curl https://ridesip.my.id/api/iklan-gratis?limit=20"
 }

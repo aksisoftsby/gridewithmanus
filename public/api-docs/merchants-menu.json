@@ -33,7 +33,7 @@
     "status": "success",
     "merchant": {
       "id": 1,
-      "name": "Warung Gride Padang",
+      "name": "Warung RideSip Padang",
       "type": "FOOD",
       "status": "ACTIVE",
       "rating": 4.5
@@ -49,7 +49,7 @@
       }
     ]
   },
-  "example_curl": "curl -X GET \"https://gride.web.id/api/merchants/1/menu\" -H \"Accept: application/json\"",
+  "example_curl": "curl -X GET \"https://ridesip.my.id/api/merchants/1/menu\" -H \"Accept: application/json\"",
   "errors": [
     { "code": 404, "description": "Merchant tidak ditemukan. Respons: {\"status\":\"error\",\"message\":\"Merchant not found\"}." }
   ]

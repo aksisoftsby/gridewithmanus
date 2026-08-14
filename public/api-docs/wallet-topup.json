@@ -1,7 +1,7 @@
 {
   "endpoint": "POST /api/wallet/topup",
   "group": "Wallet",
-  "description": "Top up saldo GridePay. Minimal Rp 10.000, maksimal Rp 10.000.000 per transaksi. Setiap request menggunakan idempotency_key agar tidak terjadi top up ganda saat koneksi putus. Pada versi produksi, status akan diproses payment gateway (VA/QRIS/e-wallet); saat ini pembayaran diproses langsung sebagai simulasi.",
+  "description": "Top up saldo RideSipPay. Minimal Rp 10.000, maksimal Rp 10.000.000 per transaksi. Setiap request menggunakan idempotency_key agar tidak terjadi top up ganda saat koneksi putus. Pada versi produksi, status akan diproses payment gateway (VA/QRIS/e-wallet); saat ini pembayaran diproses langsung sebagai simulasi.",
   "method": "POST",
   "url": "/api/wallet/topup",
   "authentication": "Wajib login.",
@@ -31,7 +31,7 @@
       "new_balance": 150000
     }
   },
-  "example_curl": "curl -X POST \"https://gride.web.id/api/wallet/topup\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"amount\":100000,\"method\":\"VA_BANK\",\"idempotency_key\":\"topup-3-1723521600000\"}'",
+  "example_curl": "curl -X POST \"https://ridesip.my.id/api/wallet/topup\" -H \"Content-Type: application/json\" -d '{\"user_id\":3,\"amount\":100000,\"method\":\"VA_BANK\",\"idempotency_key\":\"topup-3-1723521600000\"}'",
   "errors": [
     { "code": 422, "description": "Nominal di luar batas atau user_id/method hilang." },
     { "code": 409, "description": "Request duplikat (idempotency_key sudah diproses sebelumnya)." },

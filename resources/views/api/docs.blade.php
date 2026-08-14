@@ -4,12 +4,12 @@
 <div class="max-w-5xl mx-auto px-4 py-12" id="api-docs-root">
     <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
         <div class="flex items-center space-x-3 mb-4">
-            <div class="w-12 h-12 bg-purple-100 text-purple-700 rounded-xl flex items-center justify-center text-2xl font-bold">
+            <div class="w-12 h-12 bg-pink-100 text-pink-700 rounded-xl flex items-center justify-center text-2xl font-bold">
                 <i class="fa-solid fa-code"></i>
             </div>
             <div>
-                <h1 class="text-3xl font-extrabold text-gray-900" id="doc-api-title">Gride Superapp REST API Documentation</h1>
-                <p class="text-sm text-gray-500" id="doc-api-base">Base URL: https://gride.web.id/api</p>
+                <h1 class="text-3xl font-extrabold text-gray-900" id="doc-api-title">RideSip Superapp REST API Documentation</h1>
+                <p class="text-sm text-gray-500" id="doc-api-base">Base URL: https://ridesip.my.id/api</p>
             </div>
         </div>
         <p class="text-gray-700 leading-relaxed" id="doc-api-desc">
@@ -38,10 +38,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     const container = document.getElementById('doc-endpoints');
     for (const ep of index.endpoints) {
         const doc = await fetch('{{ asset("") }}' + ep.doc_file).then(r => r.json());
-        const groupBadge = ep.group === 'Merchants' ? 'bg-purple-100 text-purple-900'
+        const groupBadge = ep.group === 'Merchants' ? 'bg-pink-100 text-pink-900'
             : ep.group === 'Products' ? 'bg-blue-100 text-blue-800'
             : ep.group === 'Orders' ? 'bg-orange-100 text-orange-800'
-            : 'bg-purple-100 text-purple-800';
+            : 'bg-pink-100 text-pink-800';
 
         let paramsHtml = '';
         if (doc.query_parameters && doc.query_parameters.length) {
@@ -70,8 +70,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const card = document.createElement('div');
         card.className = 'bg-white rounded-xl shadow border border-gray-100 overflow-hidden';
         card.innerHTML =
-            '<div class="bg-purple-700 text-white px-6 py-3 flex flex-wrap justify-between items-center gap-2">' +
-            '<span class="font-mono font-bold text-sm bg-purple-800 px-3 py-1 rounded">' + doc.endpoint + '</span>' +
+            '<div class="bg-pink-700 text-white px-6 py-3 flex flex-wrap justify-between items-center gap-2">' +
+            '<span class="font-mono font-bold text-sm bg-pink-800 px-3 py-1 rounded">' + doc.endpoint + '</span>' +
             '<span class="px-2.5 py-1 text-xs font-semibold rounded-full ' + groupBadge + '">' + ep.group + '</span>' +
             '</div>' +
             '<div class="p-6">' +
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             '<p class="text-xs text-gray-500 mb-2"><i class="fa-solid fa-key mr-1"></i>Autentikasi: ' + doc.authentication + '</p>' +
             paramsHtml +
             '<h4 class="text-xs font-bold text-gray-700 uppercase mb-2">Contoh Response (JSON):</h4>' +
-            '<pre class="bg-gray-900 text-amber-400 p-4 rounded-xl text-xs overflow-x-auto font-mono">' + JSON.stringify(doc.example_response, null, 2) + '</pre>' +
+            '<pre class="bg-gray-900 text-orange-400 p-4 rounded-xl text-xs overflow-x-auto font-mono">' + JSON.stringify(doc.example_response, null, 2) + '</pre>' +
             '<h4 class="text-xs font-bold text-gray-700 uppercase mb-2 mt-4">cURL:</h4>' +
             '<pre class="bg-gray-800 text-gray-300 p-3 rounded-xl text-xs overflow-x-auto font-mono">' + doc.example_curl + '</pre>' +
             '</div>';

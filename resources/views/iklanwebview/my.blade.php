@@ -15,7 +15,7 @@
                     <img src="/images/merchant-placeholder.svg" alt="Iklan" class="w-14 h-14 opacity-60">
                 @endif
                 @if($item->category_name)
-                    <span class="absolute top-2 left-2 bg-purple-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight">{{ $item->category_name }}</span>
+                    <span class="absolute top-2 left-2 bg-pink-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full leading-tight">{{ $item->category_name }}</span>
                 @endif
             </div>
             <div class="p-4 flex-1">
@@ -28,7 +28,7 @@
                 </p>
                 <p class="text-xs text-gray-600 mt-1 line-clamp-2">{{ $item->description }}</p>
                 @if((float)$item->price > 0)
-                    <div class="mt-2 font-bold text-purple-700 text-sm">Rp {{ number_format((float)$item->price, 0, ',', '.') }}</div>
+                    <div class="mt-2 font-bold text-pink-700 text-sm">Rp {{ number_format((float)$item->price, 0, ',', '.') }}</div>
                 @endif
             </div>
         </a>
@@ -36,7 +36,7 @@
         <div class="text-center py-14 bg-white rounded-2xl shadow">
             <i class="fa-regular fa-folder-open text-4xl text-gray-300 mb-3"></i>
             <p class="text-gray-500 text-sm mb-3">Anda belum memasang iklan.</p>
-            <a href="{{ route('iklanwebview.create') }}" class="inline-block bg-purple-700 text-white px-5 py-2 rounded-full text-sm font-semibold">Pasang Iklan Sekarang</a>
+            <a href="{{ route('iklanwebview.create') }}" class="inline-block bg-pink-700 text-white px-5 py-2 rounded-full text-sm font-semibold">Pasang Iklan Sekarang</a>
         </div>
     @endforelse
 </div>
