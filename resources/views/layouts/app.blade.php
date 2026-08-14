@@ -76,7 +76,7 @@
             </div>
             @endif
             @auth
-                @if(in_array(strtoupper((string)(Auth::user()->role_kota ?? '')), ['ADMIN', 'MANAGER'], true))
+                @if(strtoupper((string)(Auth::user()->role_kota ?? '')) === 'MANAGER')
                 <!-- Kota Panel Top Menu (persistent) -->
                 <div class="bg-blue-900">
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -96,36 +96,16 @@
                                     </a>
                                 @endif
                             @endforeach
+                            <form action="{{ route('kota.logout') }}" method="POST" class="ml-1">
+                                @csrf
+                                <button type="submit" class="px-3 py-1.5 rounded-lg font-medium transition bg-red-600/80 hover:bg-red-600 text-white text-sm"><i class="fa-solid fa-right-from-bracket mr-1"></i> Logout</button>
+                            </form>
                         </nav>
                     </div>
                 </div>
                 @endif
             @endauth
 
-            @if(strtoupper((string)(Auth::user()->role_kota ?? '')) === 'MANAGER')
-                <!-- Kota Top Menu (persistent pada semua halaman untuk MANAGER) -->
-                <div class="bg-[#140823]">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <nav class="flex flex-wrap gap-1 py-2 text-sm">
-                            @php
-                                $kotaNav = \App\Http\Controllers\KotaController::kotaNav();
-                                $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
-                            @endphp
-                            @foreach($kotaNav as $item)
-                                @if(isset($item['external']))
-                                    <a href="{{ route($item['route']) }}" target="_blank" class="px-3 py-1.5 rounded-lg font-medium transition text-pink-100 hover:bg-pink-900/60">
-                                        <i class="fa-solid {{ $item['icon'] }} mr-1"></i> {{ $item['label'] }}
-                                    </a>
-                                @else
-                                    <a href="{{ route($item['route']) }}" class="px-3 py-1.5 rounded-lg font-medium transition {{ $currentRoute === $item['route'] || str_starts_with($currentRoute, rtrim(str_replace('.index','',$item['route']), '.') . '.') ? 'bg-pink-500 text-white' : 'text-pink-100 hover:bg-pink-900/60' }}">
-                                        <i class="fa-solid {{ $item['icon'] }} mr-1"></i> {{ $item['label'] }}
-                                    </a>
-                                @endif
-                            @endforeach
-                        </nav>
-                    </div>
-                </div>
-            @endif
         @endauth
     </nav>
 
