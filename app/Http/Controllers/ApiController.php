@@ -1159,10 +1159,6 @@ class ApiController extends Controller
      */
     public function register(Request $request)
     {
-        $check = $this->requireMember($request);
-        if ($check !== null) {
-            return $check;
-        }
 
         $validated = $request->validate([
             'full_name' => 'required|string|min:2|max:255',
