@@ -190,7 +190,7 @@
     <!-- Footer -->
     <footer class="brand-gradient text-gray-200 py-10 mt-12 border-t border-pink-900/50">
         <div class="max-w-7xl mx-auto px-4 flex flex-col items-center">
-            <img src="/images/logo-footer-small.png" alt="RideSip — Superapp Ride &amp; Delivery" class="w-72 md:w-96 mb-5 drop-shadow-lg">
+            <img src="/images/logo-footer-v2.png" alt="RideSip — Superapp Ride &amp; Delivery" class="w-72 md:w-96 mb-5 drop-shadow-lg">
             <p class="text-sm text-pink-200">&copy; {{ date('Y') }} RideSip Superapp — ridesip.my.id</p>
         </div>
     </footer>
