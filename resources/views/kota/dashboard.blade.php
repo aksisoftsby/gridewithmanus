@@ -7,12 +7,6 @@
             <h1 class="text-3xl font-bold text-gray-900">Panel Kota — Dashboard</h1>
             <p class="text-sm text-gray-500">Pengelolaan wilayah Indonesia (Provinsi → Kota/Kabupaten) untuk dropdown formulir</p>
         </div>
-        <form action="{{ route('kota.logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow transition">
-                <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
-            </button>
-        </form>
     </div>
 
     <!-- Stats Grid -->
