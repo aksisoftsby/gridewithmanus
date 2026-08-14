@@ -17,6 +17,7 @@ class AdminController extends Controller
         return collect([
             ['route' => 'admin.dashboard', 'label' => 'Dashboard', 'icon' => 'fa-gauge'],
             ['route' => 'admin.users.index', 'label' => 'Users', 'icon' => 'fa-users'],
+            ['route' => 'admin.managers.index', 'label' => 'Manager', 'icon' => 'fa-user-shield'],
             ['route' => 'admin.merchants.index', 'label' => 'Merchants', 'icon' => 'fa-store'],
             ['route' => 'admin.products.index', 'label' => 'Products', 'icon' => 'fa-utensils'],
             ['route' => 'admin.orders.index', 'label' => 'Orders', 'icon' => 'fa-receipt'],
@@ -54,6 +55,7 @@ class AdminController extends Controller
     public function usersIndex(Request $request)
     {
         $search = $request->query('search');
+        $role = $request->query('role');
         $query = DB::table('users');
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -62,8 +64,50 @@ class AdminController extends Controller
                   ->orWhere('role', 'like', '%' . $search . '%');
             });
         }
+        if ($role) {
+            if (strtoupper($role) === 'MANAGER') {
+                $query->where('role_kota', 'MANAGER');
+            } elseif (strtoupper($role) === 'MEMBER') {
+                $query->where('role_kota', 'MEMBER');
+            } else {
+                $query->where('role', strtoupper($role));
+            }
+        }
         $users = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
-        return view('admin.users.index', compact('users', 'search'));
+        return view('admin.users.index', compact('users', 'search', 'role'));
+    }
+
+    // Managers Management (user dengan role_kota = MANAGER)
+    public function managersIndex(Request $request)
+    {
+        $search = $request->query('search');
+        $query = DB::table('users')
+            ->where('role_kota', 'MANAGER')
+            ->leftJoin('manager_coverage as mc', 'mc.user_id', '=', 'users.id')
+            ->leftJoin('kota_kabupatens as kk', 'kk.id', '=', 'mc.id_kota')
+            ->leftJoin('provinsis as pr', 'pr.id', '=', 'kk.provinsi_id')
+            ->select(
+                'users.id',
+                'users.full_name',
+                'users.email',
+                'users.phone',
+                'users.status',
+                'users.password_plain',
+                'users.created_at',
+                DB::raw("string_agg(DISTINCT COALESCE(kk.nama, ''), ', ' ORDER BY COALESCE(kk.nama, '')) AS coverage_nama"),
+                DB::raw("string_agg(DISTINCT COALESCE(pr.nama, ''), ', ' ORDER BY COALESCE(pr.nama, '')) AS coverage_provinsi")
+            )
+            ->groupBy('users.id', 'users.full_name', 'users.email', 'users.phone', 'users.status', 'users.password_plain', 'users.created_at');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('users.full_name', 'like', '%' . $search . '%')
+                  ->orWhere('users.email', 'like', '%' . $search . '%')
+                  ->orWhere('kk.nama', 'like', '%' . $search . '%')
+                  ->orWhere('kk.provinsi', 'like', '%' . $search . '%');
+            });
+        }
+        $managers = $query->orderBy('users.created_at', 'desc')->paginate(15)->withQueryString();
+        return view('admin.managers.index', compact('managers', 'search'));
     }
 
     public function usersEdit($id)
@@ -98,6 +142,7 @@ class AdminController extends Controller
         if (!empty($validated['password'])) {
             $data['password_hash'] = \Hash::make($validated['password']);
             $data['password'] = \Hash::make($validated['password']);
+            $data['password_plain'] = $validated['password'];
         }
         DB::table('users')->where('id', $id)->update($data);
 

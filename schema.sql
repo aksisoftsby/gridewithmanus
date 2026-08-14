@@ -1218,3 +1218,11 @@ CREATE TABLE IF NOT EXISTS manager_coverage (
 );
 CREATE INDEX IF NOT EXISTS idx_manager_coverage_user ON manager_coverage (user_id);
 CREATE INDEX IF NOT EXISTS idx_manager_coverage_kota ON manager_coverage (id_kota);
+
+-- ============================================================================
+-- KOLOM TAMBAHAN: password_plain di users (2026-08-14)
+-- Password asli dalam bentuk PLAIN-TEXT yang disimpan khusus agar admin dapat
+-- melihat/mengelola password user (termasuk panel manager /admin/managers).
+-- Password login tetap divalidasi dari kolom password (bcrypt).
+-- ============================================================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_plain VARCHAR(255);

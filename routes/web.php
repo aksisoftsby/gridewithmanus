@@ -70,6 +70,9 @@ Route::middleware(['auth', 'role.panel'])->prefix('admin')->name('admin.')->grou
     Route::get('/users', [AdminController::class, 'usersIndex'])->name('users.index');
     Route::delete('/users/{id}', [AdminController::class, 'usersDestroy'])->name('users.destroy');
 
+    // Managers (user dengan role_kota = MANAGER)
+    Route::get('/managers', [AdminController::class, 'managersIndex'])->name('managers.index');
+
     // Merchants
     Route::get('/merchants', [AdminController::class, 'merchantsIndex'])->name('merchants.index');
     Route::get('/merchants/create', [AdminController::class, 'merchantsCreate'])->name('merchants.create');

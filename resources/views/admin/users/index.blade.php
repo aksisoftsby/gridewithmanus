@@ -12,6 +12,19 @@
 
     @include('admin.partials.search', ['route' => 'admin.users.index', 'placeholder' => 'Cari nama, email, atau role...'])
 
+    {{-- Sorting / filter role setelah search --}}
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Filter Role:</span>
+        @php $roleFilters = [['k'=>'','l'=>'Semua'], ['k'=>'ADMIN','l'=>'Admin'], ['k'=>'CUSTOMER','l'=>'Customer'], ['k'=>'DRIVER','l'=>'Driver'], ['k'=>'MERCHANT','l'=>'Merchant'], ['k'=>'MANAGER','l'=>'Manager'], ['k'=>'MEMBER','l'=>'Member']]; @endphp
+        @foreach($roleFilters as $rf)
+            @php $active = ($role ?? '') === $rf['k']; @endphp
+            <a href="{{ route('admin.users.index', array_filter(array_merge(request()->query(), ['role' => $rf['k'] ? $rf['k'] : null]))) }}"
+               class="px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $active ? 'bg-pink-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+                {{ $rf['l'] }}
+            </a>
+        @endforeach
+    </div>
+
     <div class="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
         <table class="w-full text-left border-collapse">
             <thead>
@@ -20,6 +33,7 @@
                     <th class="px-6 py-3">Full Name</th>
                     <th class="px-6 py-3">Email</th>
                     <th class="px-6 py-3">Phone</th>
+                    <th class="px-6 py-3">Password</th>
                     <th class="px-6 py-3">Role</th>
                     <th class="px-6 py-3">Status</th>
                     <th class="px-6 py-3">Actions</th>
@@ -32,6 +46,7 @@
                         <td class="px-6 py-4 font-semibold text-gray-900">{{ $user->full_name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $user->email }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $user->phone ?? '-' }}</td>
+                        <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $user->password_plain ?? '••••••••' }}</td>
                         <td class="px-6 py-4">
                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
                                 @if($user->role == 'ADMIN') bg-pink-100 text-pink-800 
