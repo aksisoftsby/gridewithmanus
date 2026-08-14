@@ -1235,3 +1235,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS password_plain VARCHAR(255);
 -- CREATE TYPE user_role AS ENUM ('MEMBER', 'ADMIN', 'MANAGER');
 -- ALTER TABLE users ALTER COLUMN role TYPE user_role USING role::text::user_role;
 -- ALTER TABLE users ALTER COLUMN role SET DEFAULT 'MEMBER';
+
+-- FIX ROLE MANAGER (2026-08-14): merge role CUSTOMER/DRIVER/MERCHANT -> MEMBER
+-- menyebabkan akun admin kota (role_kota='MANAGER') ikut jadi MEMBER.
+-- Rollback: akun dengan role_kota='MANAGER' WAJIB tetap role='MANAGER'.
+UPDATE users SET role='MANAGER' WHERE role_kota='MANAGER';
+
+-- Hasil akhir: role='ADMIN' (1 user super admin), role='MANAGER' (39 user panel kota),
+-- role='MEMBER' (semua user biasa: customer/driver/merchant gabungan).
+-- API: semua endpoint dengan user_id hanya boleh diakses role MEMBER
+-- (ADMIN & MANAGER ditolak 403; login API juga ditolak untuk ADMIN/MANAGER).
