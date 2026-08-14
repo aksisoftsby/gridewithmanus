@@ -7,6 +7,28 @@ use Illuminate\Support\Facades\DB;
 
 class ApiController extends Controller
 {
+
+    /**
+     * Proteksi endpoint API berbasis akun user:
+     * hanya user dengan role MEMBER yang boleh mengakses.
+     * Admin (platform) dan Manager (panel kota) DITOLAK (403).
+     */
+    protected function requireMember(Request $request)
+    {
+        $user = DB::table('users')->where('id', (int) $request->input('user_id', 0))->first();
+        if (!$user) {
+            $user = DB::table('users')->where('id', (int) $request->query('user_id', 0))->first();
+        }
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'user_id tidak valid.'], 400);
+        }
+        $role = strtoupper((string) ($user->role ?? ''));
+        if ($role !== 'MEMBER') {
+            return response()->json(['status' => 'error', 'message' => 'Akun ini tidak diizinkan mengakses API (role: '.$role.').'], 403);
+        }
+        return null;
+    }
+
     public function merchants(Request $request)
     {
         $type = $request->query('type');
@@ -165,6 +187,11 @@ class ApiController extends Controller
      */
     public function driverLocationUpdate(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $driver = DB::table('drivers')->where('id', $id)->first();
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver not found'], 404);
@@ -311,6 +338,11 @@ class ApiController extends Controller
      */
     public function wallets(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $uid = $request->query('user_id');
         if (!$uid) {
             return response()->json(['status' => 'error', 'message' => 'user_id required'], 400);
@@ -361,6 +393,11 @@ class ApiController extends Controller
      */
     public function settings(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -393,6 +430,11 @@ class ApiController extends Controller
      */
     public function ordersStore(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $validated = $request->validate([
             'order_type' => 'required|string|in:FOOD,MART,SHOP,DELIVERY,RIDE',
             'user_id' => 'required|integer|exists:users,id',
@@ -541,6 +583,7 @@ class ApiController extends Controller
      */
     public function registerDriver(Request $request)
     {
+
         $validated = $request->validate([
             'full_name' => 'required|string|min:2|max:255',
             'email' => 'required|email|max:255',
@@ -576,7 +619,7 @@ class ApiController extends Controller
             'email' => $email,
             'phone' => $phone,
             'password' => \Hash::make($validated['password']),
-            'role' => 'DRIVER',
+            'role' => 'MEMBER',
             'status' => 'ACTIVE',
             'created_at' => now(),
             'updated_at' => now(),
@@ -624,7 +667,7 @@ class ApiController extends Controller
                 'full_name' => $validated['full_name'],
                 'email' => $email,
                 'phone' => $phone,
-                'role' => 'DRIVER',
+                'role' => 'MEMBER',
                 'driver_id' => $driverId,
             ],
         ], 201);
@@ -636,6 +679,11 @@ class ApiController extends Controller
      */
     public function driverMe(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $userId = (int) $request->query('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
@@ -699,6 +747,11 @@ class ApiController extends Controller
      */
     public function driverEarnings(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $userId = (int) $request->query('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
@@ -752,6 +805,7 @@ class ApiController extends Controller
      */
     public function registerMerchant(Request $request)
     {
+
         $validated = $request->validate([
             'full_name' => 'required|string|min:2|max:255',
             'email' => 'required|email|max:255',
@@ -776,7 +830,7 @@ class ApiController extends Controller
             'email' => $email,
             'phone' => $validated['phone'] ?? null,
             'password' => \Hash::make($validated['password']),
-            'role' => 'MERCHANT',
+            'role' => 'MEMBER',
             'status' => 'ACTIVE',
             'created_at' => now(),
             'updated_at' => now(),
@@ -819,7 +873,7 @@ class ApiController extends Controller
                 'full_name' => $validated['full_name'],
                 'email' => $email,
                 'phone' => $validated['phone'] ?? null,
-                'role' => 'MERCHANT',
+                'role' => 'MEMBER',
                 'merchant_id' => $merchantId,
             ],
         ], 201);
@@ -831,6 +885,11 @@ class ApiController extends Controller
      */
     public function merchantMe(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $userId = (int) $request->query('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
@@ -875,6 +934,11 @@ class ApiController extends Controller
      */
     public function merchantUpdate(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $validated = $request->validate([
             'user_id' => 'required|integer|min:1',
             'name' => 'nullable|string|min:2|max:255',
@@ -909,6 +973,11 @@ class ApiController extends Controller
      */
     public function storeProduct(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $validated = $request->validate([
             'user_id' => 'required|integer|min:1',
             'merchant_id' => 'nullable|integer|min:1',
@@ -952,6 +1021,11 @@ class ApiController extends Controller
      */
     public function updateProduct(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $validated = $request->validate([
             'user_id' => 'required|integer|min:1',
             'name' => 'nullable|string|min:2|max:255',
@@ -993,6 +1067,11 @@ class ApiController extends Controller
      */
     public function toggleProduct(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $userId = (int) $request->query('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
@@ -1021,6 +1100,11 @@ class ApiController extends Controller
      */
     public function merchantEarnings(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $userId = (int) $request->query('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'user_id diperlukan.'], 400);
@@ -1075,6 +1159,11 @@ class ApiController extends Controller
      */
     public function register(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $validated = $request->validate([
             'full_name' => 'required|string|min:2|max:255',
             'email' => 'required|email|max:255',
@@ -1095,7 +1184,7 @@ class ApiController extends Controller
             'email' => strtolower(trim($validated['email'])),
             'phone' => $validated['phone'] ?? null,
             'password' => \Hash::make($validated['password']),
-            'role' => 'CUSTOMER',
+            'role' => 'MEMBER',
             'status' => 'ACTIVE',
             'created_at' => now(),
             'updated_at' => now(),
@@ -1120,6 +1209,7 @@ class ApiController extends Controller
      */
     public function login(Request $request)
     {
+
         $validated = $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
@@ -1140,6 +1230,14 @@ class ApiController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Akun tidak aktif.',
+            ], 403);
+        }
+
+        $role = strtoupper((string) ($user->role ?? ''));
+        if ($role === 'ADMIN' || $role === 'MANAGER') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akun ini tidak diizinkan mengakses API (role: '.$role.').',
             ], 403);
         }
 
@@ -1259,6 +1357,11 @@ class ApiController extends Controller
      */
     public function iklanGratisStore(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureIklanGratisTables();
         $userId = $request->input('user_id');
         if (!$userId) {
@@ -1310,6 +1413,11 @@ class ApiController extends Controller
      */
     public function iklanGratisUpdate(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureIklanGratisTables();
         $ad = DB::table('iklan_gratis')->where('id', $id)->first();
         if (!$ad) {
@@ -1355,6 +1463,11 @@ class ApiController extends Controller
      */
     public function iklanGratisDelete(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureIklanGratisTables();
         $ad = DB::table('iklan_gratis')->where('id', $id)->first();
         if (!$ad) {
@@ -1479,6 +1592,11 @@ class ApiController extends Controller
     /** GET /api/wallet/transactions?user_id=X&type=&from=&to=&page= */
     public function walletTransactions(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->query('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1515,6 +1633,11 @@ class ApiController extends Controller
     /** GET /api/wallet/transactions/{id}?user_id=X */
     public function walletTransactionDetail(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->query('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1533,6 +1656,11 @@ class ApiController extends Controller
      */
     public function walletTopup(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1579,6 +1707,11 @@ class ApiController extends Controller
     /** GET /api/wallet/topup/{reference_no}?user_id=X */
     public function walletTopupStatus(Request $request, $referenceNo)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->query('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1594,6 +1727,11 @@ class ApiController extends Controller
     /** POST /api/wallet/topup/{reference_no}/complete {user_id} — konfirmasi manual pembayaran. */
     public function walletTopupComplete(Request $request, $referenceNo)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1623,6 +1761,11 @@ class ApiController extends Controller
     /** GET /api/wallet/rekening?user_id=X */
     public function walletRekening(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->query('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1636,6 +1779,11 @@ class ApiController extends Controller
     /** POST /api/wallet/rekening {user_id, bank_name, account_number, account_holder, is_default} */
     public function walletRekeningStore(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1663,6 +1811,11 @@ class ApiController extends Controller
     /** PUT /api/wallet/rekening/{id} {user_id, is_default?, account_number?, account_holder?} */
     public function walletRekeningUpdate(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1694,6 +1847,11 @@ class ApiController extends Controller
     /** DELETE /api/wallet/rekening/{id}?user_id=X */
     public function walletRekeningDelete(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1714,6 +1872,11 @@ class ApiController extends Controller
      */
     public function walletWithdraw(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1791,6 +1954,11 @@ class ApiController extends Controller
     /** GET /api/wallet/withdraws?user_id=X */
     public function walletWithdraws(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->query('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1805,6 +1973,11 @@ class ApiController extends Controller
      */
     public function walletPinSet(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1832,6 +2005,11 @@ class ApiController extends Controller
     /** POST /api/wallet/pin/verify {user_id, pin} — cek status & validitas PIN. */
     public function walletPinVerify(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $resolved = $this->resolveWallet($request->input('user_id'));
         if (!$resolved) {
             return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
@@ -1856,6 +2034,11 @@ class ApiController extends Controller
      */
     public function ppobWebviewToken(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $userId = (int) $request->input('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'user_id tidak valid.'], 422);
@@ -1940,6 +2123,11 @@ class ApiController extends Controller
      */
     public function kendaraanList(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureKendaraanTables();
         $userId = (int) $request->query('user_id', 0);
         if ($userId <= 0) {
@@ -1965,6 +2153,11 @@ class ApiController extends Controller
      */
     public function kendaraanStore(Request $request)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureKendaraanTables();
         $validated = $request->validate([
             'user_id' => 'required|integer',
@@ -2012,6 +2205,11 @@ class ApiController extends Controller
      */
     public function kendaraanUpdate(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureKendaraanTables();
         $validated = $request->validate([
             'user_id' => 'required|integer',
@@ -2060,6 +2258,11 @@ class ApiController extends Controller
      */
     public function kendaraanDestroy(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureKendaraanTables();
         $userId = (int) $request->query('user_id', 0);
         $driver = DB::table('drivers')->where('user_id', $userId)->first();
@@ -2088,6 +2291,11 @@ class ApiController extends Controller
      */
     public function kendaraanToggleAktif(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureKendaraanTables();
         $userId = (int) $request->query('user_id', 0);
         $driver = DB::table('drivers')->where('user_id', $userId)->first();
@@ -2127,6 +2335,11 @@ class ApiController extends Controller
      */
     public function kendaraanSetDefault(Request $request, $id)
     {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+
         $this->ensureKendaraanTables();
         $userId = (int) $request->query('user_id', 0);
         $driver = DB::table('drivers')->where('user_id', $userId)->first();

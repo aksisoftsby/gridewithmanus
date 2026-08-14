@@ -15,7 +15,7 @@
     {{-- Sorting / filter role setelah search --}}
     <div class="flex flex-wrap items-center gap-2 mb-4">
         <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Filter Role:</span>
-        @php $roleFilters = [['k'=>'','l'=>'Semua'], ['k'=>'ADMIN','l'=>'Admin'], ['k'=>'CUSTOMER','l'=>'Customer'], ['k'=>'DRIVER','l'=>'Driver'], ['k'=>'MERCHANT','l'=>'Merchant'], ['k'=>'MANAGER','l'=>'Manager'], ['k'=>'MEMBER','l'=>'Member']]; @endphp
+        @php $roleFilters = [['k'=>'','l'=>'Semua'], ['k'=>'ADMIN','l'=>'Admin'], ['k'=>'MANAGER','l'=>'Manager'], ['k'=>'MEMBER','l'=>'Member']]; @endphp
         @foreach($roleFilters as $rf)
             @php $active = ($role ?? '') === $rf['k']; @endphp
             <a href="{{ route('admin.users.index', array_filter(array_merge(request()->query(), ['role' => $rf['k'] ? $rf['k'] : null]))) }}"
@@ -50,8 +50,8 @@
                         <td class="px-6 py-4">
                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
                                 @if($user->role == 'ADMIN') bg-pink-100 text-pink-800 
-                                @elseif($user->role == 'MERCHANT') bg-blue-100 text-blue-800 
-                                @elseif($user->role == 'DRIVER') bg-blue-100 text-blue-800 
+                                @elseif($user->role == 'MEMBER') bg-blue-100 text-blue-800 
+                                @elseif($user->role == 'MANAGER') bg-purple-100 text-purple-800 
                                 @else bg-gray-100 text-gray-800 @endif">
                                 {{ $user->role }}
                             </span>

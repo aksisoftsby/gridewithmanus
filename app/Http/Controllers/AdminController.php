@@ -125,7 +125,7 @@ class AdminController extends Controller
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $id,
-            'role' => 'required|string|in:CUSTOMER,DRIVER,MERCHANT,ADMIN',
+            'role' => 'required|string|in:MEMBER,ADMIN,MANAGER',
             'status' => 'required|string|in:ACTIVE,INACTIVE,SUSPENDED',
             'phone' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:6',
@@ -177,7 +177,7 @@ class AdminController extends Controller
     {
         $merchant = DB::table('merchants')->where('id', $id)->first();
         abort_if(!$merchant, 404, 'Merchant not found');
-        $owners = DB::table('users')->where('role', 'MERCHANT')->orWhere('role', 'ADMIN')->get();
+        $owners = DB::table('users')->where('role', 'MEMBER')->orWhere('role', 'ADMIN')->get();
         return view('admin.merchants.edit', compact('merchant', 'owners'));
     }
 
@@ -219,7 +219,7 @@ class AdminController extends Controller
 
     public function merchantsCreate()
     {
-        $owners = DB::table('users')->where('role', 'MERCHANT')->orWhere('role', 'ADMIN')->get();
+        $owners = DB::table('users')->where('role', 'MEMBER')->orWhere('role', 'ADMIN')->get();
         return view('admin.merchants.create', compact('owners'));
     }
 

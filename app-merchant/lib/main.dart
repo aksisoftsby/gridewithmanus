@@ -71,7 +71,7 @@ class _MerchantRootState extends State<MerchantRoot> {
   @override
   Widget build(BuildContext context) {
     final user = Session.user;
-    if (user != null && user['role'] == 'MERCHANT') {
+    if (user != null && user['role'] == 'MEMBER') {
       return const MerchantHome();
     }
     return const MerchantAuthPage();
@@ -127,7 +127,7 @@ class _MerchantAuthPageState extends State<MerchantAuthPage> {
         final data = jsonDecode(res.body);
         if (res.statusCode == 200) {
           final user = Map<String, dynamic>.from(data['data']);
-          if (user['role'] != 'MERCHANT') {
+          if (user['role'] != 'MEMBER') {
             setState(() {
               _busy = false;
               _error = 'Akun ini bukan akun Merchant (role: ${user['role']}). Gunakan aplikasi Customer atau Driver.';

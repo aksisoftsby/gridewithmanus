@@ -33,7 +33,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Budi Merchant',
                 'password_hash' => Hash::make('password'),
                 'password' => Hash::make('password'),
-                'role' => 'MERCHANT',
+                'role' => 'MEMBER',
                 'status' => 'ACTIVE',
                 'phone' => '081234567891',
             ]
@@ -47,7 +47,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Siti Customer',
                 'password_hash' => Hash::make('password'),
                 'password' => Hash::make('password'),
-                'role' => 'CUSTOMER',
+                'role' => 'MEMBER',
                 'status' => 'ACTIVE',
                 'phone' => '081234567892',
             ]
@@ -61,7 +61,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Joko Driver',
                 'password_hash' => Hash::make('password'),
                 'password' => Hash::make('password'),
-                'role' => 'DRIVER',
+                'role' => 'MEMBER',
                 'status' => 'ACTIVE',
                 'phone' => '081234567893',
             ]

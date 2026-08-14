@@ -429,7 +429,7 @@ class _AccountPageState extends State<AccountPage> {
       final body = jsonDecode(res.body);
       if (res.statusCode == 200 && body['status'] == 'success') {
         final data = Map<String, dynamic>.from(body['data']);
-        if ((data['role'] ?? '').toString() != 'DRIVER') {
+        if ((data['role'] ?? '').toString() != 'MEMBER') {
           _snack('Akun ini bukan akun driver.');
           return;
         }

@@ -65,7 +65,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;       -- Operasi spasial / polygon wilay
 -- ----------------------------------------------------------------------------
 -- ENUM TYPES
 -- ----------------------------------------------------------------------------
-CREATE TYPE user_role AS ENUM ('CUSTOMER', 'DRIVER', 'MERCHANT', 'ADMIN');
+CREATE TYPE user_role AS ENUM ('MEMBER', 'ADMIN', 'MANAGER');
 CREATE TYPE user_status AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'BANNED');
 
 -- ----------------------------------------------------------------------------
@@ -77,7 +77,7 @@ CREATE TABLE users (
     email           VARCHAR(255) UNIQUE,
     password_hash   VARCHAR(255) NOT NULL,
     full_name       VARCHAR(255) NOT NULL,
-    role            user_role NOT NULL DEFAULT 'CUSTOMER',
+    role            user_role NOT NULL DEFAULT 'MEMBER',
     status          user_status NOT NULL DEFAULT 'ACTIVE',
     avatar_url      TEXT,
     referral_code   VARCHAR(20) UNIQUE,
@@ -1026,7 +1026,7 @@ CREATE TABLE news (
 
 -- Modul 1: Authentication & Users
 COMMENT ON TABLE users IS 'Menyimpan profil utama seluruh pengguna sistem (Customer, Driver, Merchant Owner, dan Admin)';
-COMMENT ON COLUMN users.role IS 'Peran pengguna dalam sistem: CUSTOMER (Pelanggan), DRIVER (Pengemudi/Kurir), MERCHANT (Pemilik Toko/Resto), ADMIN (Pengelola Sistem)';
+COMMENT ON COLUMN users.role IS 'Peran pengguna dalam sistem: MEMBER (Customer/Driver/Merchant gabungan), ADMIN (Pengelola Sistem), MANAGER (Panel Kota)';
 COMMENT ON COLUMN users.status IS 'Status akun pengguna: ACTIVE (Aktif), INACTIVE (Tidak Aktif), SUSPENDED (Ditangguhkan sementara), BANNED (Diblokir permanen)';
 COMMENT ON COLUMN users.remember_token IS 'Token autentikasi persisten untuk fitur Remember Me Laravel';
 
@@ -1226,3 +1226,12 @@ CREATE INDEX IF NOT EXISTS idx_manager_coverage_kota ON manager_coverage (id_kot
 -- Password login tetap divalidasi dari kolom password (bcrypt).
 -- ============================================================================
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_plain VARCHAR(255);
+
+-- ============================================================
+-- MIGRATION 2026-08-14: Merge role CUSTOMER/DRIVER/MERCHANT → MEMBER
+-- ============================================================
+-- UPDATE users SET role = 'MEMBER' WHERE role IN ('CUSTOMER', 'DRIVER', 'MERCHANT');
+-- DROP TYPE user_role CASCADE;  -- (jika perlu re-create)
+-- CREATE TYPE user_role AS ENUM ('MEMBER', 'ADMIN', 'MANAGER');
+-- ALTER TABLE users ALTER COLUMN role TYPE user_role USING role::text::user_role;
+-- ALTER TABLE users ALTER COLUMN role SET DEFAULT 'MEMBER';

@@ -310,7 +310,7 @@ class KotaController extends Controller
             abort_if(!$match, 403, 'Merchant ini di luar coverage kota Anda.');
         }
 
-        $owners = DB::table('users')->whereIn('role', ['MERCHANT', 'CUSTOMER'])->get();
+        $owners = DB::table('users')->whereIn('role', ['MEMBER'])->get();
         return view('kota.members.merchant-edit', compact('merchant', 'owners'));
     }
 
