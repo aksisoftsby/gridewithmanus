@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Services\WalletSettlement;
 use Carbon\Carbon;
 
 class AdminController extends Controller
@@ -398,6 +399,16 @@ class AdminController extends Controller
         ]);
 
         DB::table('orders')->where('id', $id)->update(['status' => $validated['status'], 'updated_at' => now()]);
+        // Settlement wallet: saat order jadi COMPLETED, catat mutasi GrSaldo
+        // (customer debit, driver/merchant credit is_earning) secara atomik.
+        if (strtoupper($validated['status']) === 'COMPLETED') {
+            try {
+                WalletSettlement::settleOrder((int) $id);
+            } catch (\Throwable $e) {
+                // Settlement gagal tidak membatalkan update status; admin bisa retry.
+                report($e);
+            }
+        }
         return back()->with('success', 'Order status updated successfully.');
     }
 

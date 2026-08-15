@@ -204,6 +204,7 @@ class ApiController extends Controller
             'lng' => 'nullable|numeric|between:-180,180',
             'speed' => 'nullable|numeric|min:0',
             'heading' => 'nullable|numeric|min:0|max:360',
+            'ride_id' => 'nullable|integer|min:1',
         ]);
 
         $validated['latitude'] = $validated['latitude'] ?? $validated['lat'];
@@ -230,6 +231,20 @@ class ApiController extends Controller
                 'heading' => $validated['heading'] ?? null,
                 'recorded_at' => now(),
             ]);
+        }
+        // Riwayat lokasi ride (GrAntar): bila driver sedang membawa ride aktif (tersimpan di driver_locations dengan context)
+        $rideId = (string) ($validated['ride_id'] ?? '');
+        if ($rideId !== '' && DB::getSchemaBuilder()->hasTable('driver_locations')) {
+            $activeRide = DB::table('orders')->where('id', $rideId)->where('driver_id', $id)
+                ->whereIn('status', ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'DRIVER_ARRIVED', 'TRIP_STARTED'])->first();
+            if ($activeRide) {
+                DB::table('driver_locations')->insert([
+                    'driver_id' => $id,
+                    'latitude' => $validated['latitude'],
+                    'longitude' => $validated['longitude'],
+                    'recorded_at' => now(),
+                ]);
+            }
         }
 
         return response()->json([
@@ -760,32 +775,44 @@ class ApiController extends Controller
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
         }
+
+        // Sumber kebenaran: wallet_transactions (is_earning = 1)
+        $this->ensureWalletTables();
+        $cw = $this->resolveWallet($userId);
+        $earned = 0.0;
+        $history = [];
+        if ($cw) {
+            $earnings = DB::table('wallet_transactions')
+                ->where('wallet_id', $cw['wallet']->id)
+                ->where('is_earning', true)
+                ->where('direction', 'CREDIT')
+                ->whereIn('type', ['RIDE_EARNING', 'DELIVERY_EARNING'])
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get();
+            foreach ($earnings as $e) {
+                $earned += (float) $e->amount;
+                $history[] = [
+                    'order_number' => $e->description ?? ('#' . $e->reference_id),
+                    'order_type' => 'RIDE',
+                    'status' => 'COMPLETED',
+                    'pickup_address' => '',
+                    'dropoff_address' => '',
+                    'driver_net' => round((float) $e->amount, 0),
+                    'created_at' => $e->created_at,
+                ];
+            }
+        }
+
+        // Pemasukan pending: order driver yang belum COMPLETED
         $orders = DB::table('orders')
             ->where('driver_id', $driver->id)
-            ->orderBy('created_at', 'desc')
-            ->limit(100)
+            ->where('status', '!=', 'COMPLETED')
             ->get();
-
-        $earned = 0.0;
         $pending = 0.0;
-        $history = [];
         foreach ($orders as $o) {
-            $net = (float) (($o->delivery_fee ?? 0) - ($o->admin_commission_snapshot ?? 0));
-            if ($net < 0) $net = 0;
-            if (strtoupper((string) ($o->status ?? '')) === 'COMPLETED') {
-                $earned += $net;
-            } else {
-                $pending += $net;
-            }
-            $history[] = [
-                'order_number' => $o->order_number,
-                'order_type' => $o->order_type,
-                'status' => $o->status,
-                'pickup_address' => $o->pickup_address,
-                'dropoff_address' => $o->dropoff_address,
-                'driver_net' => round($net, 0),
-                'created_at' => $o->created_at,
-            ];
+            $net = max((float) (($o->delivery_fee ?? 0) - ($o->admin_commission_snapshot ?? 0)), 0);
+            $pending += $net;
         }
 
         return response()->json([
@@ -1113,24 +1140,42 @@ class ApiController extends Controller
         if (!$merchant) {
             return response()->json(['status' => 'error', 'message' => 'Toko tidak ditemukan untuk akun ini.'], 404);
         }
+        // Sumber kebenaran: wallet_transactions (is_earning = 1, ORDER_EARNING)
+        $this->ensureWalletTables();
+        $cw = $this->resolveWallet($userId);
+        $earned = 0.0;
+        $history = [];
+        if ($cw) {
+            $earnings = DB::table('wallet_transactions')
+                ->where('wallet_id', $cw['wallet']->id)
+                ->where('is_earning', true)
+                ->where('direction', 'CREDIT')
+                ->whereIn('type', ['ORDER_EARNING'])
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get();
+            foreach ($earnings as $e) {
+                $earned += (float) $e->amount;
+                $history[] = [
+                    'order_number' => $e->description ?? ('#' . $e->reference_id),
+                    'order_type' => 'FOOD',
+                    'status' => 'COMPLETED',
+                    'total_amount' => round((float) $e->amount, 0),
+                    'merchant_net' => round((float) $e->amount, 0),
+                    'created_at' => $e->created_at,
+                ];
+            }
+        }
+
+        // Pendapatan pending: order merchant yang belum COMPLETED
         $orders = DB::table('orders')
             ->where('merchant_id', $merchant->id)
-            ->orderBy('created_at', 'desc')
-            ->limit(100)
+            ->where('status', '!=', 'COMPLETED')
             ->get();
-
-        $earned = 0.0;
         $pending = 0.0;
-        $history = [];
         foreach ($orders as $o) {
-            $subtotal = (float) ($o->subtotal ?? 0);
-            $commission = (float) ($o->merchant_commission_snapshot ?? 0);
-            $net = max($subtotal - $commission, 0);
-            if (strtoupper((string) ($o->status ?? '')) === 'COMPLETED') {
-                $earned += $net;
-            } else {
-                $pending += $net;
-            }
+            $net = max((float) ($o->subtotal ?? 0) - (float) ($o->merchant_commission_snapshot ?? 0), 0);
+            $pending += $net;
             $history[] = [
                 'order_number' => $o->order_number,
                 'order_type' => $o->order_type,
@@ -1553,6 +1598,20 @@ class ApiController extends Controller
             DB::statement('CREATE INDEX IF NOT EXISTS idx_wtx_wallet ON wallet_transactions(wallet_id)');
             DB::statement('CREATE INDEX IF NOT EXISTS idx_wtx_refno ON wallet_transactions(reference_no)');
         }
+        if (!DB::getSchemaBuilder()->hasColumn('wallet_transactions', 'direction')) {
+            DB::statement('ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS direction VARCHAR(20) NOT NULL DEFAULT \'CREDIT\'');
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('wallet_transactions', 'is_earning')) {
+            DB::statement('ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS is_earning BOOLEAN NOT NULL DEFAULT FALSE');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_wtx_earning ON wallet_transactions(is_earning)');
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('wallet_transactions', 'user_id')) {
+            DB::statement('ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS user_id BIGINT');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_wtx_user ON wallet_transactions(user_id)');
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('wallet_transactions', 'reference_type')) {
+            DB::statement('ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS reference_type VARCHAR(30)');
+        }
         if (!DB::getSchemaBuilder()->hasColumn('users', 'wallet_pin')) {
             DB::statement('ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_pin VARCHAR(255)');
             DB::statement('ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_pin_attempts INTEGER DEFAULT 0');
@@ -1608,6 +1667,14 @@ class ApiController extends Controller
         if ($type && strtoupper($type) !== 'ALL' && strtoupper($type) !== 'SEMUA') {
             $q->where('type', strtoupper($type));
         }
+        $direction = strtoupper((string) $request->query('direction', ''));
+        if (in_array($direction, ['CREDIT', 'DEBIT'])) {
+            $q->where('direction', $direction);
+        }
+        $isEarning = $request->query('is_earning');
+        if ($isEarning !== null && $isEarning !== '') {
+            $q->where('is_earning', strtolower($isEarning) === 'true' || $isEarning === '1' ? true : false);
+        }
         if ($from) {
             $q->where('created_at', '>=', $from);
         }
@@ -1624,6 +1691,180 @@ class ApiController extends Controller
             'total' => $total,
             'last_page' => max(1, (int) ceil($total / $perPage)),
         ]]);
+    }
+
+    /**
+     * GET /api/wallet/summary?user_id=X — ringkasan GrSaldo satu sumber kebenaran.
+     * Berisi saldo saat ini + total per kategori (earning, topup, withdraw, payment).
+     */
+    public function walletSummary(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $resolved = $this->resolveWallet($request->query('user_id'));
+        if (!$resolved) {
+            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        }
+        $this->ensureWalletTables();
+        $walletId = $resolved['wallet']->id;
+        $wallet = DB::table('wallets')->where('id', $walletId)->first();
+        $agg = DB::table('wallet_transactions')->where('wallet_id', $walletId)->selectRaw("
+            COALESCE(SUM(CASE WHEN direction='CREDIT' THEN amount ELSE 0 END),0) AS total_in,
+            COALESCE(SUM(CASE WHEN direction='DEBIT' THEN amount ELSE 0 END),0) AS total_out,
+            COALESCE(SUM(CASE WHEN direction='CREDIT' AND is_earning THEN amount ELSE 0 END),0) AS total_earning,
+            COALESCE(SUM(CASE WHEN type='TOPUP' THEN amount ELSE 0 END),0) AS total_topup,
+            COALESCE(SUM(CASE WHEN type='WITHDRAW' THEN amount ELSE 0 END),0) AS total_withdraw,
+            COUNT(*) AS total_transactions")->first();
+        return response()->json(['status' => 'success', 'data' => [
+            'balance' => (float) ($wallet->balance ?? 0),
+            'currency' => 'IDR',
+            'status' => $wallet->status ?? 'ACTIVE',
+            'total_in' => round((float) $agg->total_in, 0),
+            'total_out' => round((float) $agg->total_out, 0),
+            'total_earning' => round((float) $agg->total_earning, 0),
+            'total_topup' => round((float) $agg->total_topup, 0),
+            'total_withdraw' => round((float) $agg->total_withdraw, 0),
+            'total_transactions' => (int) $agg->total_transactions,
+        ]]);
+    }
+
+    /**
+     * Catat mutasi saldo wallet yang tersentral (single source of truth).
+     * Direction: CREDIT (masuk) / DEBIT (keluar). is_earning true untuk penghasilan
+     * (RIDE_EARNING, DELIVERY_EARNING, ORDER_EARNING, BONUS, REFERRAL).
+     * Idempotensi via kunci [wallet_id + type + reference_id] bila reference_id diberikan.
+     */
+    private function postWalletTransaction(array $params): ?object
+    {
+        $this->ensureWalletTables();
+        $walletId = $params['wallet_id'];
+        $type = $params['type'];
+        $amount = (float) $params['amount'];
+        if ($amount <= 0) {
+            return null;
+        }
+        $refId = $params['reference_id'] ?? null;
+        if ($refId) {
+            $dup = DB::table('wallet_transactions')
+                ->where('wallet_id', $walletId)
+                ->where('type', $type)
+                ->where('reference_id', $refId)
+                ->first();
+            if ($dup) {
+                return $dup;
+            }
+        }
+        // Kunci baris wallet untuk mencegah race condition saldo
+        $wallet = DB::table('wallets')->where('id', $walletId)->lockForUpdate()->first();
+        if (!$wallet) {
+            return null;
+        }
+        $before = (float) $wallet->balance;
+        $credit = strtoupper((string) ($params['direction'] ?? 'CREDIT')) === 'CREDIT';
+        $after = round($credit ? $before + $amount : $before - $amount, 2);
+        DB::table('wallet_transactions')->insert([
+            'wallet_id' => $walletId,
+            'type' => $type,
+            'direction' => $credit ? 'CREDIT' : 'DEBIT',
+            'is_earning' => (bool) ($params['is_earning'] ?? false),
+            'amount' => $amount,
+            'balance_before' => $before,
+            'balance_after' => $after,
+            'status' => $params['status'] ?? 'SUCCESS',
+            'reference_no' => $params['reference_no'] ?? null,
+            'reference_id' => $refId,
+            'reference_type' => $params['reference_type'] ?? null,
+            'description' => $params['description'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('wallets')->where('id', $walletId)
+            ->update(['balance' => DB::raw($credit ? 'balance + ' . $amount : 'balance - ' . $amount), 'updated_at' => now()]);
+        return DB::table('wallet_transactions')->where('wallet_id', $walletId)
+            ->where('type', $type)->where('reference_id', $refId)->first();
+    }
+
+    /**
+     * Settlement wallet saat order berubah menjadi COMPLETED.
+     * - Customer di-debit total order (RIDE_PAYMENT / ORDER_PAYMENT) bila saldo cukup
+     * - Driver di-credit driver_net (is_earning=1)
+     * - Merchant di-credit merchant_net (is_earning=1)
+     * - Komisi admin dicatat sebagai ADMIN_FEE
+     */
+    public function settleOrderWallet($orderId)
+    {
+        $order = DB::table('orders')->where('id', $orderId)->first();
+        if (!$order) {
+            return;
+        }
+        $total = (float) ($order->total_amount ?? 0);
+        if ($total <= 0) {
+            $total = max((float) ($order->subtotal ?? 0) + (float) ($order->delivery_fee ?? 0) + (float) ($order->admin_commission_snapshot ?? 0) - (float) ($order->discount_amount ?? 0), 0);
+        }
+        // --- Customer: debit pembayaran order (bila saldo cukup) ---
+        $customerId = $order->user_id ?? $order->customer_id ?? null;
+        if ($customerId) {
+            $cw = $this->resolveWallet((int) $customerId);
+            if ($cw && (float) $cw['wallet']->balance >= $total) {
+                $this->postWalletTransaction([
+                    'wallet_id' => $cw['wallet']->id,
+                    'type' => in_array($order->order_type ?? '', ['RIDE', 'DELIVERY']) ? 'RIDE_PAYMENT' : 'ORDER_PAYMENT',
+                    'direction' => 'DEBIT',
+                    'is_earning' => false,
+                    'amount' => $total,
+                    'reference_id' => (int) $order->id,
+                    'reference_type' => 'ORDER',
+                    'description' => 'Pembayaran order ' . ($order->order_number ?? ''),
+                ]);
+                DB::table('orders')->where('id', $order->id)->update(['payment_status' => 'PAID', 'updated_at' => now()]);
+            }
+        }
+        // --- Driver: credit penghasilan (is_earning=1) ---
+        if ($order->driver_id && in_array($order->order_type ?? '', ['RIDE', 'DELIVERY'])) {
+            $driverUser = DB::table('drivers')->where('id', $order->driver_id)->first();
+            if ($driverUser && $driverUser->user_id) {
+                $dw = $this->resolveWallet($driverUser->user_id);
+                if ($dw) {
+                    $driverNet = max((float) ($order->delivery_fee ?? 0) - (float) ($order->admin_commission_snapshot ?? 0), 0);
+                    if ($driverNet > 0) {
+                        $this->postWalletTransaction([
+                            'wallet_id' => $dw['wallet']->id,
+                            'type' => $order->order_type === 'RIDE' ? 'RIDE_EARNING' : 'DELIVERY_EARNING',
+                            'direction' => 'CREDIT',
+                            'is_earning' => true,
+                            'amount' => $driverNet,
+                            'reference_id' => (int) $order->id,
+                            'reference_type' => 'ORDER',
+                            'description' => 'Penghasilan order ' . ($order->order_number ?? ''),
+                        ]);
+                    }
+                }
+            }
+        }
+        // --- Merchant: credit penghasilan (is_earning=1) ---
+        if ($order->merchant_id && in_array($order->order_type ?? '', ['FOOD', 'MART', 'SHOP'])) {
+            $merchant = DB::table('merchants')->where('id', $order->merchant_id)->first();
+            if ($merchant && $merchant->owner_id) {
+                $mw = $this->resolveWallet($merchant->owner_id);
+                if ($mw) {
+                    $merchantNet = max((float) ($order->subtotal ?? 0) - (float) ($order->merchant_commission_snapshot ?? 0), 0);
+                    if ($merchantNet > 0) {
+                        $this->postWalletTransaction([
+                            'wallet_id' => $mw['wallet']->id,
+                            'type' => 'ORDER_EARNING',
+                            'direction' => 'CREDIT',
+                            'is_earning' => true,
+                            'amount' => $merchantNet,
+                            'reference_id' => (int) $order->id,
+                            'reference_type' => 'ORDER',
+                            'description' => 'Penghasilan order ' . ($order->order_number ?? ''),
+                        ]);
+                    }
+                }
+            }
+        }
     }
 
     /** GET /api/wallet/transactions/{id}?user_id=X */
@@ -1691,6 +1932,7 @@ class ApiController extends Controller
             'balance_before' => $before, 'balance_after' => $after, 'status' => 'SUCCESS',
             'method' => $method, 'reference_no' => $refNo, 'idempotency_key' => $idem,
             'description' => 'Top up GrSaldo via ' . $method,
+            'direction' => 'CREDIT', 'is_earning' => false, 'user_id' => (int) $resolved['user']->id,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('wallets')->where('id', $walletId)
@@ -1938,6 +2180,7 @@ class ApiController extends Controller
             'status' => 'SUCCESS', 'method' => 'BANK_TRANSFER',
             'reference_no' => $refNo, 'reference_id' => $rekeningId, 'idempotency_key' => $idem,
             'description' => "Tarik dana ke {$rekening->bank_name} {$rekening->account_number} a.n. {$rekening->account_holder}",
+            'direction' => 'DEBIT', 'is_earning' => false, 'user_id' => (int) $user->id,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('wallets')->where('id', $wallet->id)
@@ -2135,6 +2378,7 @@ class ApiController extends Controller
     {
         return [
             'id' => (int) $v->id,
+            'kapasitas' => (int) ($v->capacity ?? 1),
             'jenis_kendaraan' => $v->vehicle_type,
             'plat_nomor' => $v->plate_number,
             'merk' => $v->brand,
@@ -2172,8 +2416,7 @@ class ApiController extends Controller
         }
         $list = DB::table('driver_vehicles')
             ->where('driver_id', $driver->id)
-            ->whereNull('deleted_at')
-            ->orderBy('is_default', 'desc')
+                        ->orderBy('is_default', 'desc')
             ->orderBy('id', 'asc')
             ->get()
             ->map(fn($v) => $this->kendaraanPayload($v));
@@ -2202,16 +2445,17 @@ class ApiController extends Controller
             'warna' => 'nullable|string|max:30',
             'foto_kendaraan' => 'nullable|string|max:5000000',
             'foto_stnk' => 'nullable|string|max:5000000',
+            'kapasitas' => 'nullable|integer|min:1|max:20',
         ]);
         $driver = DB::table('drivers')->where('user_id', (int) $validated['user_id'])->first();
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
         }
         $plate = strtoupper(trim($validated['plat_nomor']));
-        if (DB::table('driver_vehicles')->where('plate_number', $plate)->whereNull('deleted_at')->exists()) {
+        if (DB::table('driver_vehicles')->where('plate_number', $plate)->exists()) {
             return response()->json(['status' => 'error', 'message' => 'Plat nomor sudah terdaftar di sistem.'], 409);
         }
-        $isNewFirst = DB::table('driver_vehicles')->where('driver_id', $driver->id)->whereNull('deleted_at')->count() === 0;
+        $isNewFirst = DB::table('driver_vehicles')->where('driver_id', $driver->id)->count() === 0;
         $id = DB::table('driver_vehicles')->insertGetId([
             'driver_id' => $driver->id,
             'vehicle_type' => $validated['jenis_kendaraan'],
@@ -2222,6 +2466,7 @@ class ApiController extends Controller
             'plate_number' => $plate,
             'foto_kendaraan' => $validated['foto_kendaraan'] ?? null,
             'foto_stnk' => $validated['foto_stnk'] ?? null,
+            'capacity' => isset($validated['kapasitas']) ? (int) $validated['kapasitas'] : (strtoupper((string) $validated['jenis_kendaraan']) === 'MOTOR' ? 1 : 4),
             'is_active' => true,
             'is_default' => $isNewFirst,
             'status_verifikasi' => 'approved',
@@ -2253,24 +2498,26 @@ class ApiController extends Controller
             'warna' => 'nullable|string|max:30',
             'foto_kendaraan' => 'nullable|string|max:5000000',
             'foto_stnk' => 'nullable|string|max:5000000',
+            'kapasitas' => 'nullable|integer|min:1|max:20',
         ]);
         $driver = DB::table('drivers')->where('user_id', (int) $validated['user_id'])->first();
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
         }
-        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->first();
         if (!$v) {
             return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
         }
         if (!empty($validated['plat_nomor'])) {
             $plate = strtoupper(trim($validated['plat_nomor']));
-            if ($plate !== $v->plate_number && DB::table('driver_vehicles')->where('plate_number', $plate)->whereNull('deleted_at')->exists()) {
+            if ($plate !== $v->plate_number && DB::table('driver_vehicles')->where('plate_number', $plate)->exists()) {
                 return response()->json(['status' => 'error', 'message' => 'Plat nomor sudah terdaftar di sistem.'], 409);
             }
         }
         $upd = [
             'brand' => $validated['merk'] ?? $v->brand,
             'model' => $validated['model'] ?? $v->model,
+            'capacity' => isset($validated['kapasitas']) ? (int) $validated['kapasitas'] : ($v->capacity ?? 1),
             'year_kendaraan' => $validated['tahun'] ?? $v->year_kendaraan,
             'color' => $validated['warna'] ?? $v->color,
             'foto_kendaraan' => $validated['foto_kendaraan'] ?? $v->foto_kendaraan,
@@ -2302,7 +2549,7 @@ class ApiController extends Controller
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
         }
-        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->first();
         if (!$v) {
             return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
         }
@@ -2335,7 +2582,7 @@ class ApiController extends Controller
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
         }
-        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->first();
         if (!$v) {
             return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
         }
@@ -2349,8 +2596,7 @@ class ApiController extends Controller
                 ->where('driver_id', $driver->id)
                 ->where('vehicle_type', $v->vehicle_type)
                 ->where('is_active', true)
-                ->whereNull('deleted_at')
-                ->where('id', '!=', $id)
+                                ->where('id', '!=', $id)
                 ->update(['is_active' => false, 'updated_at' => now()]);
         }
         DB::table('driver_vehicles')->where('id', $id)->update(['is_active' => $newActive, 'updated_at' => now()]);
@@ -2379,13 +2625,768 @@ class ApiController extends Controller
         if (!$driver) {
             return response()->json(['status' => 'error', 'message' => 'Driver tidak ditemukan.'], 404);
         }
-        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->whereNull('deleted_at')->first();
+        $v = DB::table('driver_vehicles')->where('id', $id)->where('driver_id', $driver->id)->first();
         if (!$v) {
             return response()->json(['status' => 'error', 'message' => 'Kendaraan tidak ditemukan.'], 404);
         }
-        DB::table('driver_vehicles')->where('driver_id', $driver->id)->whereNull('deleted_at')->update(['is_default' => false, 'updated_at' => now()]);
+        DB::table('driver_vehicles')->where('driver_id', $driver->id)->update(['is_default' => false, 'updated_at' => now()]);
         DB::table('driver_vehicles')->where('id', $id)->update(['is_default' => true, 'updated_at' => now()]);
         $v = DB::table('driver_vehicles')->where('id', $id)->first();
         return response()->json(['status' => 'success', 'message' => 'Kendaraan utama berhasil diatur.', 'data' => $this->kendaraanPayload($v)]);
+    }
+
+    // =========================================================================
+    // MODUL RIDE-HAILING (GrAntar) — ride lifecycle + settlement GrSaldo
+    // =========================================================================
+
+    /** Pastikan kolom penumpang di orders (snapshot) + tabel passenger_contacts + ride_ratings tersedia. */
+    private function ensureRidesTables()
+    {
+        if (!DB::getSchemaBuilder()->hasColumn('driver_vehicles', 'capacity')) {
+            DB::statement('ALTER TABLE driver_vehicles ADD COLUMN IF NOT EXISTS capacity INTEGER NOT NULL DEFAULT 1');
+        }
+        foreach (['vehicle_type', 'vehicle_capacity', 'passenger_count'] as $col) {
+            if (!DB::getSchemaBuilder()->hasColumn('orders', $col)) {
+                DB::statement('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ' . $col . ($col === 'vehicle_type' ? ' VARCHAR(20)' : ' INTEGER'));  
+            }
+        }
+        foreach (['payment_status' => 'VARCHAR(30) DEFAULT \'UNPAID\'', 'is_cod' => 'BOOLEAN NOT NULL DEFAULT FALSE', 'payment_method_snapshot' => 'VARCHAR(30)', 'confirmed_at' => 'TIMESTAMP', 'picked_up_at' => 'TIMESTAMP', 'started_at' => 'TIMESTAMP', 'completed_at' => 'TIMESTAMP', 'cancelled_at' => 'TIMESTAMP', 'cancel_reason' => 'TEXT', 'cancelled_by' => 'BIGINT'] as $col => $type) {
+            if (!DB::getSchemaBuilder()->hasColumn('orders', $col)) {
+                DB::statement('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ' . $col . ' ' . $type);
+            }
+        }
+        if (!DB::getSchemaBuilder()->hasTable('ride_services')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS ride_services (
+                id BIGSERIAL PRIMARY KEY,
+                code VARCHAR(30) NOT NULL UNIQUE,
+                name VARCHAR(100) NOT NULL,
+                vehicle_type VARCHAR(20) NOT NULL,
+                capacity INTEGER NOT NULL,
+                base_fare INTEGER NOT NULL,
+                fare_per_km INTEGER NOT NULL,
+                minimum_fare INTEGER NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                icon VARCHAR(50),
+                created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+            $this->seedRideServices();
+        } elseif (DB::table('ride_services')->count() === 0) {
+            $this->seedRideServices();
+        }
+        if (DB::getSchemaBuilder()->hasTable('ride_ratings') && DB::getSchemaBuilder()->hasColumn('ride_ratings', 'ride_id')) {
+            try {
+                DB::statement('ALTER TABLE ride_ratings ALTER COLUMN ride_id TYPE VARCHAR(36) USING ride_id::text');
+            } catch (\Throwable $e) {
+                // Kolom sudah varchar atau tidak bisa diubah — aman diabaikan
+            }
+        }
+        foreach (['passenger_type', 'passenger_name', 'passenger_phone', 'passenger_notes'] as $col) {
+            if (!DB::getSchemaBuilder()->hasColumn('orders', $col)) {
+                DB::statement('ALTER TABLE orders ADD COLUMN IF NOT EXISTS ' . $col . ($col === 'passenger_type' ? " VARCHAR(20) DEFAULT 'SELF'" : ($col === 'passenger_notes' ? ' TEXT' : ' VARCHAR(100)')));
+            }
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('orders', 'service_type')) {
+            DB::statement('ALTER TABLE orders ADD COLUMN IF NOT EXISTS service_type VARCHAR(20)');
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('orders', 'distance_km')) {
+            DB::statement('ALTER TABLE orders ADD COLUMN IF NOT EXISTS distance_km DECIMAL(10, 2) DEFAULT 0');
+        }
+        if (!DB::getSchemaBuilder()->hasColumn('orders', 'vehicle_id')) {
+            DB::statement('ALTER TABLE orders ADD COLUMN IF NOT EXISTS vehicle_id VARCHAR(100)');
+        }
+        if (!DB::getSchemaBuilder()->hasTable('passenger_contacts')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS passenger_contacts (
+                id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL,
+                name VARCHAR(100) NOT NULL, phone VARCHAR(25) NOT NULL,
+                relationship VARCHAR(50), is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_pax_contacts_user ON passenger_contacts(user_id)');
+        }
+        if (!DB::getSchemaBuilder()->hasTable('ride_ratings')) {
+            DB::statement('CREATE TABLE IF NOT EXISTS ride_ratings (
+                id BIGSERIAL PRIMARY KEY, ride_id VARCHAR(36) NOT NULL,
+                from_user_id BIGINT NOT NULL, to_user_id BIGINT NOT NULL,
+                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
+            )');
+        }
+        DB::statement('CREATE INDEX IF NOT EXISTS idx_orders_ride ON orders(order_type, status)');
+    }
+
+    /** Seed katalog layanan ride (Motor, Mobil 4, Mobil 6). Dapat ditambah Admin tanpa update APK. */
+    private function seedRideServices(): void
+    {
+        $defaults = [
+            ['code' => 'MOTOR', 'name' => 'Motor', 'vehicle_type' => 'MOTOR', 'capacity' => 1, 'base_fare' => 3000, 'fare_per_km' => $this->getSettingFloat('ride_cost_per_km', 5000), 'minimum_fare' => 5000, 'sort_order' => 1, 'icon' => 'motorcycle'],
+            ['code' => 'MOBIL_4', 'name' => 'Mobil 4 Penumpang', 'vehicle_type' => 'MOBIL', 'capacity' => 4, 'base_fare' => 6000, 'fare_per_km' => $this->getSettingFloat('ride_cost_per_km', 5000), 'minimum_fare' => 10000, 'sort_order' => 2, 'icon' => 'car'],
+            ['code' => 'MOBIL_6', 'name' => 'Mobil 6 Penumpang', 'vehicle_type' => 'MOBIL', 'capacity' => 6, 'base_fare' => 8000, 'fare_per_km' => $this->getSettingFloat('ride_cost_per_km', 5000), 'minimum_fare' => 12000, 'sort_order' => 3, 'icon' => 'car'],
+        ];
+        foreach ($defaults as $s) {
+            DB::table('ride_services')->insert(array_merge($s, ['created_at' => now(), 'updated_at' => now()]));
+        }
+    }
+
+    /** GET /api/ride-services?vehicle_type?= */
+    public function rideServices(Request $request)
+    {
+        $this->ensureRidesTables();
+        $q = DB::table('ride_services')->where('is_active', true);
+        $vt = (string) ($request->query('vehicle_type') ?? '');
+        if ($vt !== '') {
+            $q = $q->where('vehicle_type', strtoupper($vt));
+        }
+        return response()->json(['status' => 'success', 'data' => $q->orderBy('sort_order')->get()]);
+    }
+
+    /** Tarif ride: base + jarak × per-km; durasi estimasi. */
+    private function calcRideFare(string $serviceType, float $distanceKm): array
+    {
+        $this->ensureRidesTables();
+        $svc = DB::table('ride_services')->where('code', strtoupper($serviceType))->where('is_active', true)->first();
+        $base = $svc ? (float) $svc->base_fare : ((strtoupper($serviceType) === 'MOBIL' || str_starts_with(strtoupper($serviceType), 'MOBIL')) ? 6000.0 : 3000.0);
+        $costPerKm = $svc ? (float) $svc->fare_per_km : $this->getSettingFloat('ride_cost_per_km', 5000);
+        $distanceFare = round(ceil(max($distanceKm, 1)) * $costPerKm, 0);
+        $total = max(round($base + $distanceFare, 0), (float) ($svc ? $svc->minimum_fare : 5000));
+        $duration = (int) ceil(($distanceKm / 30.0) * 60);
+        return ['base_fare' => (int) $base, 'distance_fare' => (int) $distanceFare, 'total' => (int) $total, 'duration_minutes' => $duration, 'cost_per_km' => $costPerKm, 'minimum_fare' => (int) ($svc ? $svc->minimum_fare : 5000)];
+    }
+
+
+
+    private function ridePayload($ride): array
+    {
+        $driverName = null;
+        $driverRating = null;
+        $vehicle = null;
+        if ($ride->driver_id) {
+            $d = DB::table('drivers')->where('id', $ride->driver_id)->first();
+            if ($d) {
+                $u = DB::table('users')->where('id', $d->user_id)->first();
+                $driverName = $u ? $u->full_name : null;
+                $driverRating = $d->rating ? (float) $d->rating : null;
+                if (is_string($ride->vehicle_id ?? null) && $ride->vehicle_id !== '') {
+                    $parts = preg_split('/•/', (string) $ride->vehicle_id, 3);
+                    $vehicle = [
+                        'snapshot' => trim($ride->vehicle_id),
+                        'brand_model' => trim($parts[0] ?? ''),
+                        'plate_number' => trim($parts[2] ?? ''),
+                        'vehicle_type' => $ride->vehicle_type ?? null,
+                        'vehicle_capacity' => $ride->vehicle_capacity ?? null,
+                        'passenger_count' => $ride->passenger_count ?? null,
+                    ];
+                }
+            }
+        }
+        $rating = DB::table('ride_ratings')->where('ride_id', (string) $ride->id)->where('from_user_id', $ride->user_id)->first();
+        $svc = DB::table('ride_services')->where('code', (string) ($ride->service_type ?? ''))->first();
+        $p = (array) $ride;
+        $p['driver_name'] = $driverName;
+        $p['driver_rating'] = $driverRating;
+        $p['service'] = $svc ? ['code' => $svc->code, 'name' => $svc->name, 'vehicle_type' => $svc->vehicle_type, 'capacity' => (int) $svc->capacity, 'base_fare' => (int) $svc->base_fare, 'fare_per_km' => (int) $svc->fare_per_km, 'minimum_fare' => (int) $svc->minimum_fare] : null;
+        $p['vehicle'] = $vehicle;
+        $p['customer_rated'] = $rating ? (int) $rating->rating : null;
+        $p['distance_km'] = $ride->ride_distance_km ?? $ride->distance_km ?? 0;
+        return $p;
+    }
+
+    /** POST /api/rides/estimate {service_type, pickup_lat, pickup_lng, destination_lat, destination_lng} */
+    public function ridesEstimate(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $validated = $request->validate([
+            'service_code' => 'required|string|max:30',
+            'vehicle_capacity' => 'nullable|integer|min:1|max:20',
+            'passenger_count' => 'nullable|integer|min:1|max:20',
+            'pickup_lat' => 'required|numeric|between:-90,90',
+            'pickup_lng' => 'required|numeric|between:-180,180',
+            'destination_lat' => 'required|numeric|between:-90,90',
+            'destination_lng' => 'required|numeric|between:-180,180',
+        ]);
+        $this->ensureRidesTables();
+        $svc = DB::table('ride_services')->where('code', strtoupper($validated['service_code']))->where('is_active', true)->first();
+        if (!$svc) {
+            return response()->json(['status' => 'error', 'message' => 'Layanan tidak tersedia.'], 422);
+        }
+        $distance = $this->haversineKm((float) $validated['pickup_lat'], (float) $validated['pickup_lng'], (float) $validated['destination_lat'], (float) $validated['destination_lng']);
+        $distanceKm = round(max($distance, 1), 1);
+        $fare = $this->calcRideFare($svc->code, $distanceKm);
+        $paxCount = (int) ($validated['passenger_count'] ?? $svc->capacity);
+        $paxCount = min(max($paxCount, 1), (int) $svc->capacity);
+        return response()->json(['status' => 'success', 'data' => array_merge($fare, ['distance_km' => $distanceKm, 'service_code' => $svc->code, 'service_name' => $svc->name, 'vehicle_capacity' => (int) $svc->capacity, 'passenger_count' => $paxCount])]);
+    }
+
+    /** POST /api/rides {service_type, pickup_*, destination_*, payment_method, note?} */
+    public function ridesStore(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $validated = $request->validate([
+            'service_code' => 'required|string|max:30',
+            'passenger_count' => 'nullable|integer|min:1|max:20',
+            'pickup_lat' => 'required|numeric|between:-90,90',
+            'pickup_lng' => 'required|numeric|between:-180,180',
+            'pickup_address' => 'nullable|string|max:500',
+            'destination_lat' => 'required|numeric|between:-90,90',
+            'destination_lng' => 'required|numeric|between:-180,180',
+            'destination_address' => 'nullable|string|max:500',
+            'payment_method' => 'nullable|string|in:GRSALDO,CASH',
+            'note' => 'nullable|string|max:500',
+            // Penumpang: SELF atau OTHER (nama + HP penumpang, Gojek-style)
+            'passenger_type' => 'nullable|string|in:SELF,OTHER',
+            'passenger_name' => 'nullable|string|max:100',
+            'passenger_phone' => 'nullable|string|max:25',
+            'passenger_notes' => 'nullable|string|max:500',
+        ]);
+        $this->ensureRidesTables();
+        $svc = DB::table('ride_services')->where('code', strtoupper($validated['service_code']))->where('is_active', true)->first();
+        if (!$svc) {
+            return response()->json(['status' => 'error', 'message' => 'Layanan tidak tersedia.'], 422);
+        }
+        $userId = (int) $request->input('user_id', 0);
+        $user = DB::table('users')->where('id', $userId)->first();
+        $distance = $this->haversineKm((float) $validated['pickup_lat'], (float) $validated['pickup_lng'], (float) $validated['destination_lat'], (float) $validated['destination_lng']);
+        $distanceKm = round(max($distance, 1), 1);
+        $fare = $this->calcRideFare($svc->code, $distanceKm);
+        $paxCount = (int) ($validated['passenger_count'] ?? $svc->capacity);
+        $paxCount = min(max($paxCount, 1), (int) $svc->capacity);
+        $paymentMethod = strtoupper((string) ($validated['payment_method'] ?? 'GRSALDO'));
+        $costPerKm = $fare['cost_per_km'];
+        // Snapshot penumpang (jangan pernah ambil dari users saat runtime)
+        if (strtoupper((string) ($validated['passenger_type'] ?? 'SELF')) === 'OTHER') {
+            if (empty(trim((string) ($validated['passenger_name'] ?? ''))) || empty(trim((string) ($validated['passenger_phone'] ?? '')))) {
+                return response()->json(['status' => 'error', 'message' => 'Nama dan nomor HP penumpang wajib diisi.'], 422);
+            }
+            $paxType = 'OTHER';
+            $paxName = trim((string) $validated['passenger_name']);
+            $paxPhone = trim((string) $validated['passenger_phone']);
+        } else {
+            $paxType = 'SELF';
+            $paxName = $user ? $user->full_name : '';
+            $paxPhone = $user ? (string) ($user->phone ?? '') : '';
+        }
+        // Cek saldo bila GRSALDO
+        if ($paymentMethod === 'GRSALDO') {
+            $cw = $this->resolveWallet($userId);
+            if ($cw && (float) $cw['wallet']->balance < $fare['total']) {
+                return response()->json(['status' => 'error', 'message' => 'Saldo GrSaldo tidak cukup (butuh Rp ' . number_format($fare['total'], 0, ',', '.') . '). Silakan top up atau pilih CASH.'], 400);
+            }
+        }
+        $orderNo = 'GR-' . strtoupper(substr(md5(uniqid((string) $userId, true)), 0, 6)) . '-' . now()->format('YmdHi');
+        $orderId = DB::table('orders')->insertGetId([
+            'order_number' => $orderNo,
+            'order_type' => 'RIDE',
+            'status' => 'SEARCHING_DRIVER',
+            'user_id' => $userId,
+            'service_type' => $svc->code,
+            'vehicle_type' => $svc->vehicle_type,
+            'vehicle_capacity' => (int) $svc->capacity,
+            'passenger_count' => $paxCount,
+            'pickup_address' => $validated['pickup_address'] ?? ('Lokasi saya (' . $validated['pickup_lat'] . ',' . $validated['pickup_lng'] . ')'),
+            'pickup_lat' => $validated['pickup_lat'],
+            'pickup_lng' => $validated['pickup_lng'],
+            'dropoff_address' => $validated['destination_address'] ?? ('Tujuan (' . $validated['destination_lat'] . ',' . $validated['destination_lng'] . ')'),
+            'dropoff_lat' => $validated['destination_lat'],
+            'dropoff_lng' => $validated['destination_lng'],
+            'ride_distance_km' => $distanceKm,
+            'cost_per_km_snapshot' => $costPerKm,
+            'subtotal' => 0,
+            'delivery_address' => $validated['destination_address'] ?? ('Tujuan (' . $validated['destination_lat'] . ',' . $validated['destination_lng'] . ')'),
+            'recipient_name' => ($paxType === 'OTHER') ? $paxName : ($user ? $user->full_name : 'Penumpang'),
+            'recipient_phone' => ($paxType === 'OTHER') ? $paxPhone : (string) ($user->phone ?? ''),
+            'delivery_fee' => $fare['total'],
+            'total_amount' => $fare['total'],
+            'payment_status' => 'UNPAID',
+            'is_cod' => $paymentMethod === 'CASH',
+            'payment_method_snapshot' => $paymentMethod,
+            'note' => $validated['note'] ?? null,
+            'passenger_type' => $paxType,
+            'passenger_name' => $paxName,
+            'passenger_phone' => $paxPhone,
+            'passenger_notes' => $validated['passenger_notes'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return response()->json(['status' => 'success', 'message' => 'Permintaan perjalanan dibuat. Mencari driver terdekat...', 'data' => array_merge($this->ridePayload(DB::table('orders')->where('id', $orderId)->first()), ['estimated_fare' => $fare['total'], 'distance_km' => $distanceKm, 'duration_minutes' => $fare['duration_minutes']])], 201);
+    }
+
+    /** GET /api/rides/current?user_id= — driver: ride aktif yang sedang ditangani (polling). */
+    public function driverRidesCurrent(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->query('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'success', 'data' => null]);
+        }
+        $ride = DB::table('orders')->where('order_type', 'RIDE')->where('driver_id', $driver->id)
+            ->whereIn('status', ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'DRIVER_ARRIVED', 'TRIP_STARTED'])
+            ->orderBy('confirmed_at', 'desc')->first();
+        if (!$ride) {
+            return response()->json(['status' => 'success', 'data' => null]);
+        }
+        return response()->json(['status' => 'success', 'data' => $this->ridePayload($ride)]);
+    }
+
+    /** GET /api/rides/history?user_id=&role=customer|driver */
+    public function ridesHistory(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->query('user_id', 0);
+        $role = $request->query('role', 'customer');
+        if ($role === 'driver') {
+            $driver = DB::table('drivers')->where('user_id', $userId)->first();
+            if (!$driver) {
+                return response()->json(['status' => 'success', 'data' => []]);
+            }
+            $rides = DB::table('orders')->where('order_type', 'RIDE')->where('driver_id', $driver->id)->orderBy('created_at', 'desc')->limit(50)->get();
+        } else {
+            $rides = DB::table('orders')->where('order_type', 'RIDE')->where('user_id', $userId)->orderBy('created_at', 'desc')->limit(50)->get();
+        }
+        return response()->json(['status' => 'success', 'data' => $rides->map(fn($r) => $this->ridePayload($r))]);
+    }
+
+    /** GET /api/rides/{id}?user_id= — customer & driver melihat ride (polling). */
+    public function ridesShow(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->query('user_id', 0);
+        $ride = DB::table('orders')->where('id', $id)->first();
+        if (!$ride) {
+            return response()->json(['status' => 'error', 'message' => 'Perjalanan tidak ditemukan.'], 404);
+        }
+        // Hanya customer pemilik atau driver yang ditugaskan yang boleh lihat
+        $driverUserId = null;
+        if ($ride->driver_id) {
+            $d = DB::table('drivers')->where('id', $ride->driver_id)->first();
+            $driverUserId = $d ? (int) $d->user_id : null;
+        }
+        if ((int) $ride->user_id !== $userId && $driverUserId !== $userId) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak.'], 403);
+        }
+        // Lokasi driver real-time terakhir saat trip aktif
+        $driverLocation = null;
+        if ($ride->driver_id && in_array($ride->status, ['DRIVER_ARRIVING', 'TRIP_STARTED'])) {
+            $driverLocation = DB::table('driver_locations')->where('driver_id', $ride->driver_id)->orderBy('recorded_at', 'desc')->first();
+        }
+        return response()->json(['status' => 'success', 'data' => array_merge($this->ridePayload($ride), ['driver_location' => $driverLocation])]);
+    }
+
+    /** POST /api/rides/{id}/accept?user_id= — driver menerima ride (atomic lock, cegah double accept). */
+    public function ridesAccept(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->input('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Akun driver tidak ditemukan.'], 404);
+        }
+        try {
+            $accepted = DB::transaction(function () use ($id, $driver) {
+                $ride = DB::table('orders')->where('id', $id)->lockForUpdate()->first();
+                if (!$ride) {
+                    return ['ok' => false, 'msg' => 'Perjalanan tidak ditemukan.'];
+                }
+                if ($ride->status !== 'SEARCHING_DRIVER') {
+                    return ['ok' => false, 'msg' => 'Permintaan ini sudah ditangani driver lain atau tidak lagi menunggu.'];
+                }
+                // Kendaraan driver: vehicle_type sesuai + kapasitas >= jumlah penumpang yang dipesan
+                $paxCount = (int) max((int) ($ride->passenger_count ?? 0), 1);
+                $vehicle = DB::table('driver_vehicles')
+                    ->where('driver_id', $driver->id)->where('vehicle_type', $ride->vehicle_type)
+                    ->where('is_active', true)                    ->where('capacity', '>=', $paxCount)
+                    ->orderByDesc('capacity')->first();
+                if (!$vehicle) {
+                    return ['ok' => false, 'msg' => 'Kendaraan Anda tidak memenuhi kapasitas penumpang yang diminta (' . $paxCount . ' penumpang).'];
+                }
+                DB::table('orders')->where('id', $id)->update([
+                    'driver_id' => $driver->id,
+                    'vehicle_id' => $vehicle->brand . ' ' . $vehicle->model . ' • ' . strtoupper((string) $vehicle->plate_number),
+                    'status' => 'DRIVER_ACCEPTED',
+                    'confirmed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                return ['ok' => true, 'msg' => 'Perjalanan diterima.'];
+            });
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => 'Gagal menerima permintaan.'], 409);
+        }
+        if (!$accepted['ok']) {
+            return response()->json(['status' => 'error', 'message' => $accepted['msg']], 409);
+        }
+        $ride = DB::table('orders')->where('id', $id)->first();
+        return response()->json(['status' => 'success', 'message' => $accepted['msg'], 'data' => $this->ridePayload($ride)]);
+    }
+
+    private function rideAction(Request $request, $id, string $fromStatus, string $toStatus, array $extra = [], string $successMsg = 'Status diperbarui.')
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->input('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Akun driver tidak ditemukan.'], 404);
+        }
+        $ride = DB::table('orders')->where('id', $id)->first();
+        if (!$ride) {
+            return response()->json(['status' => 'error', 'message' => 'Perjalanan tidak ditemukan.'], 404);
+        }
+        if ((string) $ride->driver_id !== (string) $driver->id) {
+            return response()->json(['status' => 'error', 'message' => 'Bukan perjalanan Anda.'], 403);
+        }
+        if ($ride->status !== $fromStatus) {
+            return response()->json(['status' => 'error', 'message' => 'Status saat ini tidak memungkinkan aksi ini (' . $ride->status . ').'], 409);
+        }
+        $update = array_merge(['status' => $toStatus, 'updated_at' => now()], $extra);
+        DB::table('orders')->where('id', $id)->update($update);
+        return response()->json(['status' => 'success', 'message' => $successMsg, 'data' => $this->ridePayload(DB::table('orders')->where('id', $id)->first())]);
+    }
+
+    /** POST /api/rides/{id}/arriving?user_id= — driver mulai menuju penumpang. */
+    public function ridesArriving(Request $request, $id)
+    {
+        return $this->rideAction($request, $id, 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING', [], 'Driver sedang menuju lokasi penjemputan.');
+    }
+
+    /** POST /api/rides/{id}/arrive?user_id= — driver sampai. */
+    public function ridesArrive(Request $request, $id)
+    {
+        return $this->rideAction($request, $id, 'DRIVER_ARRIVING', 'DRIVER_ARRIVED', ['picked_up_at' => now()], 'Driver sudah tiba di lokasi penjemputan.');
+    }
+
+    /** POST /api/rides/{id}/start?user_id= — mulai perjalanan. */
+    public function ridesStart(Request $request, $id)
+    {
+        return $this->rideAction($request, $id, 'DRIVER_ARRIVED', 'TRIP_STARTED', ['started_at' => now()], 'Perjalanan dimulai.');
+    }
+
+    /** POST /api/rides/{id}/complete?user_id= — trip selesai; hitung final fare server-side + settlement GrSaldo atomik. */
+    public function ridesComplete(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->input('user_id', 0);
+        $driver = DB::table('drivers')->where('user_id', $userId)->first();
+        if (!$driver) {
+            return response()->json(['status' => 'error', 'message' => 'Akun driver tidak ditemukan.'], 404);
+        }
+        try {
+            $result = DB::transaction(function () use ($id, $driver) {
+                $ride = DB::table('orders')->where('id', $id)->lockForUpdate()->first();
+                if (!$ride) {
+                    return ['ok' => false, 'msg' => 'Perjalanan tidak ditemukan.'];
+                }
+                if ($ride->status !== 'TRIP_STARTED') {
+                    return ['ok' => false, 'msg' => 'Trip belum dimulai.'];
+                }
+                if ((string) $ride->driver_id !== (string) $driver->id) {
+                    return ['ok' => false, 'msg' => 'Bukan perjalanan Anda.'];
+                }
+                // Final fare: hitung ulang di server sesuai katalog layanan (jangan percaya Flutter)
+                $actualDist = $this->haversineKm((float) $ride->pickup_lat, (float) $ride->pickup_lng, (float) $ride->dropoff_lat, (float) $ride->dropoff_lng);
+                $fareFinal = $this->calcRideFare((string) ($ride->service_type ?? 'MOTOR'), max(round($actualDist, 1), 1));
+                $finalFare = (int) $fareFinal['total'];
+                // Settlement GrSaldo atomik
+                $settled = $this->settleRideWallet($ride, $finalFare);
+                DB::table('orders')->where('id', $id)->update([
+                    'total_amount' => $finalFare,
+                    'delivery_fee' => $finalFare,
+                    'payment_status' => $settled['payment_status'],
+                    'status' => 'COMPLETED',
+                    'completed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                // Update statistik driver
+                DB::table('drivers')->where('id', $driver->id)->increment('total_trips');
+                return ['ok' => true, 'msg' => 'Perjalanan selesai.', 'final_fare' => $finalFare, 'payment_status' => $settled['payment_status']];
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['status' => 'error', 'message' => 'Gagal menyelesaikan perjalanan.'], 409);
+        }
+        if (!$result['ok']) {
+            return response()->json(['status' => 'error', 'message' => $result['msg']], 409);
+        }
+        return response()->json(['status' => 'success', 'message' => $result['msg'], 'data' => array_merge($this->ridePayload(DB::table('orders')->where('id', $id)->first()), ['final_fare' => (int) $result['final_fare'], 'payment_status' => $result['payment_status']])]);
+    }
+
+    /**
+     * Settlement ride wallet (atomic terhadap wallet row):
+     * GRSALDO: customer DEBIT final_fare (RIDE_PAYMENT) + driver CREDIT RIDE_EARNING is_earning=1.
+     * CASH: hanya driver earning dicatat sebagai CASH_RIDE_EARNING (platform tidak menerima uang).
+     */
+    private function settleRideWallet($ride, int $finalFare): array
+    {
+        $this->ensureWalletTables();
+        $paymentStatus = 'PAID';
+        if ((bool) ($ride->is_cod ?? false) || strtoupper((string) ($ride->payment_method ?? '')) === 'CASH') {
+            // Driver menerima uang tunai langsung; catat earning tetap (is_earning=1)
+            $dw = $this->resolveWallet($this->driverUserId($ride));
+            if ($dw && $finalFare > 0) {
+                $this->postWalletTransaction([
+                    'wallet_id' => $dw['wallet']->id,
+                    'type' => 'CASH_RIDE_EARNING',
+                    'direction' => 'CREDIT',
+                    'is_earning' => true,
+                    'amount' => (float) $finalFare,
+                    'reference_id' => (string) $ride->id,
+                    'reference_type' => 'RIDE',
+                    'user_id' => (int) $dw['user']->id,
+                    'description' => 'Pendapatan ride tunai ' . ($ride->order_number ?? ''),
+                ]);
+            }
+            return ['payment_status' => 'CASH'];
+        }
+        // GRSALDO: debit customer, credit driver
+        $cw = $this->resolveWallet((int) $ride->user_id);
+        if ($cw && (float) $cw['wallet']->balance >= $finalFare) {
+            $this->postWalletTransaction([
+                'wallet_id' => $cw['wallet']->id,
+                'type' => 'RIDE_PAYMENT',
+                'direction' => 'DEBIT',
+                'is_earning' => false,
+                'amount' => (float) $finalFare,
+                'reference_id' => (string) $ride->id,
+                'reference_type' => 'RIDE',
+                'user_id' => (int) $ride->user_id,
+                'description' => 'Pembayaran ride ' . ($ride->order_number ?? ''),
+            ]);
+            $dw = $this->resolveWallet($this->driverUserId($ride));
+            if ($dw && $finalFare > 0) {
+                $this->postWalletTransaction([
+                    'wallet_id' => $dw['wallet']->id,
+                    'type' => 'RIDE_EARNING',
+                    'direction' => 'CREDIT',
+                    'is_earning' => true,
+                    'amount' => (float) $finalFare,
+                    'reference_id' => (string) $ride->id,
+                    'reference_type' => 'RIDE',
+                    'user_id' => (int) $dw['user']->id,
+                    'description' => 'Penghasilan ride ' . ($ride->order_number ?? ''),
+                ]);
+            }
+        } else {
+            $paymentStatus = 'UNPAID';
+        }
+        return ['payment_status' => $paymentStatus];
+    }
+
+    private function driverUserId($ride): ?int
+    {
+        if (!$ride->driver_id) {
+            return null;
+        }
+        $d = DB::table('drivers')->where('id', $ride->driver_id)->first();
+        return $d ? (int) $d->user_id : null;
+    }
+
+    /** POST /api/rides/{id}/cancel?user_id= — batalkan (customer/driver) dari status awal. */
+    public function ridesCancel(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->input('user_id', 0);
+        $ride = DB::table('orders')->where('id', $id)->first();
+        if (!$ride) {
+            return response()->json(['status' => 'error', 'message' => 'Perjalanan tidak ditemukan.'], 404);
+        }
+        $driverUserId = $this->driverUserId($ride);
+        if ((int) $ride->user_id !== $userId && $driverUserId !== $userId) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak.'], 403);
+        }
+        if (!in_array($ride->status, ['DRAFT', 'SEARCHING_DRIVER', 'DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'DRIVER_ARRIVED'])) {
+            return response()->json(['status' => 'error', 'message' => 'Perjalanan ini sudah berjalan dan tidak bisa dibatalkan.'], 409);
+        }
+        $reason = trim((string) ($request->input('cancellation_reason') ?? ''));
+        DB::table('orders')->where('id', $id)->update([
+            'status' => 'CANCELLED',
+            'cancel_reason' => $reason ?: null,
+            'cancelled_by' => $userId,
+            'cancelled_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return response()->json(['status' => 'success', 'message' => 'Perjalanan dibatalkan.']);
+    }
+
+    /** POST /api/rides/{id}/rate {user_id, rating 1-5, comment?} — customer nilai driver; driver nilai customer. */
+    public function ridesRate(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->input('user_id', 0);
+        $validated = $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:500',
+        ]);
+        $ride = DB::table('orders')->where('id', $id)->first();
+        if (!$ride) {
+            return response()->json(['status' => 'error', 'message' => 'Perjalanan tidak ditemukan.'], 404);
+        }
+        $driverUserId = $this->driverUserId($ride);
+        if ((int) $ride->user_id !== $userId && $driverUserId !== $userId) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak.'], 403);
+        }
+        if ($ride->status !== 'COMPLETED') {
+            return response()->json(['status' => 'error', 'message' => 'Rating hanya tersedia setelah perjalanan selesai.'], 409);
+        }
+        $dup = DB::table('ride_ratings')->where('ride_id', (string) $ride->id)->where('from_user_id', $userId)->first();
+        if ($dup) {
+            return response()->json(['status' => 'error', 'message' => 'Anda sudah memberikan rating untuk perjalanan ini.'], 409);
+        }
+        // to_user: customer nilai driver; driver nilai customer
+        $toUserId = ($userId === $driverUserId) ? (int) $ride->user_id : $driverUserId;
+        DB::table('ride_ratings')->insert([
+            'ride_id' => (string) $ride->id,
+            'from_user_id' => $userId,
+            'to_user_id' => $toUserId,
+            'rating' => (int) $validated['rating'],
+            'comment' => trim((string) ($validated['comment'] ?? '')) ?: null,
+            'created_at' => now(),
+        ]);
+        // Perbarui rating rata-rata driver
+        if ($toUserId !== $driverUserId) {
+            $avg = DB::table('ride_ratings')
+                ->join('orders', function ($j) {
+                    $j->on('ride_ratings.ride_id', '=', DB::raw("orders.id::text"));
+                })
+                ->where('orders.driver_id', DB::table('drivers')->where('user_id', $toUserId)->value('id'))
+                ->avg('ride_ratings.rating');
+            if ($avg !== null) {
+                DB::table('drivers')->where('user_id', $toUserId)->update(['rating' => round((float) $avg, 2), 'updated_at' => now()]);
+            }
+        }
+        return response()->json(['status' => 'success', 'message' => 'Rating berhasil dikirim. Terima kasih!']);
+    }
+
+    // =========================================================================
+    // PENUMPANG (passenger_contacts): pilih 'Saya' atau 'Orang lain'
+    // =========================================================================
+
+    /** GET /api/passenger-contacts?user_id= */
+    public function passengerContactsIndex(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->query('user_id', 0);
+        $user = DB::table('users')->where('id', $userId)->first();
+        $contacts = DB::table('passenger_contacts')->where('user_id', $userId)->orderBy('is_favorite', 'desc')->orderBy('name')->get();
+        $self = null;
+        if ($user) {
+            $self = ['id' => null, 'name' => $user->full_name, 'phone' => (string) ($user->phone ?? ''), 'relationship' => 'Saya', 'is_self' => true];
+        }
+        return response()->json(['status' => 'success', 'data' => ['self' => $self, 'contacts' => $contacts]]);
+    }
+
+    /** POST /api/passenger-contacts {user_id, name, phone, relationship?, is_favorite?} */
+    public function passengerContactsStore(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'phone' => 'required|string|max:25',
+            'relationship' => 'nullable|string|max:50',
+            'is_favorite' => 'nullable|boolean',
+        ]);
+        $id = DB::table('passenger_contacts')->insertGetId([
+            'user_id' => (int) $request->input('user_id', 0),
+            'name' => trim((string) $validated['name']),
+            'phone' => trim((string) $validated['phone']),
+            'relationship' => trim((string) ($validated['relationship'] ?? '')) ?: null,
+            'is_favorite' => (bool) ($validated['is_favorite'] ?? false),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return response()->json(['status' => 'success', 'message' => 'Penumpang ditambahkan.', 'data' => DB::table('passenger_contacts')->where('id', $id)->first()], 201);
+    }
+
+    /** PUT /api/passenger-contacts/{id} */
+    public function passengerContactsUpdate(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $contact = DB::table('passenger_contacts')->where('id', $id)->first();
+        if (!$contact) {
+            return response()->json(['status' => 'error', 'message' => 'Kontak tidak ditemukan.'], 404);
+        }
+        if ((int) $contact->user_id !== (int) $request->input('user_id', 0)) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak.'], 403);
+        }
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:100',
+            'phone' => 'nullable|string|max:25',
+            'relationship' => 'nullable|string|max:50',
+            'is_favorite' => 'nullable|boolean',
+        ]);
+        DB::table('passenger_contacts')->where('id', $id)->update(array_filter([
+            'name' => isset($validated['name']) ? trim((string) $validated['name']) : null,
+            'phone' => isset($validated['phone']) ? trim((string) $validated['phone']) : null,
+            'relationship' => isset($validated['relationship']) ? trim((string) $validated['relationship']) : null,
+            'is_favorite' => $validated['is_favorite'] ?? null,
+            'updated_at' => now(),
+        ], fn($v) => $v !== null));
+        return response()->json(['status' => 'success', 'message' => 'Penumpang diperbarui.', 'data' => DB::table('passenger_contacts')->where('id', $id)->first()]);
+    }
+
+    /** DELETE /api/passenger-contacts/{id}?user_id= */
+    public function passengerContactsDestroy(Request $request, $id)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $contact = DB::table('passenger_contacts')->where('id', $id)->first();
+        if (!$contact) {
+            return response()->json(['status' => 'error', 'message' => 'Kontak tidak ditemukan.'], 404);
+        }
+        if ((int) $contact->user_id !== (int) $request->query('user_id', 0)) {
+            return response()->json(['status' => 'error', 'message' => 'Akses ditolak.'], 403);
+        }
+        DB::table('passenger_contacts')->where('id', $id)->delete();
+        return response()->json(['status' => 'success', 'message' => 'Penumpang dihapus.']);
     }
 }

@@ -11,6 +11,7 @@ Route::get('/promos', [ApiController::class, 'promos']);
 Route::get('/news', [ApiController::class, 'news']);
 Route::get('/testimonials', [ApiController::class, 'testimonials']);
 Route::get('/wallets', [ApiController::class, 'wallets']);
+Route::get('/wallet/summary', [ApiController::class, 'walletSummary']);
 // Wallet GridePay (app_customer): top up, withdraw, riwayat, rekening, PIN
 Route::get('/wallet/transactions', [ApiController::class, 'walletTransactions']);
 Route::get('/wallet/transactions/{id}', [ApiController::class, 'walletTransactionDetail']);
@@ -46,6 +47,24 @@ Route::patch('/driver/kendaraan/{id}/toggle-aktif', [ApiController::class, 'kend
 Route::patch('/driver/kendaraan/{id}/set-default', [ApiController::class, 'kendaraanSetDefault']);
 Route::post('/login', [ApiController::class, 'login']);
 Route::post('/drivers/{id}/location', [ApiController::class, 'driverLocationUpdate']);
+// Ride-hailing (GrAntar): estimate, booking, accept, tracking, complete, rating
+Route::get('/ride-services', [ApiController::class, 'rideServices']);
+Route::post('/rides/estimate', [ApiController::class, 'ridesEstimate']);
+Route::post('/rides', [ApiController::class, 'ridesStore']);
+Route::get('/rides/current', [ApiController::class, 'driverRidesCurrent']);
+Route::get('/rides/history', [ApiController::class, 'ridesHistory']);
+Route::get('/rides/{id}', [ApiController::class, 'ridesShow']);
+Route::post('/rides/{id}/accept', [ApiController::class, 'ridesAccept']);
+Route::post('/rides/{id}/arriving', [ApiController::class, 'ridesArriving']);
+Route::post('/rides/{id}/arrive', [ApiController::class, 'ridesArrive']);
+Route::post('/rides/{id}/start', [ApiController::class, 'ridesStart']);
+Route::post('/rides/{id}/complete', [ApiController::class, 'ridesComplete']);
+Route::post('/rides/{id}/cancel', [ApiController::class, 'ridesCancel']);
+Route::post('/rides/{id}/rate', [ApiController::class, 'ridesRate']);
+Route::get('/passenger-contacts', [ApiController::class, 'passengerContactsIndex']);
+Route::post('/passenger-contacts', [ApiController::class, 'passengerContactsStore']);
+Route::put('/passenger-contacts/{id}', [ApiController::class, 'passengerContactsUpdate']);
+Route::delete('/passenger-contacts/{id}', [ApiController::class, 'passengerContactsDestroy']);
 Route::get('/iklan-gratis/categories', [ApiController::class, 'iklanGratisCategories']);
 Route::get('/iklan-gratis', [ApiController::class, 'iklanGratisIndex']);
 Route::get('/iklan-gratis/webview-token', [ApiController::class, 'iklanWebviewToken']);

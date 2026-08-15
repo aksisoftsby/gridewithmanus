@@ -581,7 +581,15 @@ CREATE TABLE orders (
     admin_commission_snapshot  DECIMAL(12,2) DEFAULT NULL, -- Potongan admin yang berlaku saat order dibuat
     merchant_commission_snapshot   DECIMAL(12,2) DEFAULT NULL, -- Komisi merchant yang berlaku saat order dibuat
     merchant_commission_pct_snapshot DECIMAL(5,2) DEFAULT NULL, -- Persen komisi merchant saat order dibuat
-    created_at           TIMESTAMPTZ DEFAULT NOW(),
+    -- GrAntar (ride-hailing, order_type='RIDE')
+    service_type           VARCHAR(20) DEFAULT NULL, -- MOTOR / MOBIL
+    distance_km            DECIMAL(10,2) DEFAULT 0,
+    vehicle_id             VARCHAR(100) DEFAULT NULL, -- snapshot brand model • plate saat accept
+    passenger_type         VARCHAR(20) DEFAULT 'SELF', -- SELF / OTHER
+    passenger_name         VARCHAR(100) DEFAULT NULL,
+    passenger_phone        VARCHAR(25) DEFAULT NULL,
+    passenger_notes        TEXT DEFAULT NULL,
+    created_at             TIMESTAMPTZ DEFAULT NOW(),
     updated_at           TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -775,6 +783,11 @@ CREATE TABLE wallet_transactions (
     created_at     TIMESTAMPTZ DEFAULT NOW(),
     updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Kolom ledger tambahan (runtime ALTER, produksi): direction, is_earning, user_id
+ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS direction    VARCHAR(20) NOT NULL DEFAULT 'CREDIT'; -- CREDIT / DEBIT
+ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS is_earning   BOOLEAN NOT NULL DEFAULT FALSE;      -- true = penghasilan
+ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS user_id      BIGINT;                              -- owner wallet saat transaksi
 
 -- ----------------------------------------------------------------------------
 -- REFUNDS (Pengajuan & proses pengembalian dana pesanan)
