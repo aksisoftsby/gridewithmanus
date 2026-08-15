@@ -717,7 +717,7 @@ class _CustomerHomeState extends State<CustomerHome> {
         _shellStateKey.currentState?.jumpTo(1);
         break;
       case 'Iklan Gratis':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const IklanGratisPage()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const IklanWebViewPage()));
         break;
       case 'PPOB':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage()));
@@ -5109,6 +5109,139 @@ class _WalletPinPageState extends State<WalletPinPage> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+// ==========================================================================
+// Halaman Iklan Gratis — WebView ke https://ridesip.my.id/iklan-webview/
+// dengan sesi singkat dari API (GET /api/iklan-gratis/webview-token).
+// Member langsung ter-identify; bisa Pasang Iklan, Iklan Saya, Edit, Delete.
+// ==========================================================================
+
+class IklanWebViewPage extends StatefulWidget {
+  const IklanWebViewPage({super.key});
+
+  @override
+  State<IklanWebViewPage> createState() => _IklanWebViewPageState();
+}
+
+class _IklanWebViewPageState extends State<IklanWebViewPage> {
+  InAppWebViewController? _controller;
+  String? _url;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    final user = await Session.load();
+    if (!mounted) return;
+    if (user == null || Session.userIdOf(user) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login terlebih dahulu untuk membuka Iklan Gratis.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+    final uid = Session.userIdOf(user)!;
+    try {
+      final res = await httpGetWithRetry('$kApiBase/iklan-gratis/webview-token?user_id=$uid');
+      final data = jsonDecode(res.body);
+      final token = data['data']?['token'];
+      if (res.statusCode != 200 || token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyiapkan sesi Iklan Gratis: ${data['message'] ?? 'server error'}')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      final name = (data['data']['full_name'] ?? '').toString();
+      final phone = (data['data']['phone'] ?? '').toString();
+      if (mounted) {
+        setState(() => _url = 'https://ridesip.my.id/iklan-webview/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          // Back dari Iklan Gratis kembali ke home awal, tidak exit aplikasi.
+          _shellStateKey.currentState?.jumpTo(0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: kPurpleMain,
+        body: _url == null
+            ? const Center(child: CircularProgressIndicator(color: kGoldBright))
+            : SafeArea(
+                child: Column(
+                  children: [
+                    Container(
+                      color: kPurpleMain,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios, color: kGoldBright, size: 22),
+                            onPressed: () => _shellStateKey.currentState?.jumpTo(0),
+                          ),
+                          const Expanded(
+                            child: Text('Iklan Gratis RideSip', textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 48),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: InAppWebView(
+                        initialUrlRequest: URLRequest(url: WebUri(_url!)),
+                        initialSettings: InAppWebViewSettings(
+                          javaScriptEnabled: true,
+                          domStorageEnabled: true,
+                          useHybridComposition: true,
+                          supportMultipleWindows: false,
+                          userAgent: 'RideSipApp/1.0',
+                          javaScriptCanOpenWindowsAutomatically: false,
+                        ),
+                        onWebViewCreated: (controller) => _controller = controller,
+                        onLoadStop: (controller, url) {
+                          if (mounted && _loading) setState(() => _loading = false);
+                          // Daftarkan handler agar halaman iklan bisa memberi tahu app saat posting berhasil.
+                          controller.addJavaScriptHandler(handlerName: 'onPostSuccess', callback: (args) async {
+                            final msg = args.isNotEmpty ? args.first.toString() : '';
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(msg.isEmpty ? 'Iklan berhasil dipasang.' : msg)),
+                              );
+                              _shellStateKey.currentState?.jumpTo(0);
+                            }
+                          });
+                        },
+                        onReceivedError: (controller, request, error) {
+                          // Abaikan error favicon/resource kecil; halaman utama tetap tampil.
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }

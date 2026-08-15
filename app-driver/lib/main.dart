@@ -250,6 +250,16 @@ class _OrdersPageState extends State<OrdersPage> {
                             label: const Text('PPOB — Pulsa, PLN, Voucher Game & Lainnya'),
                             style: FilledButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
                             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage())),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.campaign, size: 18),
+                            label: const Text('Iklan Gratis — Jual & Beli Barang Bekas'),
+                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD8006B), padding: const EdgeInsets.symmetric(vertical: 12)),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IklanWebViewPage())),
+                          ),
+                        ),
                           ),
                         ),
                       ],
@@ -910,6 +920,111 @@ class _AccountPageState extends State<AccountPage> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ============ Halaman Iklan Gratis — WebView ke https://ridesip.my.id/iklan-webview ============
+class IklanWebViewPage extends StatefulWidget {
+  const IklanWebViewPage({super.key});
+  @override
+  State<IklanWebViewPage> createState() => _IklanWebViewPageState();
+}
+class _IklanWebViewPageState extends State<IklanWebViewPage> {
+  String? _url;
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+  Future<void> _boot() async {
+    final user = await Session.load();
+    if (!mounted) return;
+    if (user == null || user['id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login terlebih dahulu untuk membuka Iklan Gratis.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+    final uid = user['id'].toString();
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/iklan-gratis/webview-token?user_id=$uid')).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(res.body);
+      final token = data['data']?['token'];
+      if (res.statusCode != 200 || token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyiapkan sesi Iklan Gratis: ${data['message'] ?? 'server error'}')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      final name = (data['data']['full_name'] ?? '').toString();
+      final phone = (data['data']['phone'] ?? '').toString();
+      if (mounted) {
+        setState(() => _url = 'https://ridesip.my.id/iklan-webview/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+        Navigator.pop(context);
+      }
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    if (_url == null) {
+      return Scaffold(
+        backgroundColor: Colors.teal,
+        body: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+    return Scaffold(
+      backgroundColor: Colors.teal,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: Colors.teal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text('Iklan Gratis RideSip', textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(url: WebUri(_url!)),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  domStorageEnabled: true,
+                  useHybridComposition: true,
+                  supportMultipleWindows: false,
+                  userAgent: 'RideSipDriverApp/1.0',
+                  javaScriptCanOpenWindowsAutomatically: false,
+                ),
+                onLoadStop: (controller, url) {
+                  controller.addJavaScriptHandler(handlerName: 'onPostSuccess', callback: (args) async {
+                    if (mounted) Navigator.pop(context);
+                  });
+                },
+                onReceivedError: (controller, request, error) {},
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

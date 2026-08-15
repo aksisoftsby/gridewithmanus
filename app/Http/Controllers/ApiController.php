@@ -2060,6 +2060,43 @@ class ApiController extends Controller
     /**
      * Ensure kendaraan tables exist (portable, idempotent).
      */
+    /**
+     * Token sesi singkat untuk webview Iklan Baris.
+     * GET /api/iklan-gratis/webview-token?user_id=N
+     * Valid 1 jam (deterministik, berbasis jam unix + APP_KEY).
+     * Hanya user role MEMBER yang diizinkan.
+     */
+    public function iklanWebviewToken(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $userId = (int) $request->input('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'user_id tidak valid.'], 422);
+        }
+        $user = DB::table('users')->where('id', $userId)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan.'], 404);
+        }
+        if (strtoupper((string) ($user->role ?? 'MEMBER')) !== 'MEMBER') {
+            return response()->json(['status' => 'error', 'message' => 'Akun ini tidak diizinkan (' . strtoupper((string) ($user->role ?? '')) . ').'], 403);
+        }
+        $hour = (int) (time() / 3600);
+        $token = hash('sha256', 'iklan-' . $user->id . '-' . config('app.key') . '-' . $hour);
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'token' => $token,
+                'user_id' => $user->id,
+                'full_name' => $user->full_name,
+                'phone' => $user->phone ?? null,
+                'hour' => $hour,
+            ],
+        ]);
+    }
+
     private function ensureKendaraanTables()
     {
         if (!DB::getSchemaBuilder()->hasTable('driver_vehicles')) {

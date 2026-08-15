@@ -865,6 +865,30 @@ class _MerchantAkunPageState extends State<MerchantAkunPage> {
                                 label: const Text('Buka PPOB'),
                                 style: FilledButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
                                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage())),
+                      const SizedBox(height: 12),
+                      // ---- Iklan Gratis ----
+                      Card(
+                        color: const Color(0xFFFCE7F3),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('Iklan Gratis', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFD8006B))),
+                            const Divider(height: 14),
+                            const Text('Pasang iklan baris gratis: jual barang, jasa, atau promo usaha Anda ke pengguna RideSip lainnya.', style: TextStyle(fontSize: 13)),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                icon: const Icon(Icons.campaign, size: 18),
+                                label: const Text('Buka Iklan Gratis'),
+                                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD8006B), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IklanWebViewPage())),
+                              ),
+                            ),
+                          ]),
+                        ),
+                      ),
                               ),
                             ),
                           ]),
@@ -1041,6 +1065,111 @@ class _MerchantInfoFormDialogState extends State<MerchantInfoFormDialog> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============ Halaman Iklan Gratis — WebView ke https://ridesip.my.id/iklan-webview ============
+class IklanWebViewPage extends StatefulWidget {
+  const IklanWebViewPage({super.key});
+  @override
+  State<IklanWebViewPage> createState() => _IklanWebViewPageState();
+}
+class _IklanWebViewPageState extends State<IklanWebViewPage> {
+  String? _url;
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+  Future<void> _boot() async {
+    final user = await Session.load();
+    if (!mounted) return;
+    if (user == null || user['id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login terlebih dahulu untuk membuka Iklan Gratis.')),
+      );
+      Navigator.pop(context);
+      return;
+    }
+    final uid = user['id'].toString();
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/iklan-gratis/webview-token?user_id=$uid')).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(res.body);
+      final token = data['data']?['token'];
+      if (res.statusCode != 200 || token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyiapkan sesi Iklan Gratis: ${data['message'] ?? 'server error'}')),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      }
+      final name = (data['data']['full_name'] ?? '').toString();
+      final phone = (data['data']['phone'] ?? '').toString();
+      if (mounted) {
+        setState(() => _url = 'https://ridesip.my.id/iklan-webview/?session_token=$token&user_id=$uid&name=${Uri.encodeComponent(name)}&phone=${Uri.encodeComponent(phone)}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Koneksi gagal: $e')));
+        Navigator.pop(context);
+      }
+    }
+  }
+  @override
+  Widget build(BuildContext context) {
+    if (_url == null) {
+      return Scaffold(
+        backgroundColor: Colors.deepOrange,
+        body: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+    return Scaffold(
+      backgroundColor: Colors.deepOrange,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              color: Colors.deepOrange,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Expanded(
+                    child: Text('Iklan Gratis RideSip', textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(url: WebUri(_url!)),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  domStorageEnabled: true,
+                  useHybridComposition: true,
+                  supportMultipleWindows: false,
+                  userAgent: 'RideSipMerchantApp/1.0',
+                  javaScriptCanOpenWindowsAutomatically: false,
+                ),
+                onLoadStop: (controller, url) {
+                  controller.addJavaScriptHandler(handlerName: 'onPostSuccess', callback: (args) async {
+                    if (mounted) Navigator.pop(context);
+                  });
+                },
+                onReceivedError: (controller, request, error) {},
+              ),
+            ),
+          ],
         ),
       ),
     );

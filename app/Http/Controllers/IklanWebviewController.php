@@ -14,8 +14,50 @@ use Illuminate\Support\Facades\DB;
  */
 class IklanWebviewController extends Controller
 {
+    /**
+     * Validasi session_token webview iklan (deterministik, valid 1 jam).
+     * Mengembalikan user_id yang valid, atau null jika token salah/expired.
+     */
+    private function validateIklanToken($token, $userId)
+    {
+        if (!$token || !$userId) {
+            return null;
+        }
+        $userId = (int) $userId;
+        if ($userId <= 0) {
+            return null;
+        }
+        $user = DB::table('users')->where('id', $userId)->first();
+        if (!$user) {
+            return null;
+        }
+        // Hanya user role MEMBER yang boleh masuk (ADMIN/MANAGER ditolak).
+        if (strtoupper((string) ($user->role ?? 'MEMBER')) !== 'MEMBER') {
+            return null;
+        }
+        // Token valid untuk jam sekarang dan jam sebelumnya (toleransi 1 jam).
+        $now = (int) (time() / 3600);
+        foreach ([$now, $now - 1] as $hour) {
+            $expected = hash('sha256', 'iklan-' . $user->id . '-' . config('app.key') . '-' . $hour);
+            if (hash_equals($expected, (string) $token)) {
+                return $user->id;
+            }
+        }
+        return null;
+    }
+
     public function index(Request $request)
     {
+        // Auto-login via session_token dari aplikasi (pola seperti PPOB).
+        $tokenUser = $this->validateIklanToken(
+            $request->query('session_token'),
+            $request->query('user_id'),
+        );
+        if ($tokenUser && !Auth::check()) {
+            Auth::loginUsingId($tokenUser, true);
+            $request->session()->regenerate();
+        }
+
         $search = $request->query('search');
         $cat = $request->query('category_id');
 
