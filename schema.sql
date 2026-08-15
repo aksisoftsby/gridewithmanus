@@ -1258,3 +1258,86 @@ UPDATE users SET role='MANAGER' WHERE role_kota='MANAGER';
 -- role='MEMBER' (semua user biasa: customer/driver/merchant gabungan).
 -- API: semua endpoint dengan user_id hanya boleh diakses role MEMBER
 -- (ADMIN & MANAGER ditolak 403; login API juga ditolak untuk ADMIN/MANAGER).
+
+-- ============================================================
+-- MIGRATION 2026-08-15: Manager Area Scope (admin-revisi.md Phase 1)
+-- Standarisasi area operasional Manager: dari filter string ILIKE
+-- menjadi relasi kota_id yang kuat (FK ke kota_kabupatens).
+-- Semua kolom baru NULLABLE; backfill dilakukan dari data string.
+-- Kolom string lama (merchants.city) dipertahankan untuk compatibility.
+-- ============================================================
+
+-- drivers: kota operasi (resource operasional wilayah)
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS operating_city_id BIGINT NULL;
+COMMENT ON COLUMN drivers.operating_city_id IS 'Kota operasi driver (FK ke kota_kabupatens). Manager hanya mengelola driver di kotanya.';
+
+-- merchants: relasi kota_id (di samping city string)
+ALTER TABLE merchants ADD COLUMN IF NOT EXISTS city_id BIGINT NULL;
+COMMENT ON COLUMN merchants.city_id IS 'Relasi kota (FK ke kota_kabupatens). city string tetap dipertahankan untuk backward compatibility.';
+
+-- users: kota domisili default (nullable, belum dipakai untuk authorization)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS home_city_id BIGINT NULL;
+COMMENT ON COLUMN users.home_city_id IS 'Kota domisili user (FK ke kota_kabupatens), nullable. Untuk fase 1 belum dipakai authorization.';
+
+-- complaints: handling keluhan area oleh Manager
+CREATE TABLE IF NOT EXISTS complaints (
+  id BIGSERIAL PRIMARY KEY,
+  reporter_id BIGINT NULL,
+  target_type VARCHAR(30) NULL,      -- customer, driver, merchant, order
+  target_id BIGINT NULL,
+  order_id BIGINT NULL,
+  category VARCHAR(50) NULL,         -- delivery_late, driver_behavior, merchant_issue, billing, other
+  subject VARCHAR(255) NULL,
+  message TEXT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'OPEN',  -- OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  assigned_user_id BIGINT NULL,      -- manager yang menangani
+  resolution TEXT NULL,
+  created_at TIMESTAMPTZ NULL,
+  updated_at TIMESTAMPTZ NULL
+);
+CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints (status);
+COMMENT ON TABLE complaints IS 'Keluhan/complaint yang ditangani Manager per area.';
+
+-- audit_logs: pencatatan aksi Manager (bukan hanya Laravel log)
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NULL,
+  action VARCHAR(100) NOT NULL,
+  entity_type VARCHAR(50) NULL,      -- driver, merchant, customer, order, payment, wallet
+  entity_id BIGINT NULL,
+  before_data JSONB NULL,
+  after_data JSONB NULL,
+  ip_address VARCHAR(45) NULL,
+  created_at TIMESTAMPTZ NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs (user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
+COMMENT ON TABLE audit_logs IS 'Audit trail aksi Manager: who, what, before, after, when, IP.';
+
+-- service_zones: disiapkan untuk layer subdivisi area (Provinsi → Kota → Zone → Coverage).
+-- Belum diimplementasikan; schema disisakan untuk perkembangan bisnis.
+CREATE TABLE IF NOT EXISTS service_zones (
+  id BIGSERIAL PRIMARY KEY,
+  kota_id BIGINT NULL REFERENCES kota_kabupatens (id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,        -- e.g. Surabaya Barat, Surabaya Pusat
+  description TEXT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NULL,
+  updated_at TIMESTAMPTZ NULL
+);
+COMMENT ON TABLE service_zones IS 'Subdivisi area dalam kota (layer berikutnya); belum dipakai authorization.';
+
+-- Backfill: merchants.city_id dari merchants.city (best-match ke kota_kabupatens.nama)
+UPDATE merchants SET city_id = k.id
+FROM kota_kabupatens k
+WHERE merchants.city_id IS NULL
+  AND (lower(merchants.city) = lower(k.nama)
+       OR lower(merchants.city) LIKE '%' || lower(k.nama) || '%'
+       OR replace(lower(merchants.city), 'kota ', '') = replace(lower(k.nama), 'kota ', '')
+       OR replace(lower(merchants.city), 'kabupaten ', '') = replace(lower(k.nama), 'kabupaten ', ''));
+
+-- Backfill: drivers.operating_city_id — driver dengan user MANAGER mengikuti coverage pertamanya;
+-- sisanya NULL (Manager assign manual lewat halaman Edit Driver).
+UPDATE drivers SET operating_city_id = mc.id_kota
+FROM (SELECT DISTINCT ON (mc.user_id) mc.user_id, mc.id_kota FROM manager_coverage mc) mc
+WHERE drivers.user_id = mc.user_id AND drivers.operating_city_id IS NULL;

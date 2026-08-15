@@ -49,13 +49,70 @@ Route::middleware(['auth', 'role.kota'])->prefix('admin/kota')->name('kota.')->g
     Route::post('/coverage', [KotaController::class, 'coverageAdd'])->name('coverage.add');
     Route::delete('/coverage/{id}', [KotaController::class, 'coverageRemove'])->name('coverage.remove');
 
-    // Member management sesuai coverage (merchant & driver)
+    // OPERATIONS: Rides & Deliveries & Orders
+    Route::get('/rides', [KotaController::class, 'ridesIndex'])->name('rides.index');
+    Route::get('/rides/{id}', [KotaController::class, 'ridesShow'])->name('rides.show');
+    Route::get('/deliveries', [KotaController::class, 'deliveriesIndex'])->name('deliveries.index');
+    Route::get('/deliveries/{id}', [KotaController::class, 'deliveriesShow'])->name('deliveries.show');
+    Route::get('/orders', [KotaController::class, 'ordersIndex'])->name('orders.index');
+    Route::get('/orders/{id}', [KotaController::class, 'ordersShow'])->name('orders.show');
+    Route::get('/transactions', [KotaController::class, 'transactionsIndex'])->name('transactions.index');
+
+    // PEOPLE: Customers
+    Route::get('/customers', [KotaController::class, 'customersIndex'])->name('customers.index');
+    Route::get('/customers/{id}', [KotaController::class, 'customersShow'])->name('customers.show');
+    Route::get('/customers/{id}/edit', [KotaController::class, 'customersEdit'])->name('customers.edit');
+    Route::put('/customers/{id}', [KotaController::class, 'customersUpdate'])->name('customers.update');
+
+    // PEOPLE: Drivers
+    Route::get('/drivers', [KotaController::class, 'driversIndex'])->name('drivers.index');
+    Route::get('/drivers/{id}', [KotaController::class, 'driversShow'])->name('drivers.show');
+    Route::get('/drivers/{id}/edit', [KotaController::class, 'driversEdit'])->name('drivers.edit');
+    Route::put('/drivers/{id}', [KotaController::class, 'driversUpdate'])->name('drivers.update');
+    Route::patch('/drivers/{id}/status', [KotaController::class, 'driversStatus'])->name('drivers.status');
+    Route::get('/drivers/{id}/wallet', [KotaController::class, 'driversWallet'])->name('drivers.wallet');
+    Route::get('/drivers/{id}/trips', [KotaController::class, 'driversTrips'])->name('drivers.trips');
+    Route::get('/drivers/{id}/vehicles', [KotaController::class, 'driversVehicles'])->name('drivers.vehicles');
+    Route::post('/drivers/{id}/vehicles', [KotaController::class, 'driversVehiclesStore'])->name('drivers.vehicles.store');
+    Route::delete('/drivers/{id}/vehicles/{vehicleId}', [KotaController::class, 'driversVehiclesDestroy'])->name('drivers.vehicles.destroy');
+
+    // PEOPLE: Merchants
+    Route::get('/merchants', [KotaController::class, 'merchantsIndex'])->name('merchants.index');
+    Route::get('/merchants/{id}', [KotaController::class, 'merchantsShow'])->name('merchants.show');
+    Route::get('/merchants/{id}/edit', [KotaController::class, 'merchantsEdit'])->name('merchants.edit');
+    Route::put('/merchants/{id}', [KotaController::class, 'merchantsUpdate'])->name('merchants.update');
+    Route::patch('/merchants/{id}/status', [KotaController::class, 'merchantsStatus'])->name('merchants.status');
+    Route::get('/merchants/{id}/wallet', [KotaController::class, 'merchantsWallet'])->name('merchants.wallet');
+
+    // FINANCE (view-only): Payments & Wallets & Wallet Transactions
+    Route::get('/payments', [KotaController::class, 'paymentsIndex'])->name('payments.index');
+    Route::get('/payments/{id}', [KotaController::class, 'paymentsShow'])->name('payments.show');
+    Route::get('/wallets', [KotaController::class, 'walletsIndex'])->name('wallets.index');
+    Route::get('/wallets/{id}', [KotaController::class, 'walletsShow'])->name('wallets.show');
+    Route::get('/wallet-transactions', [KotaController::class, 'walletTransactionsIndex'])->name('wallet.transactions.index');
+
+    // REPORTS
+    Route::get('/reports', [KotaController::class, 'reportsIndex'])->name('reports.index');
+    Route::get('/reports/daily', [KotaController::class, 'reportsDaily'])->name('reports.daily');
+
+    // SUPPORT: Complaints
+    Route::get('/complaints', [KotaController::class, 'complaintsIndex'])->name('complaints.index');
+    Route::post('/complaints', [KotaController::class, 'complaintsStore'])->name('complaints.store');
+    Route::patch('/complaints/{id}/status', [KotaController::class, 'complaintsStatus'])->name('complaints.status');
+
+    // SYSTEM: Audit Logs
+    Route::get('/audit', [KotaController::class, 'auditIndex'])->name('audit.index');
+
+    // SYSTEM: My Profile (Manager; coverage read-only)
+    Route::get('/profile', [KotaController::class, 'profile'])->name('profile');
+    Route::put('/profile', [KotaController::class, 'profileUpdate'])->name('profile.update');
+
+    // Members (legacy alias -> redirects kept via controller method)
     Route::get('/members', [KotaController::class, 'membersIndex'])->name('members.index');
     Route::get('/members/merchant/{id}/edit', [KotaController::class, 'membersMerchantEdit'])->name('members.merchant.edit');
     Route::put('/members/merchant/{id}', [KotaController::class, 'membersMerchantUpdate'])->name('members.merchant.update');
     Route::get('/members/driver/{id}/edit', [KotaController::class, 'membersDriverEdit'])->name('members.driver.edit');
     Route::put('/members/driver/{id}', [KotaController::class, 'membersDriverUpdate'])->name('members.driver.update');
-    Route::patch('/members/driver/{id}/status', [KotaController::class, 'membersDriverStatus'])->name('members.driver.status');
 
     // Pengguna panel kota (hanya ADMIN super boleh mengubah role)
     Route::get('/users', [KotaController::class, 'usersIndex'])->name('users.index');

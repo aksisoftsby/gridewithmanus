@@ -19,8 +19,8 @@
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Filter Provinsi</label>
                 <select name="provinsi" class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none w-64">
                     <option value="">-- Semua Provinsi --</option>
-                    @foreach($provinsis as $p)
-                        <option value="{{ $p->id }}" {{ (string)($searchProvinsi ?? '') === (string)$p->id ? 'selected' : '' }}>{{ $p->nama }} ({{ $p->pulau }})</option>
+                    @foreach($provinsis as $item)
+                        <option value="{{ $item->id }}" {{ (string)($searchProvinsi ?? '') === (string)$item->id ? 'selected' : '' }}>{{ $item->nama }} ({{ $item->pulau }})</option>
                     @endforeach
                 </select>
             </div>
@@ -49,13 +49,13 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse($kota as $k)
+                    @forelse($kota as $item)
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-3 text-gray-500">{{ $k->id }}</td>
-                            <td class="px-6 py-3">{{ $k->provinsi_nama }}</td>
-                            <td class="px-6 py-3 font-semibold text-gray-800">{{ $k->nama }}</td>
+                            <td class="px-6 py-3 text-gray-500">{{ $item->id }}</td>
+                            <td class="px-6 py-3">{{ $item->provinsi_nama }}</td>
+                            <td class="px-6 py-3 font-semibold text-gray-800">{{ $item->nama }}</td>
                             <td class="px-6 py-3">
-                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $k->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-900' }}">{{ $k->tipe }}</span>
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $item->tipe === 'Kota' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-900' }}">{{ $item->tipe }}</span>
                             </td>
                         </tr>
                     @empty

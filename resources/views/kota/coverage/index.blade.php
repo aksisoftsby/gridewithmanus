@@ -30,8 +30,8 @@
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Manager</label>
                     <select name="user_id" required class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
                         <option value="">-- Pilih manager --</option>
-                        @foreach ($managers ?? [] as $m)
-                            <option value="{{ $m->id }}">{{ $m->full_name }} ({{ $m->email }})</option>
+                        @foreach ($managers ?? [] as $item)
+                            <option value="{{ $managers->id }}">{{ $managers->full_name }} ({{ $managers->email }})</option>
                         @endforeach
                     </select>
                 </div>
@@ -39,8 +39,8 @@
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Provinsi</label>
                     <select id="coverageProvinsi" class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
                         <option value="">-- Pilih provinsi --</option>
-                        @foreach ($provinsis ?? [] as $p)
-                            <option value="{{ $p->id }}">{{ $p->nama }}</option>
+                        @foreach ($provinsis ?? [] as $item)
+                            <option value="{{ $provinsis->id }}">{{ $provinsis->nama }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -70,20 +70,20 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse ($coverage ?? [] as $c)
+                    @forelse ($coverage ?? [] as $coverage)
                         <tr class="hover:bg-gray-50">
                             @if ($isAdmin)
                                 <td class="px-5 py-3">
-                                    <div class="font-semibold text-gray-800">{{ $c->full_name }}</div>
-                                    <div class="text-xs text-gray-500">{{ $c->email }}</div>
+                                    <div class="font-semibold text-gray-800">{{ $coverage->full_name }}</div>
+                                    <div class="text-xs text-gray-500">{{ $coverage->email }}</div>
                                 </td>
                             @endif
-                            <td class="px-5 py-3 text-gray-700">{{ $c->provinsi_nama }}</td>
-                            <td class="px-5 py-3 font-semibold text-gray-800">{{ $c->kota_nama }}</td>
-                            <td class="px-5 py-3 text-gray-500">{{ $c->created_at ? \Carbon\Carbon::parse($c->created_at)->format('d M Y') : '-' }}</td>
+                            <td class="px-5 py-3 text-gray-700">{{ $coverage->provinsi_nama }}</td>
+                            <td class="px-5 py-3 font-semibold text-gray-800">{{ $coverage->kota_nama }}</td>
+                            <td class="px-5 py-3 text-gray-500">{{ $coverage->created_at ? \Carbon\Carbon::parse($coverage->created_at)->format('d M Y') : '-' }}</td>
                             @if ($isAdmin)
                                 <td class="px-5 py-3">
-                                    <form method="POST" action="{{ route('kota.coverage.remove', $c->coverage_id) }}" onsubmit="return confirm('Hapus coverage kota ini?')">
+                                    <form method="POST" action="{{ route('kota.coverage.remove', $coverage->coverage_id) }}" onsubmit="return confirm('Hapus coverage kota ini?')">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="text-red-600 hover:text-red-800 text-xs font-semibold">
                                             <i class="fa-solid fa-trash-can mr-1"></i> Hapus

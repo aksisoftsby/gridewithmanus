@@ -86,6 +86,9 @@
                                 $currentRoute = request()->route() ? (request()->route()->getName() ?? '') : '';
                             @endphp
                             @foreach($kotaNav as $item)
+                                @if(!empty($item['group']) && ($item['_new_group'] ?? false))
+                                    <span class="self-center ml-2 mr-1 text-[10px] font-bold uppercase tracking-wider text-blue-300">{{ $item['group'] }}</span>
+                                @endif
                                 @if(isset($item['external']))
                                     <a href="{{ route($item['route']) }}" target="_blank" class="px-3 py-1.5 rounded-lg font-medium transition text-blue-100 hover:bg-blue-800">
                                         <i class="fa-solid {{ $item['icon'] }} mr-1"></i> {{ $item['label'] }}
@@ -131,7 +134,9 @@
             </div>
         @endif
 
-        @yield('content')
+        
+
+    @yield('content')
     </main>
 
     @auth

@@ -32,8 +32,8 @@
         <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">Pemilik (User)</label>
             <select name="owner_id" required class="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500">
-                @foreach ($owners ?? [] as $o)
-                    <option value="{{ $o->id }}" {{ ($merchant->owner_id ?? 0) == $o->id ? 'selected' : '' }}>{{ $o->full_name }} ({{ $o->email }})</option>
+                @foreach ($owners ?? [] as $owner)
+                    <option value="{{ $owner->id }}" {{ ($merchant->owner_id ?? 0) == $owner->id ? 'selected' : '' }}>{{ $owner->full_name }} ({{ $owner->email }})</option>
                 @endforeach
             </select>
         </div>

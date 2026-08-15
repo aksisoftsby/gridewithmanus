@@ -52,6 +52,7 @@ Route::get('/ride-services', [ApiController::class, 'rideServices']);
 Route::post('/rides/estimate', [ApiController::class, 'ridesEstimate']);
 Route::post('/rides', [ApiController::class, 'ridesStore']);
 Route::get('/rides/current', [ApiController::class, 'driverRidesCurrent']);
+Route::get('/rides/inbound', [ApiController::class, 'driverRidesInbound']);
 Route::get('/rides/history', [ApiController::class, 'ridesHistory']);
 Route::get('/rides/{id}', [ApiController::class, 'ridesShow']);
 Route::post('/rides/{id}/accept', [ApiController::class, 'ridesAccept']);

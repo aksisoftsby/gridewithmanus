@@ -51,25 +51,25 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse($users as $u)
+                    @forelse($users as $item)
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-3 text-gray-500">{{ $u->id }}</td>
-                            <td class="px-6 py-3 font-semibold text-gray-800">{{ $u->full_name }}</td>
-                            <td class="px-6 py-3">{{ $u->email }}</td>
-                            <td class="px-6 py-3">{{ $u->phone }}</td>
-                            <td class="px-6 py-3"><span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">{{ $u->role }}</span></td>
+                            <td class="px-6 py-3 text-gray-500">{{ $item->id }}</td>
+                            <td class="px-6 py-3 font-semibold text-gray-800">{{ $item->full_name }}</td>
+                            <td class="px-6 py-3">{{ $item->email }}</td>
+                            <td class="px-6 py-3">{{ $item->phone }}</td>
+                            <td class="px-6 py-3"><span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">{{ $item->role }}</span></td>
                             <td class="px-6 py-3">
-                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $u->role_kota === 'ADMIN' ? 'bg-red-100 text-red-800' : ($u->role_kota === 'MANAGER' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700') }}">{{ $u->role_kota }}</span>
+                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $item->role_kota === 'ADMIN' ? 'bg-red-100 text-red-800' : ($item->role_kota === 'MANAGER' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700') }}">{{ $item->role_kota }}</span>
                             </td>
                             <td class="px-6 py-3">
                                 @if(auth()->user()->role === 'ADMIN')
-                                <form action="{{ route('kota.users.role.update', $u->id) }}" method="POST" class="flex gap-2">
+                                <form action="{{ route('kota.users.role.update', $item->id) }}" method="POST" class="flex gap-2">
                                     @csrf
                                     @method('PATCH')
                                     <select name="role_kota" class="px-2 py-1 border rounded text-xs">
-                                        <option value="MEMBER" {{ $u->role_kota === 'MEMBER' ? 'selected' : '' }}>MEMBER</option>
-                                        <option value="MANAGER" {{ $u->role_kota === 'MANAGER' ? 'selected' : '' }}>MANAGER</option>
-                                        <option value="ADMIN" {{ $u->role_kota === 'ADMIN' ? 'selected' : '' }}>ADMIN</option>
+                                        <option value="MEMBER" {{ $item->role_kota === 'MEMBER' ? 'selected' : '' }}>MEMBER</option>
+                                        <option value="MANAGER" {{ $item->role_kota === 'MANAGER' ? 'selected' : '' }}>MANAGER</option>
+                                        <option value="ADMIN" {{ $item->role_kota === 'ADMIN' ? 'selected' : '' }}>ADMIN</option>
                                     </select>
                                     <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-xs font-semibold">Simpan</button>
                                 </form>

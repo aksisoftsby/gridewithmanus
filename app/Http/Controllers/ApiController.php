@@ -2925,11 +2925,11 @@ class ApiController extends Controller
         }
         $this->ensureRidesTables();
         $userId = (int) $request->query('user_id', 0);
-        $driver = DB::table('drivers')->where('user_id', $userId)->first();
-        if (!$driver) {
+        $driverIds = DB::table('drivers')->where('user_id', $userId)->pluck('id');
+        if ($driverIds->isEmpty()) {
             return response()->json(['status' => 'success', 'data' => null]);
         }
-        $ride = DB::table('orders')->where('order_type', 'RIDE')->where('driver_id', $driver->id)
+        $ride = DB::table('orders')->where('order_type', 'RIDE')->whereIn('driver_id', $driverIds)
             ->whereIn('status', ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING', 'DRIVER_ARRIVED', 'TRIP_STARTED'])
             ->orderBy('confirmed_at', 'desc')->first();
         if (!$ride) {
@@ -2937,7 +2937,54 @@ class ApiController extends Controller
         }
         return response()->json(['status' => 'success', 'data' => $this->ridePayload($ride)]);
     }
-
+    /** GET /api/rides/inbound?user_id= — daftar permintaan RIDE tanpa driver (SEARCHING_DRIVER) yang bisa diterima driver ini. */
+    public function driverRidesInbound(Request $request)
+    {
+        $check = $this->requireMember($request);
+        if ($check !== null) {
+            return $check;
+        }
+        $this->ensureRidesTables();
+        $userId = (int) $request->query('user_id', 0);
+        // Satu user bisa punya beberapa akun driver — ambil semua kendaraannya
+        $driverIds = DB::table('drivers')->where('user_id', $userId)->pluck('id');
+        if ($driverIds->isEmpty()) {
+            return response()->json(['status' => 'success', 'data' => []]);
+        }
+        // Kendaraan aktif dari semua akun driver user ini (tipe & kapasitas)
+        $vehicles = DB::table('driver_vehicles')
+            ->whereIn('driver_id', $driverIds)
+            ->where('is_active', true)
+            ->select('vehicle_type', 'capacity')
+            ->get()
+            ->keyBy('vehicle_type');
+        if ($vehicles->isEmpty()) {
+            return response()->json(['status' => 'success', 'data' => []]);
+        }
+        // Permintaan tanpa driver, urutkan yang paling dekat dengan driver (posisi driver terakhir / lokasi default)
+        $rides = DB::table('orders')->where('order_type', 'RIDE')
+            ->whereNull('driver_id')->where('status', 'SEARCHING_DRIVER')
+            ->whereNotNull('pickup_lat')->whereNotNull('pickup_lng')
+            ->whereNotNull('dropoff_lat')->whereNotNull('dropoff_lng')
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+        $out = [];
+        foreach ($rides as $r) {
+            $vType = (string) ($r->vehicle_type ?? '');
+            $pax = (int) ($r->passenger_count ?? 1);
+            if (!$vehicles->has($vType)) {
+                continue;
+            }
+            $cap = (int) ($vehicles[$vType]->capacity ?? 4);
+            if ($cap < $pax) {
+                continue;
+            }
+            $pay = $this->ridePayload($r);
+            $out[] = $pay;
+        }
+        return response()->json(['status' => 'success', 'data' => $out]);
+    }
     /** GET /api/rides/history?user_id=&role=customer|driver */
     public function ridesHistory(Request $request)
     {
@@ -2949,11 +2996,11 @@ class ApiController extends Controller
         $userId = (int) $request->query('user_id', 0);
         $role = $request->query('role', 'customer');
         if ($role === 'driver') {
-            $driver = DB::table('drivers')->where('user_id', $userId)->first();
-            if (!$driver) {
+            $driverIds = DB::table('drivers')->where('user_id', $userId)->pluck('id');
+            if ($driverIds->isEmpty()) {
                 return response()->json(['status' => 'success', 'data' => []]);
             }
-            $rides = DB::table('orders')->where('order_type', 'RIDE')->where('driver_id', $driver->id)->orderBy('created_at', 'desc')->limit(50)->get();
+            $rides = DB::table('orders')->where('order_type', 'RIDE')->whereIn('driver_id', $driverIds)->orderBy('created_at', 'desc')->limit(50)->get();
         } else {
             $rides = DB::table('orders')->where('order_type', 'RIDE')->where('user_id', $userId)->orderBy('created_at', 'desc')->limit(50)->get();
         }
@@ -3056,7 +3103,8 @@ class ApiController extends Controller
         if (!$ride) {
             return response()->json(['status' => 'error', 'message' => 'Perjalanan tidak ditemukan.'], 404);
         }
-        if ((string) $ride->driver_id !== (string) $driver->id) {
+        $driverIds = DB::table('drivers')->where('user_id', $userId)->pluck('id');
+        if ((string) $ride->driver_id !== (string) $driver->id && !in_array((int) $ride->driver_id, $driverIds->all(), true)) {
             return response()->json(['status' => 'error', 'message' => 'Bukan perjalanan Anda.'], 403);
         }
         if ($ride->status !== $fromStatus) {
@@ -3221,6 +3269,7 @@ class ApiController extends Controller
         if (!$ride) {
             return response()->json(['status' => 'error', 'message' => 'Perjalanan tidak ditemukan.'], 404);
         }
+        $driverIds = DB::table('drivers')->where('user_id', $userId)->pluck('id');
         $driverUserId = $this->driverUserId($ride);
         if ((int) $ride->user_id !== $userId && $driverUserId !== $userId) {
             return response()->json(['status' => 'error', 'message' => 'Akses ditolak.'], 403);

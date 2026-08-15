@@ -46,7 +46,7 @@
                         <td class="px-6 py-4 font-semibold text-gray-900">{{ $user->full_name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $user->email }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $user->phone ?? '-' }}</td>
-                        <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $user->password_plain ?? '••••••••' }}</td>
+                        <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ '••••••••' }}</td>
                         <td class="px-6 py-4">
                             <span class="px-2.5 py-1 text-xs font-semibold rounded-full 
                                 @if($user->role == 'ADMIN') bg-pink-100 text-pink-800 

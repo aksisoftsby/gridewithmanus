@@ -32,7 +32,7 @@
                         <td class="px-6 py-4 font-mono text-gray-500">#{{ $m->id }}</td>
                         <td class="px-6 py-4 font-semibold text-gray-900">{{ $m->full_name }}</td>
                         <td class="px-6 py-4 text-gray-600">{{ $m->email }}</td>
-                        <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ $m->password_plain ?? '••••••••' }}</td>
+                        <td class="px-6 py-4 font-mono text-xs text-gray-700">{{ '••••••••' }}</td>
                         <td class="px-6 py-4 text-gray-600 text-xs">{{ $m->coverage_nama ?: '-' }}</td>
                         <td class="px-6 py-4 text-gray-600 text-xs">{{ $m->coverage_provinsi ?: '-' }}</td>
                         <td class="px-6 py-4">
