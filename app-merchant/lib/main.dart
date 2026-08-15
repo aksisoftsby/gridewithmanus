@@ -1086,7 +1086,8 @@ class _IklanWebViewPageState extends State<IklanWebViewPage> {
     _boot();
   }
   Future<void> _boot() async {
-    final user = await Session.load();
+    await Session.load();
+    final user = Session.user;
     if (!mounted) return;
     if (user == null || user['id'] == null) {
       ScaffoldMessenger.of(context).showSnackBar(
