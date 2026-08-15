@@ -249,8 +249,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             icon: const Icon(Icons.bolt, size: 18),
                             label: const Text('PPOB — Pulsa, PLN, Voucher Game & Lainnya'),
                             style: FilledButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage())),
-                          ),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PpobWebViewPage()))),
                         const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
