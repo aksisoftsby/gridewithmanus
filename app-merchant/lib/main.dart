@@ -729,6 +729,7 @@ class MerchantAkunPage extends StatefulWidget {
 class _MerchantAkunPageState extends State<MerchantAkunPage> {
   Map<String, dynamic>? merchant;
   Map<String, dynamic>? earnings;
+  Map<String, dynamic>? _wallet;
   bool isLoading = true;
   String? error;
 
@@ -742,9 +743,14 @@ class _MerchantAkunPageState extends State<MerchantAkunPage> {
     try {
       final me = await http.get(Uri.parse('$kApiBase/merchant/me?user_id=${user['id']}'));
       final earn = await http.get(Uri.parse('$kApiBase/merchant/earnings?user_id=${user['id']}'));
+      final wsum = await http.get(Uri.parse('$kApiBase/wallet/summary?user_id=${user['id']}'));
       setState(() {
         if (me.statusCode == 200) merchant = Map<String, dynamic>.from(jsonDecode(me.body)['data']['merchant']);
         if (earn.statusCode == 200) earnings = jsonDecode(earn.body)['data'];
+        if (wsum.statusCode == 200) {
+          final d = jsonDecode(wsum.body)['data'];
+          _wallet = d == null ? null : Map<String, dynamic>.from(d);
+        }
         isLoading = false;
       });
     } catch (e) {
@@ -830,6 +836,25 @@ class _MerchantAkunPageState extends State<MerchantAkunPage> {
                           ]),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      // ---- GrSaldo ----
+                      if (_wallet != null)
+                        Card(
+                          color: const Color(0xFFE8F5E9),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              const Text('GrSaldo (Dompet)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1B8A5A))),
+                              const Divider(height: 14),
+                              _moneyRow('Saldo Dompet', (_wallet!['balance'] ?? 0).round(), const Color(0xFF1B8A5A)),
+                              const SizedBox(height: 8),
+                              _moneyRow('Total Pemasukan', (_wallet!['total_earning'] ?? 0).round(), Colors.green.shade800),
+                              const SizedBox(height: 8),
+                              _moneyRow('Total Transaksi', (_wallet!['total_transactions'] ?? 0), Colors.deepPurple.shade700),
+                            ]),
+                          ),
+                        ),
                       const SizedBox(height: 12),
                       // ---- Saldo ----
                       Card(

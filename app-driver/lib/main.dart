@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:convert';
 import "package:http/http.dart" as http;
 import "package:flutter_inappwebview/flutter_inappwebview.dart";
@@ -137,10 +138,103 @@ class _OrdersPageState extends State<OrdersPage> {
   bool isLoading = true;
   Map<String, dynamic>? _user;
 
+  // Ride-hailing (Gr-Antar Orang)
+  List<Map<String, dynamic>> _inboundRides = [];
+  Map<String, dynamic>? _activeRide;
+  Timer? _ridePollTimer;
+  bool _rideLoading = true;
+
   @override
   void initState() {
     super.initState();
     _loadUser().then((_) => fetchOrders());
+  }
+
+  @override
+  void dispose() {
+    _ridePollTimer?.cancel();
+    super.dispose();
+  }
+
+  int? _driverUserId() {
+    if (_user == null) return null;
+    final d = _user!['driver_id'];
+    return d == null ? null : int.tryParse(d.toString());
+  }
+
+  void _startRidePolling() {
+    _ridePollTimer?.cancel();
+    _ridePollTimer = Timer.periodic(const Duration(seconds: 5), (_) => fetchRides());
+    fetchRides();
+  }
+
+  Future<void> fetchRides() async {
+    final uid = _driverUserId();
+    if (uid == null) return;
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/rides/current?user_id=$uid'));
+      if (res.statusCode == 200) {
+        final cur = jsonDecode(res.body)['data'];
+        final inboundRes = await http.get(Uri.parse('$kApiBase/rides/inbound?user_id=$uid'));
+        final inbound = inboundRes.statusCode == 200
+            ? List<Map<String, dynamic>>.from(jsonDecode(inboundRes.body)['data'] ?? [])
+            : <Map<String, dynamic>>[];
+        if (mounted) {
+          setState(() {
+            _activeRide = (cur is Map && cur.isNotEmpty) ? Map<String, dynamic>.from(cur) : null;
+            _inboundRides = inbound;
+            _rideLoading = false;
+          });
+        }
+        return;
+      }
+      if (mounted) setState(() => _rideLoading = false);
+    } catch (_) {
+      if (mounted) setState(() => _rideLoading = false);
+    }
+  }
+
+  Future<void> _rideAction(String id, String action) async {
+    final uid = _driverUserId();
+    if (uid == null) return;
+    try {
+      final res = await http.post(
+        Uri.parse('$kApiBase/rides/$id/$action?user_id=$uid'),
+        headers: const {'Content-Type': 'application/json'},
+      );
+      final ok = res.statusCode == 200;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok ? 'Berhasil' : 'Gagal: ${res.body}'),
+              backgroundColor: ok ? Colors.green : Colors.red),
+        );
+        fetchRides();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Color _rideStatusColor(String? status) {
+    switch (status) {
+      case 'SEARCHING_DRIVER':
+        return Colors.orange.shade700;
+      case 'DRIVER_ACCEPTED':
+      case 'DRIVER_ARRIVING':
+        return Colors.blue.shade700;
+      case 'DRIVER_ARRIVED':
+      case 'TRIP_STARTED':
+        return Colors.indigo.shade700;
+      case 'COMPLETED':
+        return Colors.green.shade700;
+      case 'CANCELLED':
+        return Colors.red.shade700;
+      default:
+        return Colors.grey.shade600;
+    }
   }
 
   Future<void> _loadUser() async => _user = await Session.load();
@@ -160,6 +254,8 @@ class _OrdersPageState extends State<OrdersPage> {
     } catch (e) {
       setState(() => isLoading = false);
     }
+    // Ride-hailing: polling hanya setelah driver login
+    if (_user != null) _startRidePolling();
   }
 
   List<Widget> _invoiceRows(Map<String, dynamic> invoice, Map<String, dynamic> order) {
@@ -266,6 +362,102 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (_user != null) ...[
+                    if (_rideLoading)
+                      const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                    else if (_activeRide != null) ...[
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        color: _rideStatusColor(_activeRide!['status']).withOpacity(0.08),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: _rideStatusColor(_activeRide!['status']))),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.directions_car, color: _rideStatusColor(_activeRide!['status'])),
+                                  const SizedBox(width: 8),
+                                  const Text('Ride Aktif', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text('No: ${_activeRide!['order_number'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                              if ((_activeRide!['pickup_address'] ?? '') != '') Text('Jemput: ${_activeRide!['pickup_address']}'),
+                              if ((_activeRide!['dropoff_address'] ?? '') != '') Text('Tujuan: ${_activeRide!['dropoff_address']}'),
+                              if ((_activeRide!['customer_name'] ?? '') != '') Text('Penumpang: ${_activeRide!['customer_name']}'),
+                              if ((_activeRide!['fare'] ?? 0) > 0) Text('Tarif: Rp ${formatRp((_activeRide!['fare'] ?? 0).round())}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                              const SizedBox(height: 8),
+                              Chip(label: Text((_activeRide!['status'] ?? '').toString().replaceAll('_', ' '), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                                  backgroundColor: _rideStatusColor(_activeRide!['status'])),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  if (_activeRide!['status'] == 'DRIVER_ACCEPTED' || _activeRide!['status'] == 'DRIVER_ARRIVING')
+                                    Expanded(child: FilledButton.icon(onPressed: () => _rideAction(_activeRide!['id'].toString(), 'arriving'),
+                                        icon: const Icon(Icons.navigation, size: 16), label: const Text('Menuju Penjemputan'))),
+                                  if (_activeRide!['status'] == 'DRIVER_ARRIVING' || _activeRide!['status'] == 'DRIVER_ARRIVED' || _activeRide!['status'] == 'TRIP_STARTED')
+                                    Expanded(child: FilledButton.icon(onPressed: () => _rideAction(_activeRide!['id'].toString(), 'arrived'),
+                                        icon: const Icon(Icons.location_on, size: 16), label: const Text('Tiba di Penjemputan'))),
+                                  if (_activeRide!['status'] == 'DRIVER_ARRIVED')
+                                    Expanded(child: FilledButton.icon(onPressed: () => _rideAction(_activeRide!['id'].toString(), 'start'),
+                                        icon: const Icon(Icons.play_arrow, size: 16), label: const Text('Mulai Perjalanan'))),
+                                  if (_activeRide!['status'] == 'TRIP_STARTED')
+                                    Expanded(child: FilledButton.icon(onPressed: () => _rideAction(_activeRide!['id'].toString(), 'complete'),
+                                        icon: const Icon(Icons.flag, size: 16), label: const Text('Selesai'))),
+                                  if (_activeRide!['status'] == 'DRIVER_ACCEPTED')
+                                    Expanded(child: OutlinedButton.icon(onPressed: () => _rideAction(_activeRide!['id'].toString(), 'reject'),
+                                        icon: const Icon(Icons.close, size: 16), label: const Text('Batalkan'), style: OutlinedButton.styleFrom(foregroundColor: Colors.red))),
+                                ].where((e) => true).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else if (_inboundRides.isNotEmpty) ...[
+                      const Text('Permintaan Antar Orang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      for (final ride in _inboundRides)
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          color: Colors.orange.shade50,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('No: ${ride['order_number'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                if ((ride['pickup_address'] ?? '') != '') Text('Jemput: ${ride['pickup_address']}'),
+                                if ((ride['dropoff_address'] ?? '') != '') Text('Tujuan: ${ride['dropoff_address']}'),
+                                if ((ride['customer_name'] ?? '') != '') Text('Penumpang: ${ride['customer_name']}'),
+                                if ((ride['fare'] ?? 0) > 0) Text('Tarif: Rp ${formatRp((ride['fare'] ?? 0).round())}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(child: FilledButton.icon(onPressed: () => _rideAction(ride['id'].toString(), 'accept'),
+                                        icon: const Icon(Icons.check, size: 16), label: const Text('Terima'),
+                                        style: FilledButton.styleFrom(backgroundColor: Colors.green))),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: OutlinedButton.icon(onPressed: () => _rideAction(ride['id'].toString(), 'reject'),
+                                        icon: const Icon(Icons.close, size: 16), label: const Text('Tolak'),
+                                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red))),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ] else
+                      Card(
+                        child: const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text('Belum ada permintaan ride masuk. Tetap online agar dapat orderan ride.', textAlign: TextAlign.center),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                  ],
                   const Text('Daftar Pesanan Masuk', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   if (orders.isEmpty)
@@ -784,10 +976,10 @@ class _AccountPageState extends State<AccountPage> {
               ],
             ),
           ),
+          // GrSaldo (wallet summary dari server)
+          GrSaldoCard(userId: int.tryParse(_driver?['id']?.toString() ?? '0')),
           const SizedBox(height: 10),
-
           // Kendaraan Saya (multi-kendaraan)
-          InkWell(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KendaraanPage())),
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -926,6 +1118,100 @@ class _AccountPageState extends State<AccountPage> {
 }
 
 // ============ Halaman Iklan Gratis — WebView ke https://ridesip.my.id/iklan-webview ============
+// ============ GrSaldo Card (wallet summary server) ============
+class GrSaldoCard extends StatefulWidget {
+  final int userId;
+  const GrSaldoCard({super.key, required this.userId});
+  @override
+  State<GrSaldoCard> createState() => _GrSaldoCardState();
+}
+
+class _GrSaldoCardState extends State<GrSaldoCard> {
+  Map<String, dynamic>? _summary;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (widget.userId <= 0) return;
+    try {
+      final res = await http.get(Uri.parse('$kApiBase/wallet/summary?user_id=${widget.userId}'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+        if (mounted) setState(() => _summary = Map<String, dynamic>.from(data ?? {}));
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.userId <= 0 || _summary == null) {
+      return const SizedBox.shrink();
+    }
+    final bal = (_summary!['balance'] ?? 0).round();
+    final earn = (_summary!['total_earning'] ?? 0).round();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF1B8A5A), Color(0xFF2ECC71)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('GRSALDO', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1)),
+          const SizedBox(height: 6),
+          Text('Rp ${formatRp(bal)}', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Total Pemasukan', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      Text('Rp ${formatRp(earn)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Total Transaksi', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      Text('${_summary!['total_transactions'] ?? 0}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54)),
+              onPressed: _load,
+              child: const Text('Segarkan', style: TextStyle(color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class IklanWebViewPage extends StatefulWidget {
   const IklanWebViewPage({super.key});
   @override
