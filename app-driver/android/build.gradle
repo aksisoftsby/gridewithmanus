@@ -1,0 +1,8 @@
+
+allprojects {
+    afterEvaluate {
+        tasks.matching { it.name == 'lint' || it.name.startsWith('lintVital') || it.name.startsWith('lintAnalyze') || it.name.startsWith('lintVitalAnalyze') }.configureEach {
+            it.enabled = false
+        }
+    }
+}

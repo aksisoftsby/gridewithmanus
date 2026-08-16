@@ -8,16 +8,15 @@ on:
   workflow_dispatch:
 
 # Only one run at a time per branch; older queued runs are cancelled.
-# This prevents race conditions between runs on the same runner queue.
 concurrency:
   group: apk-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-apks:
-    name: Build APKs for Customer, Driver, and Merchant
+  build-apk:
+    name: Build APK (${{ matrix.app }})
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 35
 
     strategy:
       # Build the 3 apps in parallel, each on its own runner,
@@ -25,6 +24,10 @@ jobs:
       matrix:
         app: [app-customer, app-driver, app-merchant]
       max-parallel: 3
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
 
     steps:
       - name: Checkout Repository
@@ -43,37 +46,36 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Disable Gradle daemon and VFS file watching in CI
+      - name: Memory-safe Gradle settings (CI)
+        timeout-minutes: 2
         run: |
-          for dir in app-customer app-driver app-merchant; do
-            echo "org.gradle.daemon=false" >> $dir/android/gradle.properties
-            echo "org.gradle.caching=false" >> $dir/android/gradle.properties
-            echo "org.gradle.vfs.watch=false" >> $dir/android/gradle.properties
-          done
+          printf '\norg.gradle.daemon=false\norg.gradle.caching=false\norg.gradle.vfs.watch=false\norg.gradle.jvmargs=-Xmx1500m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\n' >> android/gradle.properties
+          printf 'sdk.dir=/usr/lib/android-sdk\nflutter.sdk=%s\nflutter.buildMode=release\nflutter.versionName=1.0.0\nflutter.versionCode=1\n' "$FLUTTER_ROOT" > android/local.properties
 
       - name: Stop any lingering Gradle daemon
+        timeout-minutes: 2
         run: |
           ./gradlew --stop || true
-        working-directory: ${{ matrix.app }}/android
         continue-on-error: true
 
       - name: Flutter Clean + Pub Get
+        timeout-minutes: 8
         run: |
           flutter clean
           flutter pub get
-        working-directory: ${{ matrix.app }}
 
       - name: Build APK (release)
-        timeout-minutes: 45
-        run: flutter build apk --release
-        working-directory: ${{ matrix.app }}
+        timeout-minutes: 25
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Rename APK per app
+        timeout-minutes: 2
         if: success()
-        run: cp ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk ${{ matrix.app }}/build/app/outputs/flutter-apk/${{ matrix.app }}.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/${{ matrix.app }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}-apk
           path: ${{ matrix.app }}/build/app/outputs/flutter-apk/${{ matrix.app }}.apk
+          retention-days: 7

@@ -977,9 +977,10 @@ class _AccountPageState extends State<AccountPage> {
             ),
           ),
           // GrSaldo (wallet summary dari server)
-          GrSaldoCard(userId: int.tryParse(_driver?['id']?.toString() ?? '0')),
+          GrSaldoCard(userId: int.tryParse(_driver?['id']?.toString() ?? '0') ?? 0),
           const SizedBox(height: 10),
           // Kendaraan Saya (multi-kendaraan)
+          InkWell(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KendaraanPage())),
             child: Container(
               padding: const EdgeInsets.all(16),
