@@ -72,7 +72,11 @@ jobs:
       - name: Rename APK per app
         timeout-minutes: 2
         if: success()
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/${{ matrix.app }}.apk
+        run: |
+          SRC="build/app/outputs/flutter-apk/app-release.apk"
+          [ -f "$SRC" ] || SRC="android/app/build/outputs/flutter-apk/app-release.apk"
+          cp "$SRC" build/app/outputs/flutter-apk/${{ matrix.app }}.apk
+          echo "APK copied from: $SRC"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
