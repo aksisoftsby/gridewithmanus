@@ -18,9 +18,6 @@ android {
         jvmTarget = "17"
     }
 
-    aaptOptions {
-        cruncherEnabled = false
-    }
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.ridesip.driver"
