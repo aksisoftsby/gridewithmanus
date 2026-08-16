@@ -67,7 +67,9 @@ jobs:
 
       - name: Build APK (release)
         timeout-minutes: 25
-        run: flutter build apk --release --no-tree-shake-icons --verbose | tee /tmp/flutter-build.log | tail -40
+        run: |
+          set -o pipefail
+          flutter build apk --release --no-tree-shake-icons --verbose | tee /tmp/flutter-build.log | tail -40
 
       - name: Rename APK per app
         timeout-minutes: 2
