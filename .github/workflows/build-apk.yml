@@ -49,7 +49,7 @@ jobs:
       - name: Memory-safe Gradle settings (CI)
         timeout-minutes: 2
         run: |
-          printf '\norg.gradle.daemon=false\norg.gradle.caching=false\norg.gradle.vfs.watch=false\norg.gradle.workers.max=1\norg.gradle.jvmargs=-Xmx1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\n' >> android/gradle.properties
+          printf '\norg.gradle.daemon=false\norg.gradle.caching=false\norg.gradle.vfs.watch=false\norg.gradle.workers.max=1\norg.gradle.jvmargs=-Xmx700m -XX:+UseSerialGC -Dfile.encoding=UTF-8\n' >> android/gradle.properties
           printf 'flutter.sdk=%s\nflutter.buildMode=release\nflutter.versionName=1.0.0\nflutter.versionCode=1\n' "$FLUTTER_ROOT" > android/local.properties
           echo "sdk.dir=${ANDROID_HOME}" >> android/local.properties
 
